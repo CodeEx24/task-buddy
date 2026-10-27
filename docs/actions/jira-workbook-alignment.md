@@ -1,7 +1,8 @@
 # Align Jira and the delivery workbook
 
 > Related: workflow / Wave 1 · reconciliation [D1–D3](../waves/reconciliation-2026-10-27.md#discrepancies)
-> Status: Open · Created by Claude Code on 2026-10-27
+> Status: Done (2026-10-27): the owner approved all recommendations. D2 and D3 were applied by Claude and verified. D1 was resolved by the owner moving all stories into the active Sprint 1. See the reconciliation "Resolution" section.
+> Created by Claude Code on 2026-10-27
 
 ## Purpose
 The 2026-10-27 reconciliation found no conflicts in scope, priority, waves or dependencies. It did find three planning-data gaps that make Jira reports and the readiness gate unreliable. Two need you (sprint cadence, readiness marker). One I can do on your go (story points).
@@ -26,10 +27,11 @@ Jira sprint dates and the workbook agree (or the workbook says it's superseded).
 Ask Claude to "re-run the reconciliation". `scripts/workflow/reconcile_workbook.py` should report 0 errors and no `points` or `sprint` warnings.
 
 ## Completion checklist
-- [ ] D1 sprint cadence decided and the losing side updated
-- [ ] D3 readiness marker chosen and applied to the 18 Ready stories
-- [ ] D2 story points populated (by you or by Claude on your go)
-- [ ] Reconciliation re-run clean; status above set to Done
+- [x] D1 sprint cadence decided (Jira wins); workbook sprint dates marked superseded in the reconciliation report
+- [x] D3 readiness marker chosen (`ready` label) and applied to the 18 Ready stories
+- [x] D2 story points populated (by Claude on your go)
+- [x] Reconciliation re-run: 0 errors (2 accepted deviations, sprint warnings expected per D1)
+- [ ] Optional: update the workbook's sprint columns and the TB-54 wave and TB-38 Blocked By cells, so the sprint warnings disappear too
 
 ## If it fails
 - Bulk change is missing: it needs the *Bulk change* global permission. Edit issues one by one, or ask Claude to do the points via the connector.

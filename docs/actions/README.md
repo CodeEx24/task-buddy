@@ -6,4 +6,4 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 
 | Action | Related | Status |
 |---|---|---|
-| [Align Jira and the workbook](jira-workbook-alignment.md) | Workflow / Wave 1 | Open |
+| [Align Jira and the workbook](jira-workbook-alignment.md) | Workflow / Wave 1 | Done (one optional workbook edit left) |

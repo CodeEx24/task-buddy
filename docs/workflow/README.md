@@ -51,7 +51,7 @@ One **coordinator** session (where you talk to Claude) runs the wave. **Workers*
 
 **A ticket may enter a worktree only when all of these hold:**
 1. Every `is blocked by` issue is `Done` in Jira. Re-read Jira at dispatch time; the plan file is not enough.
-2. The story is marked Ready (the workbook `Status = Ready` until the Jira readiness marker is decided; see `docs/waves/reconciliation-2026-10-27.md` D3).
+2. The story carries the `ready` label in Jira (Definition of Ready met). If it doesn't, stop and ask; don't start it.
 3. Its design artifacts are committed and, for medium/high risk, accepted by the human.
 4. The wave plan gives it owned paths that no other running worker owns.
 

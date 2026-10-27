@@ -1,6 +1,6 @@
 # Task Buddy — Wave Plan
 
-> **Status:** PROPOSED — awaiting human approval (see "Decisions needed" at the bottom).
+> **Status:** APPROVED by the project owner on 2026-10-27, with all recommendations accepted (see "Decisions" at the bottom).
 > **Source of truth:** Jira project [TB](https://stratyge.atlassian.net/jira/software/projects/TB) owns ticket identity, status, priority and dependency links. This file is the version-controlled *execution* plan derived from it. If they disagree, Jira wins and this file is re-generated.
 > **Generated:** 2026-10-27 by `/plan-waves` from Jira (81 issues read: 14 epics, 67 stories) reconciled against `docs/TaskBuddy_Delivery_Workbook.xlsx`. Reconciliation details: [`reconciliation-2026-10-27.md`](reconciliation-2026-10-27.md).
 
@@ -10,7 +10,8 @@
 - **Dependency graph:** 67 nodes. Every `is blocked by` link in Jira matches the workbook `Blocked By` column exactly. **No cycles. No dangling links. No dependency on a later wave.**
 - **Critical path (47 pts):** TB-15 → TB-17 → TB-18 → TB-26 → TB-43 → TB-68 → TB-71 → TB-74 → TB-76
   (scaffold → design system → app shell → task CRUD → offline sync → shared spaces → realtime lists → @buddy agent → workload proposals). A slip on any of these slips Phase 3. TB-43 (sync, 8 pts) and TB-74 (shared agent, 8 pts) are the riskiest links.
-- **Ready now:** only **TB-15**. Every other story except TB-54 (privacy policy, no dependencies) is blocked by it directly or transitively. TB-54 waits only for its wave gate.
+- **Ready now:** only **TB-15**. Every other story except TB-54 (privacy policy, no dependencies) is blocked by it directly or transitively. TB-54 waits only for its wave gate (now Wave 3).
+- **Readiness in Jira:** the `ready` label marks stories that meet the Definition of Ready (TB-15..TB-32 as of 2026-10-27).
 
 ## How to read the tables
 
@@ -42,7 +43,7 @@ A **wave** is a band of tickets that can start only after every earlier wave is 
 | B | [TB-27](https://stratyge.atlassian.net/browse/TB-27) | US-013 | Today and Inbox screens with swipe actions | P0 | 5 | TB-26¹ | Ready |
 | B | [TB-28](https://stratyge.atlassian.net/browse/TB-28) | US-014 | Task detail screen with notes and subtasks | P0 | 3 | TB-26¹ | Ready |
 
-### Wave 3 — AI capture, planning, beta (11 stories, 43 pts)
+### Wave 3 — AI capture, planning, beta, privacy policy (12 stories, 45 pts)
 
 | Batch | Ticket | Blueprint | Title | Pri | Pts | Depends on | Ready? |
 |---|---|---|---|---|---|---|---|
@@ -51,14 +52,15 @@ A **wave** is a band of tickets that can start only after every earlier wave is 
 | A | [TB-31](https://stratyge.atlassian.net/browse/TB-31) | US-017 | AI task breakdown into subtasks with estimates | P1 | 5 | TB-28, TB-24, TB-23 | Ready |
 | A | [TB-32](https://stratyge.atlassian.net/browse/TB-32) | US-018 | Settings screen shell and preference registry | P1 | 2 | TB-18 | Ready |
 | A | [TB-37](https://stratyge.atlassian.net/browse/TB-37) | US-023 | Crash reporting with Sentry and source maps | P1 | 2 | TB-15, TB-16 | Draft |
+| A | [TB-54](https://stratyge.atlassian.net/browse/TB-54) | US-040 | Privacy policy, terms and AI disclosure | P0 | 2 | — | Draft (moved from Wave 4 on 2026-10-27) |
 | B | [TB-33](https://stratyge.atlassian.net/browse/TB-33) | US-019 | Work hours and daily capacity settings | P1 | 3 | TB-32¹ | Draft |
 | B | [TB-36](https://stratyge.atlassian.net/browse/TB-36) | US-022 | Edit and undo AI-created tasks | P1 | 2 | TB-29¹ | Draft |
-| B | [TB-38](https://stratyge.atlassian.net/browse/TB-38) | US-024 | TestFlight and Play beta builds with OTA updates | P1 | 3 | TB-16, TB-37¹, TB-27 | Draft |
+| B | [TB-38](https://stratyge.atlassian.net/browse/TB-38) | US-024 | TestFlight and Play beta builds with OTA updates | P1 | 3 | TB-16, TB-37¹, TB-27, TB-54¹ (added 2026-10-27) | Draft |
 | C | [TB-34](https://stratyge.atlassian.net/browse/TB-34) | US-020 | AI daily plan generation | P1 | 8 | TB-24, TB-33¹, TB-26, TB-23 | Draft |
 | D | [TB-35](https://stratyge.atlassian.net/browse/TB-35) | US-021 | Daily plan view with reorder and accept | P1 | 5 | TB-34¹, TB-27 | Draft |
 | D | [TB-39](https://stratyge.atlassian.net/browse/TB-39) | US-025 | AI eval harness with golden sets and CI gate | P1 | 5 | TB-30¹, TB-31¹, TB-34¹ | Draft |
 
-### Wave 4 — Reminders, sync, engagement, privacy (15 stories, 63 pts)
+### Wave 4 — Reminders, sync, engagement, data rights (14 stories, 61 pts)
 
 | Batch | Ticket | Blueprint | Title | Pri | Pts | Depends on | Ready? |
 |---|---|---|---|---|---|---|---|
@@ -69,7 +71,6 @@ A **wave** is a band of tickets that can start only after every earlier wave is 
 | A | [TB-45](https://stratyge.atlassian.net/browse/TB-45) | US-031 | Recurring tasks (RRULE) | P2 | 5 | TB-26 | Draft |
 | A | [TB-50](https://stratyge.atlassian.net/browse/TB-50) | US-036 | Sign in with Apple and Google | P2 | 3 | TB-20 | Draft |
 | A | [TB-52](https://stratyge.atlassian.net/browse/TB-52) | US-038 | Maestro E2E flows for critical paths | P1 | 5 | TB-27, TB-29, TB-16 | Draft |
-| A | [TB-54](https://stratyge.atlassian.net/browse/TB-54) | US-040 | Privacy policy, terms and AI disclosure | P0 | 2 | — | Draft |
 | B | [TB-41](https://stratyge.atlassian.net/browse/TB-41) | US-027 | Notification permission flow and quiet hours | P1 | 3 | TB-32, TB-40¹ | Draft |
 | B | [TB-48](https://stratyge.atlassian.net/browse/TB-48) | US-034 | Detect repeatedly postponed tasks | P2 | 3 | TB-28, TB-40¹ | Draft |
 | B | [TB-53](https://stratyge.atlassian.net/browse/TB-53) | US-039 | Data export and account deletion | P0 | 5 | TB-43¹, TB-20 | Draft |
@@ -175,16 +176,25 @@ Batches are listed in the tables above. Worktree assignments will be fixed when 
 ## Judgement calls (please read)
 
 1. **Eval baseline vs. AI tickets before TB-39.** The Definition of Done says "AI eval baseline not regressed", but the eval harness (TB-39) lands in Wave 3, after the AI tickets TB-22..25 (Wave 2) and TB-29..31/34 (Wave 3). **Proposal:** each earlier AI ticket commits its golden examples to `evals/` (as JSON) and verifies them by hand. TB-39 then turns them into the stored baseline. No wave change.
-2. **Privacy policy (TB-54, Wave 4) vs. beta builds (TB-38, Wave 3).** External beta testers will send task text to an AI provider, and store beta programmes may ask for a privacy-policy URL. **Proposal:** either keep TB-38 to *internal* testers only until TB-54 is done, or pull TB-54 (2 pts, no dependencies) into Wave 3. Not linked in Jira. This is an inferred edge and needs your call.
+2. **Privacy policy (TB-54) vs. beta builds (TB-38).** External beta testers will send task text to an AI provider, and store beta programmes may ask for a privacy-policy URL. **Resolved 2026-10-27:** TB-54 moved to Wave 3 and linked `TB-54 blocks TB-38` in Jira.
 3. **Guardrails ship with their feature.** TB-59 (media limits and consent) must not be released before TB-57/TB-58 (voice/photo). TB-75 (agent audit log) must not be released before TB-74 (shared agent). They are already in the same wave and linked, but **release gating** applies: no beta or OTA update ships the feature without its guardrail.
 4. **Parallelism cap of 3** for Waves 1–2, though Wave 1 step 2 has 4 eligible tickets. TB-19 waits for a free worker. This trades about half a day for less merge-conflict risk while there is still no code. It can be raised once CI exists.
 
 ## What applying would change in Jira
 
-**Nothing is required.** Wave labels, sprint labels and blocker links already match this plan. Optional, only if you say go:
-- Add the inferred link for judgement call 2 (`TB-54 blocks TB-38`) if you choose to pull TB-54 forward, and change its label `wave-4` → `wave-3`.
-- The status transitions in the workflow below happen per ticket during `/implement-ticket`, not here.
+**Applied 2026-10-27 (verified by re-reading Jira):**
+- Story point estimates set on all 67 stories from their `pts-N` labels (total 279).
+- `ready` label added to the 18 Ready stories (TB-15..TB-32).
+- TB-54: `wave-4` → `wave-3`. Link created: `TB-54 blocks TB-38`.
 
-## Decisions needed
+Status transitions happen per ticket during `/implement-ticket`, not here.
 
-See the summary in chat. Resolved decisions are recorded here with a date when made.
+## Decisions
+
+| Date | Decision | Decided by |
+|---|---|---|
+| 2026-10-27 | Wave plan approved as written | Project owner |
+| 2026-10-27 | Judgement call 1: AI tickets before TB-39 commit golden examples and verify them by hand | Project owner (accepted recommendation) |
+| 2026-10-27 | Judgement call 2: TB-54 moves to Wave 3 and blocks TB-38 | Project owner (accepted recommendation) |
+| 2026-10-27 | Sprints: Jira wins. All 67 stories were placed in the active `TB Sprint 1` (2026-10-27 → 11-10) by the owner on the board. Workbook sprint dates are superseded | Project owner |
+| 2026-10-27 | Readiness marker: `ready` label | Project owner (accepted recommendation) |

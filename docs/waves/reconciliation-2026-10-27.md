@@ -31,6 +31,21 @@
 
 **No conflicts** in identity, scope, priority, wave or dependencies. The wave plan is safe to build on.
 
+## Resolution (2026-10-27, after the owner approved all recommendations)
+
+Verified by re-reading all 81 issues after the writes:
+
+| # | Resolution |
+|---|---|
+| D1 | **Jira wins.** The owner moved all 67 stories into the active `TB Sprint 1` on the board at 13:15 (issue changelog). Workbook sprint dates are superseded. The reconcile script's sprint warnings are expected until the workbook's sprint column is updated |
+| D2 | Story point estimate set on all 67 stories (sum 279) |
+| D3 | `ready` label on the 18 Ready stories (TB-15..TB-32) |
+| D4 | Superseded by D1 |
+
+**Accepted deviations** (Jira intentionally differs from the workbook; listed in `docs/waves/accepted-deviations.txt` so the script reports them as accepted, not as errors):
+- US-040/TB-54: wave 3 (workbook says 4).
+- US-024/TB-38: also blocked by TB-54 (US-040).
+
 ## Workflow states (verified 2026-10-27)
 
 `To Do` (transition 11) → `In Progress` (21) → `In Review` (2, added today) → `Done` (31). All transitions are global.

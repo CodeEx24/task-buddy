@@ -1,0 +1,4 @@
+# Jira intentionally differs from the workbook here. Approved 2026-10-27 (see docs/waves/wave-plan.md "Decisions").
+# One substring per line. Any reconcile_workbook.py error containing it is reported as accepted, not as an error.
+US-040/TB-54 wave: workbook 4 vs labels ['wave-3']
+US-024/TB-38 blocked-by: workbook ['US-002', 'US-013', 'US-023'] vs Jira ['US-002', 'US-013', 'US-023', 'US-040']

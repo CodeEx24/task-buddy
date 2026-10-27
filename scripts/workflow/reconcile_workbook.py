@@ -32,6 +32,7 @@ PRIORITY_MAP = {"P0": "Highest", "P1": "High", "P2": "Medium", "P3": "Low"}
 BLUEPRINT_RE = re.compile(r"Blueprint ID:\s*((?:US|EP)-\d+)")
 STORY_RE = re.compile(r"US-\d+")
 DEFAULT_WORKBOOK = "docs/TaskBuddy_Delivery_Workbook.xlsx"
+DEFAULT_ACCEPTED = "docs/waves/accepted-deviations.txt"
 
 
 def load_workbook(path: str) -> tuple[dict, dict]:
@@ -140,6 +141,8 @@ def main() -> int:
     parser.add_argument("jira_export")
     parser.add_argument("workbook", nargs="?", default=DEFAULT_WORKBOOK)
     parser.add_argument("--json", dest="json_out")
+    parser.add_argument("--accept", default=DEFAULT_ACCEPTED,
+                        help="file of accepted deviations: one error-message substring per line, # for comments")
     args = parser.parse_args()
 
     stories, epics = load_workbook(args.workbook)
@@ -194,6 +197,13 @@ def main() -> int:
             print("  " + e)
         return 1
 
+    accepted_patterns = []
+    if Path(args.accept).exists():
+        accepted_patterns = [l.strip() for l in Path(args.accept).read_text(encoding="utf-8").splitlines()
+                             if l.strip() and not l.lstrip().startswith("#")]
+    accepted = [e for e in errors if any(p in e for p in accepted_patterns)]
+    errors = [e for e in errors if e not in accepted]
+
     batch = batches_within_waves(stories)
     cp_points, cp = critical_path(stories)
 
@@ -209,6 +219,10 @@ def main() -> int:
         print(f"\nWARNINGS ({len(warnings)}): " + ", ".join(f"{k} x{n}" for k, n in kinds.items()))
         for w in warnings[:10]:
             print("  " + w)
+    if accepted:
+        print(f"\nACCEPTED DEVIATIONS ({len(accepted)})")
+        for a in accepted:
+            print("  " + a)
     print(f"\nERRORS ({len(errors)})")
     for e in errors:
         print("  " + e)
