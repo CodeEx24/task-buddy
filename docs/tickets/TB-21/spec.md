@@ -63,11 +63,23 @@ Indexes (shipped as migration `0001`, which also gives AC2 a real v1→v2 step):
 | Decision | Options considered | Choice | Decided by / date |
 |---|---|---|---|
 | Perf device (AC3) | Android emulator proxy · physical Android phone | **Android emulator as proxy** (accepted exception, like TB-15's iOS one) plus a CI benchmark as a regression guard | Owner, 2026-10-27 |
-| Schema (above) | — | _pending owner acceptance_ | |
-| Timestamps | ISO text · epoch ms integer | epoch ms (compact, sortable, cheap index) | proposed |
-| Test driver | better-sqlite3 · node:sqlite via sqlite-proxy · expo-sqlite web | better-sqlite3, with node:sqlite fallback | proposed |
-| Ownership column | add `user_id` now · add with auth/sync | later (TB-20/TB-43, additive migration) | proposed |
+| Schema (above) | — | As specified above | Owner, 2026-10-27 ("accept all") |
+| Timestamps | ISO text · epoch ms integer | epoch ms (compact, sortable, cheap index) | Owner, 2026-10-27 ("accept all") |
+| Test driver | better-sqlite3 · node:sqlite via sqlite-proxy · expo-sqlite web | better-sqlite3, with node:sqlite fallback (fallback not needed) | Owner, 2026-10-27 ("accept all") |
+| Ownership column | add `user_id` now · add with auth/sync | later (TB-20/TB-43, additive migration) | Owner, 2026-10-27 ("accept all") |
 
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-27 | No `node:sqlite` fallback needed: better-sqlite3 13.0.3 ships an N-API prebuild for win32-x64 (works on Node 24.21.0). `pnpm.onlyBuiltDependencies: ["better-sqlite3"]` kept as planned | Prebuild loads without a native build | Worker (within plan) |
+| 2026-10-27 | ESLint `no-restricted-imports` rule **not committed** to `eslint.config.js`: a local config-protection hook blocks edits to lint config. The exact rule was proven with `eslint --rule` (temporary violating import → 2 errors) and is handed to the coordinator to apply | Tooling guard; not bypassed | Pending coordinator |
+| 2026-10-27 | `pnpm expo install expo-sqlite` auto-added the `expo-sqlite` config plugin to `app.json`; reverted (outside owned paths, and the plugin is only needed for options such as SQLCipher) | Ownership | Worker |
+| 2026-10-27 | Added `@types/node` (dev). Node-only files (`src/db/node-client.ts`, `migration-safety.ts`, some tests) use `/// <reference types="node" />` so Node types stay out of app code (`types: ["jest"]` in tsconfig) | TypeScript 6 doesn't auto-load `@types/*` | Worker |
+| 2026-10-27 | `zod` 4.6.7 (latest) | Brief allowed 3 or 4 | Worker |
+| 2026-10-27 | Soft-deleting a task also soft-deletes its live subtasks and `task_tags` links; soft-deleting a tag soft-deletes its links; soft-deleting a list moves **all** its tasks (including soft-deleted ones) to the Inbox | Spec was silent; avoids live children of deleted parents syncing later | Worker (flag for owner) |
+| 2026-10-27 | The unique partial indexes on `tags(lower(name))` and `task_tags(task_id, tag_id)` ship in `0000` with their tables; `0001` holds the four list-query indexes | Uniqueness is part of the table contract | Worker |
+| 2026-10-27 | The AC2 harness is stronger than specified: besides counts and id checksum it flags changed values in surviving columns and dropped columns. A test also fails if the migration journal's `when` timestamps are not strictly increasing (Drizzle would silently skip such a migration) | Data-loss protection | Worker |
+| 2026-10-27 | `jest.config.js` maps `@/db/client` → `src/db/node-client.ts` (better-sqlite3 twin with the same exports) | Lets DbGate and the benchmark route run real migrations in Jest | Worker (within brief) |
+| 2026-10-27 | The dev benchmark screen's UI lives in `app/dev/db-benchmark.tsx` (render only; seeding/timing in `src/features/tasks/repo/list-benchmark.ts`, introspection in `src/db/introspect.ts`). Release builds render the app's `+not-found` screen. It also reports a one-list p95 | No owned feature folder for dev UI | Worker |
+| 2026-10-27 | After review: repositories rethrow driver failures as `RepoError('DB_FAILURE')` carrying only the error class and SQLite code (Drizzle error messages embed bound params); ids must be UUIDv7 (`z.uuidv7()`); empty update patches do not write or bump `updated_at` | Security review (task text out of logs), reviewer findings | Worker |
+| 2026-10-27 | Task 6 wiring (Babel `inline-import`, Metro `sourceExts`, `<DbGate>` in `app/_layout.tsx`) is prepared but left to the coordinator after rebasing on TB-17 | Ordering constraint (TB-17 creates babel/metro config) | Coordinator brief |
