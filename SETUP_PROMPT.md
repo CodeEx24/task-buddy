@@ -17,7 +17,7 @@ You are starting the Task Buddy project. Read CLAUDE.md and AGENTS.md first and 
 
 Do ONLY the first two stories of Sprint 1:
 
-1. Scaffold (US-001): create an Expo app with TypeScript (strict) and Expo Router using the current stable Expo SDK and pnpm. Use `npx create-expo-app@latest` and check current Expo docs for the right template/flags. Set up ESLint + Prettier, path aliases (`@/*` to `src/*`), and the folder structure from CLAUDE.md section 3 with placeholder routes: tabs Today, Inbox, Buddy, Settings. Add scripts: start, ios, android, lint, typecheck, test (Jest + React Native Testing Library with one passing smoke test).
+1. Scaffold (US-001): create an Expo app with TypeScript (strict) and Expo Router using the current stable Expo SDK and pnpm. Use `npx create-expo-app@latest` and check current Expo docs for the right template/flags. Set up ESLint + Prettier, path aliases (`@/*` to `src/*`), and the folder structure from CLAUDE.md section 3 with a placeholder home route (the tabs Today, Inbox, Buddy, Settings belong to TB-18). Add scripts: start, ios, android, lint, typecheck, test (Jest + React Native Testing Library with one passing smoke test).
    Acceptance: a fresh clone runs `pnpm install && pnpm start` and boots on the iOS simulator and the Android emulator; `pnpm lint && pnpm typecheck` pass with zero errors.
 
 2. CI and builds (US-002): add a GitHub Actions workflow that runs lint, typecheck and unit tests on every PR and finishes in under 8 minutes; add `eas.json` with development, preview and production profiles (development uses the dev client).

@@ -11,7 +11,7 @@ Task Buddy is a local-first React Native (Expo) to-do app with an AI "buddy". Us
 
 | Layer | Choice |
 |---|---|
-| App | Expo (latest stable SDK at scaffold; record exact version here after TB-001) + React Native, TypeScript strict, Expo Router |
+| App | Expo SDK 58 (`expo` 58.0.19) + React Native 0.88.0 + React 19.3.0, TypeScript 6.0 strict, Expo Router 58 (scaffolded in TB-15) |
 | UI | NativeWind (Tailwind for RN), token theme, light/dark |
 | State & data fetching | Zustand (UI state), TanStack Query (async/server state) |
 | Forms & validation | React Hook Form + Zod (shared schemas in `packages/schemas`) |
