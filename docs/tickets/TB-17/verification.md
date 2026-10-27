@@ -16,7 +16,7 @@ All run in the Orca worktree `tb-17-design-system` on Windows 11, Node 24.21.0, 
 | `pnpm test` | pass | 11 suites, 72 tests (69 before the review fixes) |
 | `npx expo export --platform android --platform web` | pass | Android Hermes bundle `entry-….hbc` (4.1 MB, 1796 modules). Web: static `index.html` contains `home-screen`, "Try the buddy", `role="checkbox"`, "Mark as done", "Open sheet"; the generated CSS has `.bg-surface{…background-color:rgb(var(--color-surface) / …)}` and the page sets `--color-surface:255 255 255` |
 | `npx expo-doctor` | pass | 20/20 checks |
-| `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-17/design-system` | see below | |
+| `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-17/design-system` | pass | `workflow check: ok`. With `--pr` it fails only on the AC1 `partial` row (expected until the coordinator adds device evidence) |
 
 Negative checks (each reverted afterwards):
 - Light `textMuted` set to `#A0AEC0` → `contrast.test.ts`: **2 failed** (`textMuted on background`, `textMuted on surface`).
