@@ -75,6 +75,28 @@ describe('task-repo: tasks', () => {
     expect(handle.sqlite.prepare('SELECT count(*) AS n FROM tasks').get()).toEqual({ n: 1 });
   });
 
+  it('surfaces driver failures as DB_FAILURE without task text', () => {
+    handle.sqlite.exec(
+      "CREATE TRIGGER fail_insert BEFORE INSERT ON tasks BEGIN SELECT RAISE(ABORT, 'disk full'); END",
+    );
+    let caught: unknown;
+    try {
+      createTask(handle.db, { title: 'secret title', notes: 'secret notes' });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(RepoError);
+    expect((caught as RepoError).code).toBe('DB_FAILURE');
+    expect((caught as RepoError).dbError).toMatchObject({ code: 'SQLITE_CONSTRAINT_TRIGGER' });
+    const serialized = JSON.stringify(caught) + String((caught as Error).message);
+    expect(serialized).not.toContain('secret');
+    expect((caught as Error & { cause?: unknown }).cause).toBeUndefined();
+  });
+
+  it('accepts only UUIDv7 ids', () => {
+    expect(() => getTaskById(handle.db, '0190a6b2-1c3d-4e5f-8a9b-0c1d2e3f4a5b')).toThrow(ZodError);
+  });
+
   it('rejects a missing or deleted list', () => {
     expect(() => createTask(handle.db, { title: 'a', listId: newId() })).toThrow(RepoError);
     const list = createList(handle.db, { name: 'Work' });
@@ -96,6 +118,14 @@ describe('task-repo: tasks', () => {
     const updated = updateTask(handle.db, task.id, { title: undefined, notes: undefined });
     expect(updated).toMatchObject({ title: 'keep', notes: 'n' });
     expect(getTaskById(handle.db, task.id)).toEqual(updated);
+  });
+
+  it('does not write for an empty patch', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    clock.advance();
+    expect(updateTask(handle.db, task.id, {})).toEqual(task);
+    expect(updateTask(handle.db, task.id, { title: undefined })).toEqual(task);
+    expect(getTaskById(handle.db, task.id)?.updatedAt).toBe(task.updatedAt);
   });
 
   it('stamps completed_at on done and clears it on reopen', () => {

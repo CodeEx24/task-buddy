@@ -19,7 +19,7 @@ import {
   type UpdateSubtaskInput,
   type UpdateTaskInput,
 } from '../schema';
-import { definedOnly, notFound } from './repo-utils';
+import { definedOnly, notFound, guardDb } from './repo-utils';
 
 export type Task = TaskRow;
 export type Subtask = SubtaskRow;
@@ -42,11 +42,11 @@ function findLiveTask(db: TaskBuddyDb, id: string): Task | undefined {
     .get();
 }
 
-export function getTaskById(db: TaskBuddyDb, id: string): Task | undefined {
+function getTaskByIdUnchecked(db: TaskBuddyDb, id: string): Task | undefined {
   return findLiveTask(db, idSchema.parse(id));
 }
 
-export function createTask(db: TaskBuddyDb, input: CreateTaskInput): Task {
+function createTaskUnchecked(db: TaskBuddyDb, input: CreateTaskInput): Task {
   const data = createTaskInputSchema.parse(input);
   return db.transaction((tx) => {
     if (data.listId) assertLiveList(tx, data.listId);
@@ -71,12 +71,14 @@ export function createTask(db: TaskBuddyDb, input: CreateTaskInput): Task {
 }
 
 /** Updates a live task. Moving to `done` stamps `completed_at`; back to `open` clears it. */
-export function updateTask(db: TaskBuddyDb, id: string, patch: UpdateTaskInput): Task {
+function updateTaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateTaskInput): Task {
   const taskId = idSchema.parse(id);
   const data = definedOnly(updateTaskInputSchema.parse(patch));
   return db.transaction((tx) => {
     const current = findLiveTask(tx, taskId);
     if (!current) throw notFound('Task');
+    // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
+    if (Object.keys(data).length === 0) return current;
     if (data.listId) assertLiveList(tx, data.listId);
     const now = Date.now();
     let completedAt = current.completedAt;
@@ -95,7 +97,7 @@ export function updateTask(db: TaskBuddyDb, id: string, patch: UpdateTaskInput):
  * Soft-deletes a live task with its live subtasks and tag links, in one transaction.
  * Returns false when the task does not exist or is already deleted.
  */
-export function softDeleteTask(db: TaskBuddyDb, id: string): boolean {
+function softDeleteTaskUnchecked(db: TaskBuddyDb, id: string): boolean {
   const taskId = idSchema.parse(id);
   return db.transaction((tx) => {
     if (!findLiveTask(tx, taskId)) return false;
@@ -119,7 +121,7 @@ export function softDeleteTask(db: TaskBuddyDb, id: string): boolean {
  * `listId` undefined = all lists, null = Inbox (no list). Runs as two index range scans on
  * `tasks_live_status_due_sort_idx`: dated tasks first, then undated ones.
  */
-export function listOpenTasks(db: TaskBuddyDb, input: ListOpenTasksInput = {}): TaskPage {
+function listOpenTasksUnchecked(db: TaskBuddyDb, input: ListOpenTasksInput = {}): TaskPage {
   const { listId, limit, cursor } = listOpenTasksInputSchema.parse(input);
   const base: SQL[] = [isNull(tasks.deletedAt), eq(tasks.status, 'open')];
   if (listId !== undefined)
@@ -179,7 +181,7 @@ function findLiveSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
     .get();
 }
 
-export function createSubtask(db: TaskBuddyDb, input: CreateSubtaskInput): Subtask {
+function createSubtaskUnchecked(db: TaskBuddyDb, input: CreateSubtaskInput): Subtask {
   const data = createSubtaskInputSchema.parse(input);
   return db.transaction((tx) => {
     if (!findLiveTask(tx, data.taskId)) throw notFound('Task');
@@ -199,12 +201,14 @@ export function createSubtask(db: TaskBuddyDb, input: CreateSubtaskInput): Subta
   });
 }
 
-export function updateSubtask(db: TaskBuddyDb, id: string, patch: UpdateSubtaskInput): Subtask {
+function updateSubtaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateSubtaskInput): Subtask {
   const subtaskId = idSchema.parse(id);
   const data = definedOnly(updateSubtaskInputSchema.parse(patch));
   return db.transaction((tx) => {
     const current = findLiveSubtask(tx, subtaskId);
     if (!current) throw notFound('Subtask');
+    // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
+    if (Object.keys(data).length === 0) return current;
     const now = Date.now();
     tx.update(subtasks)
       .set({ ...data, updatedAt: now })
@@ -214,7 +218,7 @@ export function updateSubtask(db: TaskBuddyDb, id: string, patch: UpdateSubtaskI
   });
 }
 
-export function softDeleteSubtask(db: TaskBuddyDb, id: string): boolean {
+function softDeleteSubtaskUnchecked(db: TaskBuddyDb, id: string): boolean {
   const subtaskId = idSchema.parse(id);
   return db.transaction((tx) => {
     if (!findLiveSubtask(tx, subtaskId)) return false;
@@ -227,7 +231,7 @@ export function softDeleteSubtask(db: TaskBuddyDb, id: string): boolean {
   });
 }
 
-export function listSubtasks(db: TaskBuddyDb, taskId: string): Subtask[] {
+function listSubtasksUnchecked(db: TaskBuddyDb, taskId: string): Subtask[] {
   return db
     .select()
     .from(subtasks)
@@ -235,3 +239,14 @@ export function listSubtasks(db: TaskBuddyDb, taskId: string): Subtask[] {
     .orderBy(asc(subtasks.sortOrder), asc(subtasks.id))
     .all();
 }
+
+// Public API: driver failures surface as RepoError('DB_FAILURE') without task data.
+export const getTaskById = guardDb(getTaskByIdUnchecked);
+export const createTask = guardDb(createTaskUnchecked);
+export const updateTask = guardDb(updateTaskUnchecked);
+export const softDeleteTask = guardDb(softDeleteTaskUnchecked);
+export const listOpenTasks = guardDb(listOpenTasksUnchecked);
+export const createSubtask = guardDb(createSubtaskUnchecked);
+export const updateSubtask = guardDb(updateSubtaskUnchecked);
+export const softDeleteSubtask = guardDb(softDeleteSubtaskUnchecked);
+export const listSubtasks = guardDb(listSubtasksUnchecked);

@@ -10,7 +10,8 @@ export const MAX_NAME_LENGTH = 100;
 export const MAX_COLOR_LENGTH = 32;
 export const MAX_PAGE_SIZE = 500;
 
-export const idSchema = z.uuid();
+/** Row ids are UUIDv7 (see `newId`). */
+export const idSchema = z.uuidv7();
 /** Epoch milliseconds, UTC. */
 const epochMsSchema = z.number().int().nonnegative().max(8_640_000_000_000_000);
 const sortOrderSchema = z.number().finite();

@@ -12,7 +12,7 @@ import {
   type CreateListInput,
   type UpdateListInput,
 } from '../schema';
-import { definedOnly, notFound } from './repo-utils';
+import { definedOnly, notFound, guardDb } from './repo-utils';
 
 export type List = ListRow;
 
@@ -24,11 +24,11 @@ function findLiveList(db: TaskBuddyDb, id: string): List | undefined {
     .get();
 }
 
-export function getListById(db: TaskBuddyDb, id: string): List | undefined {
+function getListByIdUnchecked(db: TaskBuddyDb, id: string): List | undefined {
   return findLiveList(db, idSchema.parse(id));
 }
 
-export function listLists(db: TaskBuddyDb): List[] {
+function listListsUnchecked(db: TaskBuddyDb): List[] {
   return db
     .select()
     .from(lists)
@@ -37,7 +37,7 @@ export function listLists(db: TaskBuddyDb): List[] {
     .all();
 }
 
-export function createList(db: TaskBuddyDb, input: CreateListInput): List {
+function createListUnchecked(db: TaskBuddyDb, input: CreateListInput): List {
   const data = createListInputSchema.parse(input);
   const now = Date.now();
   const row: List = {
@@ -53,12 +53,14 @@ export function createList(db: TaskBuddyDb, input: CreateListInput): List {
   return row;
 }
 
-export function updateList(db: TaskBuddyDb, id: string, patch: UpdateListInput): List {
+function updateListUnchecked(db: TaskBuddyDb, id: string, patch: UpdateListInput): List {
   const listId = idSchema.parse(id);
   const data = definedOnly(updateListInputSchema.parse(patch));
   return db.transaction((tx) => {
     const current = findLiveList(tx, listId);
     if (!current) throw notFound('List');
+    // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
+    if (Object.keys(data).length === 0) return current;
     const now = Date.now();
     tx.update(lists)
       .set({ ...data, updatedAt: now })
@@ -72,7 +74,7 @@ export function updateList(db: TaskBuddyDb, id: string, patch: UpdateListInput):
  * Soft-deletes a list. Its tasks are not deleted: they move to the Inbox (`list_id = NULL`)
  * in the same transaction. Returns false when the list does not exist or is already deleted.
  */
-export function softDeleteList(db: TaskBuddyDb, id: string): boolean {
+function softDeleteListUnchecked(db: TaskBuddyDb, id: string): boolean {
   const listId = idSchema.parse(id);
   return db.transaction((tx) => {
     if (!findLiveList(tx, listId)) return false;
@@ -83,3 +85,10 @@ export function softDeleteList(db: TaskBuddyDb, id: string): boolean {
     return true;
   });
 }
+
+// Public API: driver failures surface as RepoError('DB_FAILURE') without task data.
+export const getListById = guardDb(getListByIdUnchecked);
+export const listLists = guardDb(listListsUnchecked);
+export const createList = guardDb(createListUnchecked);
+export const updateList = guardDb(updateListUnchecked);
+export const softDeleteList = guardDb(softDeleteListUnchecked);

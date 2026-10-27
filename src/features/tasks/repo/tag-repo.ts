@@ -13,7 +13,7 @@ import {
   type CreateTagInput,
   type UpdateTagInput,
 } from '../schema';
-import { definedOnly, notFound, RepoError } from './repo-utils';
+import { definedOnly, notFound, RepoError, guardDb } from './repo-utils';
 
 export type Tag = TagRow;
 export type TaskTag = TaskTagRow;
@@ -44,11 +44,11 @@ function assertNameFree(db: TaskBuddyDb, name: string, exceptId?: string): void 
   if (clash) throw duplicateName();
 }
 
-export function getTagById(db: TaskBuddyDb, id: string): Tag | undefined {
+function getTagByIdUnchecked(db: TaskBuddyDb, id: string): Tag | undefined {
   return findLiveTag(db, idSchema.parse(id));
 }
 
-export function listTags(db: TaskBuddyDb): Tag[] {
+function listTagsUnchecked(db: TaskBuddyDb): Tag[] {
   return db
     .select()
     .from(tags)
@@ -57,7 +57,7 @@ export function listTags(db: TaskBuddyDb): Tag[] {
     .all();
 }
 
-export function createTag(db: TaskBuddyDb, input: CreateTagInput): Tag {
+function createTagUnchecked(db: TaskBuddyDb, input: CreateTagInput): Tag {
   const data = createTagInputSchema.parse(input);
   return db.transaction((tx) => {
     assertNameFree(tx, data.name);
@@ -75,12 +75,14 @@ export function createTag(db: TaskBuddyDb, input: CreateTagInput): Tag {
   });
 }
 
-export function updateTag(db: TaskBuddyDb, id: string, patch: UpdateTagInput): Tag {
+function updateTagUnchecked(db: TaskBuddyDb, id: string, patch: UpdateTagInput): Tag {
   const tagId = idSchema.parse(id);
   const data = definedOnly(updateTagInputSchema.parse(patch));
   return db.transaction((tx) => {
     const current = findLiveTag(tx, tagId);
     if (!current) throw notFound('Tag');
+    // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
+    if (Object.keys(data).length === 0) return current;
     if (data.name !== undefined) assertNameFree(tx, data.name, tagId);
     const now = Date.now();
     tx.update(tags)
@@ -92,7 +94,7 @@ export function updateTag(db: TaskBuddyDb, id: string, patch: UpdateTagInput): T
 }
 
 /** Soft-deletes a tag and its live task links in one transaction. */
-export function softDeleteTag(db: TaskBuddyDb, id: string): boolean {
+function softDeleteTagUnchecked(db: TaskBuddyDb, id: string): boolean {
   const tagId = idSchema.parse(id);
   return db.transaction((tx) => {
     if (!findLiveTag(tx, tagId)) return false;
@@ -108,7 +110,7 @@ export function softDeleteTag(db: TaskBuddyDb, id: string): boolean {
 }
 
 /** Links a live tag to a live task. Idempotent: returns the existing live link if present. */
-export function addTagToTask(db: TaskBuddyDb, taskId: string, tagId: string): TaskTag {
+function addTagToTaskUnchecked(db: TaskBuddyDb, taskId: string, tagId: string): TaskTag {
   const ids = { taskId: idSchema.parse(taskId), tagId: idSchema.parse(tagId) };
   return db.transaction((tx) => {
     const task = tx
@@ -138,7 +140,7 @@ export function addTagToTask(db: TaskBuddyDb, taskId: string, tagId: string): Ta
 }
 
 /** Soft-deletes the live link between a task and a tag. Returns false if there was none. */
-export function removeTagFromTask(db: TaskBuddyDb, taskId: string, tagId: string): boolean {
+function removeTagFromTaskUnchecked(db: TaskBuddyDb, taskId: string, tagId: string): boolean {
   const ids = { taskId: idSchema.parse(taskId), tagId: idSchema.parse(tagId) };
   const now = Date.now();
   const result = db
@@ -156,7 +158,7 @@ export function removeTagFromTask(db: TaskBuddyDb, taskId: string, tagId: string
   return result.length > 0;
 }
 
-export function listTagsForTask(db: TaskBuddyDb, taskId: string): Tag[] {
+function listTagsForTaskUnchecked(db: TaskBuddyDb, taskId: string): Tag[] {
   return db
     .select({
       id: tags.id,
@@ -178,3 +180,13 @@ export function listTagsForTask(db: TaskBuddyDb, taskId: string): Tag[] {
     .orderBy(asc(sql`lower(${tags.name})`), asc(tags.id))
     .all();
 }
+
+// Public API: driver failures surface as RepoError('DB_FAILURE') without task data.
+export const getTagById = guardDb(getTagByIdUnchecked);
+export const listTags = guardDb(listTagsUnchecked);
+export const createTag = guardDb(createTagUnchecked);
+export const updateTag = guardDb(updateTagUnchecked);
+export const softDeleteTag = guardDb(softDeleteTagUnchecked);
+export const addTagToTask = guardDb(addTagToTaskUnchecked);
+export const removeTagFromTask = guardDb(removeTagFromTaskUnchecked);
+export const listTagsForTask = guardDb(listTagsForTaskUnchecked);
