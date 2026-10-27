@@ -19,5 +19,9 @@
       "Read(**/service-account*.json)",
       "Read(**/google-services-key*.json)"
     ]
+  },
+  "enabledPlugins": {
+    "expo@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
   }
 }
