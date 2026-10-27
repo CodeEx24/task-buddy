@@ -18,10 +18,28 @@ All run on Windows 11, Node 24.21.0, pnpm 10.17.1, on 2026-10-27, in the `tb-21-
 | `eslint --rule <no-restricted-imports JSON>` on a temporary violating file | pass | Negative check, see below. The rule is not in `eslint.config.js` yet (see Known limitations) |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-21/local-sqlite-schema` | pass | `workflow check: ok` |
 
+### After rebasing on `main` (6fb9238: TB-16, TB-15 routes move, TB-17) and Task 6 wiring
+Same machine and toolchain, 2026-10-27, worktree `tb-21-local-sqlite`, CI order. No Metro dev server, emulator, Docker or EAS build was started.
+
+| Command | Result | Notes |
+|---|---|---|
+| `git rebase origin/main` | pass after conflicts | `package.json` (kept both sides' deps: TB-17's `@gorhom/bottom-sheet`, `expo-dev-client`, `nativewind`, `react-native-worklets`, `tailwindcss` + TB-21's `drizzle-orm`, `expo-crypto`, `expo-sqlite`, `uuidv7`, `zod`, `pnpm.onlyBuiltDependencies`); `pnpm-lock.yaml` taken from `main` and regenerated with `pnpm install` (never hand-merged). `jest.config.js` merged cleanly (TB-17 `setupFiles` + CSS stub kept, TB-21 `@/db/client` mapping kept) |
+| `pnpm install --frozen-lockfile` | pass | "Already up to date" |
+| `pnpm lint` | pass | 0 problems (after `prettier --write` on `home-route.test.tsx`) |
+| `pnpm typecheck` | pass | `tsc --noEmit` |
+| `pnpm test --ci` | pass | 23 suites, 137 tests (TB-15 + TB-16 + TB-17 + TB-21). First run (cold transform cache after the Babel change) failed 2 route tests on the 5 s timeout (see failures below); fixed. Final cold run `pnpm test --ci --no-cache`: 23/23 suites, 137/137 tests, 79.8 s |
+| `npx expo-doctor` | pass | 20/20 checks |
+| `npx expo export --platform android --output-dir <scratchpad>/tb21-export` | pass | One Hermes bundle (5.2 MB). The bundle contains `tasks_status_check`, `tasks_live_status_due_sort_idx`, ``CREATE TABLE `task_tags` `` and `taskbuddy.db` (`grep -c -a` = 1 each), so the `.sql` migrations are inlined by `babel-plugin-inline-import` through Metro |
+| `pnpm exec drizzle-kit check` | pass | "Everything's fine" |
+| `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-21/local-sqlite-schema` | pass | `workflow check: ok` |
+
+Failures hit after the rebase, and their fixes:
+1. `home-route.test.tsx` (TB-15) and `db-benchmark-route-release.test.tsx` timed out (5 s) in the first full run: the root layout now renders screens only after `DbGate` migrates, and the Babel config change invalidated the Jest transform cache. Both pass alone and on a warm cache. Fixed for CI's cold cache: `findBy*` instead of `getBy*`, 30 s per-test timeout; verified with `--no-cache`.
+
 Negative checks (all temporary, removed afterwards):
 1. **AC2 harness catches loss.** A temporary fixture migration rebuilding `subtasks` without copying rows and dropping `tasks.notes` → the harness failed with `subtasks: 6 rows before, 0 after`, `subtasks: id checksum changed`, `tasks.notes: column dropped`. After review this fixture became a committed test (`src/db/migrations.test.ts`, "fails a destructive migration"), alongside a lossless rebuild that passes.
 2. **Lint rule.** `src/features/tasks/components/tmp-violation.ts` importing `expo-sqlite` and `drizzle-orm/expo-sqlite/migrator`, linted with the rule → `2 problems (2 errors)`: "'expo-sqlite' import is restricted… Open the DB only in src/db; use a repository". File removed.
-3. **Release build hides the dev route.** Removing the `__DEV__` guard in `app/dev/db-benchmark.tsx` → `db-benchmark-route-release.test.tsx` failed ("Unable to find an element with testID: not-found-screen"). Guard restored.
+3. **Release build hides the dev route.** Removing the `__DEV__` guard in `app/dev/db-benchmark.tsx` (now `src/app/dev/`) → `db-benchmark-route-release.test.tsx` failed ("Unable to find an element with testID: not-found-screen"). Guard restored.
 
 Failures hit during the build, and their fixes:
 1. `pnpm expo install expo-sqlite` added the `expo-sqlite` config plugin to `app.json` (not an owned path, and only needed for options such as SQLCipher) → reverted.
@@ -32,15 +50,15 @@ Failures hit during the build, and their fixes:
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given a first launch, then migrations run and tables tasks, subtasks, lists, tags exist with id (UUIDv7), updated_at and deleted_at | partial | **Node (met):** `src/db/schema.test.ts` applies every migration to an empty DB and asserts the 5 tables (incl. `task_tags`) and `id TEXT PK`, `updated_at INTEGER NOT NULL`, `deleted_at INTEGER NULL` via `pragma_table_info`; idempotent second launch; journal order; `drizzle/migrations.js` bundles every journal entry. UUIDv7: `src/lib/ids.test.ts`, `task-repo.test.ts`. `DbGate.test.tsx` runs migrations before rendering children and recovers after a failed attempt. Atomicity on first launch and on update: `migrations.test.ts` "migration atomicity". **Device: pending coordinator emulator run** after Task 6 wiring (open `/dev/db-benchmark`, which lists `sqlite_master` tables of the real `taskbuddy.db`) |
+| Given a first launch, then migrations run and tables tasks, subtasks, lists, tags exist with id (UUIDv7), updated_at and deleted_at | partial | **Node (met):** `src/db/schema.test.ts` applies every migration to an empty DB and asserts the 5 tables (incl. `task_tags`) and `id TEXT PK`, `updated_at INTEGER NOT NULL`, `deleted_at INTEGER NULL` via `pragma_table_info`; idempotent second launch; journal order; `drizzle/migrations.js` bundles every journal entry. UUIDv7: `src/lib/ids.test.ts`, `task-repo.test.ts`. `DbGate.test.tsx` runs migrations before rendering children and recovers after a failed attempt. Atomicity on first launch and on update: `migrations.test.ts` "migration atomicity". Wiring: `src/app/_layout.tsx` wraps the root `Stack` in `DbGate`; Android export bundles the inlined migrations. **Device: pending coordinator emulator run** (open `/dev/db-benchmark`, which lists `sqlite_master` tables of the real `taskbuddy.db`) |
 | Given a v1 database with data, when v2 migration runs in a test, then no rows are lost | met | `src/db/migrations.test.ts` "migration 1 (0001_list_query_indexes) keeps every row of version k-1": seeds live and soft-deleted rows in every table at v1, applies v2, compares row counts, id checksums and every column value. Generic for every future migration. Proven to fail on a destructive fixture and pass on a lossless rebuild (committed tests) |
-| Given 10,000 tasks, a list query returns in under 50 ms at p95 on a mid-range Android device | partial | **Pending coordinator emulator run** (owner decision: Android emulator as proxy) of `app/dev/db-benchmark.tsx`. Supporting evidence: Node benchmark p95 0.91–1.19 ms (`list-benchmark.test.ts`, budget < 50 ms); `EXPLAIN QUERY PLAN` of every statement `listOpenTasks` issues uses `tasks_live_status_due_sort_idx` with no table scan and no temp B-tree for ORDER BY |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial | 64 tests pass (TB-15's 3 still pass). Independent reviewer + security reviewer done (below). Ticket docs updated (spec Deviations, this file, `src/db/README.md`). Pending: rebase on TB-17 + Task 6 wiring, ESLint rule applied, PR + human review |
+| Given 10,000 tasks, a list query returns in under 50 ms at p95 on a mid-range Android device | partial | **Pending coordinator emulator run** (owner decision: Android emulator as proxy) of `src/app/dev/db-benchmark.tsx`. Supporting evidence: Node benchmark p95 0.91–1.19 ms (`list-benchmark.test.ts`, budget < 50 ms); `EXPLAIN QUERY PLAN` of every statement `listOpenTasks` issues uses `tasks_live_status_due_sort_idx` with no table scan and no temp B-tree for ORDER BY |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial | After rebase: 137 tests pass, including TB-15/16/17's suites. Independent reviewer + security reviewer done (below; not re-run on the rebase/wiring diff). Ticket docs updated (spec Deviations, this file, `src/db/README.md`). Rebase + Task 6 wiring done. Pending: ESLint rule applied, emulator AC1/AC3 evidence, PR + human review |
 
 ## Manual / E2E
 Not run by this worker (no emulator use per brief). For the coordinator, after Task 6 wiring on the emulator:
 1. `pnpm android`, wait for the home screen (the app passes `DbGate`, so migrations ran).
-2. Open `exp://…/--/dev/db-benchmark` (or navigate to `/dev/db-benchmark`): "Tables in taskbuddy.db" must read `lists, subtasks, tags, task_tags, tasks`, "Migrations applied: 2" → AC1 device evidence (screenshot).
+2. Open `exp://…/--/dev/db-benchmark` (route file `src/app/dev/db-benchmark.tsx`) (or navigate to `/dev/db-benchmark`): "Tables in taskbuddy.db" must read `lists, subtasks, tags, task_tags, tasks`, "Migrations applied: 2" → AC1 device evidence (screenshot).
 3. Tap **Run benchmark (10,000 tasks)**; record p50/p95/max (also logged as `[TB-21 benchmark] {...}` in Metro) → AC3 (screenshot). p95 must be < 50 ms.
 
 ## Review findings
@@ -48,11 +66,11 @@ Not run by this worker (no emulator use per brief). For the coordinator, after T
 |---|---|---|---|---|
 | 1 | Important | Driver failures propagate as `DrizzleQueryError`, whose message embeds bound params (task titles/notes/tag names) → could reach logs/Sentry (`src/db/db-errors.ts`, all repos) | security reviewer | Fixed: every exported repo function is wrapped by `guardDb` (`repo-utils.ts`), rethrowing `RepoError('DB_FAILURE')` with only `{ name, code }`. Tests: `repo-utils.test.ts`, `task-repo.test.ts` "surfaces driver failures as DB_FAILURE without task text" |
 | 2 | Nit | `idSchema = z.uuid()` accepts any version (`schema.ts:14`) | security reviewer | Fixed: `z.uuidv7()`; test "accepts only UUIDv7 ids". Revisit if sync ever imports foreign ids |
-| 3 | Nit | Dev route code ships as dead code in release (`app/dev/db-benchmark.tsx`) | security reviewer | Accepted: render gated by `__DEV__` (proven by test); no access to user data beyond read-only introspection |
+| 3 | Nit | Dev route code ships as dead code in release (`src/app/dev/db-benchmark.tsx`) | security reviewer | Accepted: render gated by `__DEV__` (proven by test); no access to user data beyond read-only introspection |
 | 4 | Nit | Benchmark `console.log`, `tableColumns` param binding | security reviewer | Confirmed fine, no change |
 | 5 | Important | No test that a failing migration leaves no partial schema | reviewer agent | Fixed: "migration atomicity" tests (first launch and update path, retry) |
 | 6 | Important | AC2 harness only proven on an index-only migration; destructive fixture not committed | reviewer agent | Fixed: committed fixture tests via `src/db/migration-fixtures.ts` (destructive fails, lossless rebuild passes) through the real seed → migrate → compare pipeline |
-| 7 | Nit | No `CHECK` constraints on `status` / `priority` | reviewer agent | **Open — owner decision.** The accepted schema has none; Zod enforces at the repo boundary. Adding a CHECK later needs a table rebuild, so decide before release (and before TB-43 sync writes rows) |
+| 7 | Nit | No `CHECK` constraints on `status` / `priority` | reviewer agent | **Fixed (owner decision): `tasks_status_check`, `tasks_priority_check` in `0000_init.sql`.** Original note: The accepted schema has none; Zod enforces at the repo boundary. Adding a CHECK later needs a table rebuild, so decide before release (and before TB-43 sync writes rows) |
 | 8 | Nit | Cascading soft-deletes beyond the spec text not recorded | reviewer agent | Fixed: recorded in spec Deviations |
 | 9 | Nit | Empty patch still bumps `updated_at` | reviewer agent | Fixed: update functions return the current row without writing; test "does not write for an empty patch" |
 | 10 | — | Self-review: Drizzle's migrator skips a migration whose journal `when` is not newer than the last applied one | self | Fixed: test "keeps the journal ordered" |
@@ -60,12 +78,12 @@ Not run by this worker (no emulator use per brief). For the coordinator, after T
 
 ## Known limitations & follow-ups
 - **ESLint rule not committed** (a config-protection hook blocks edits to `eslint.config.js`). Coordinator applies the block in the worker report; the rule itself is proven.
-- **Task 6 wiring pending** (after TB-17): Babel `inline-import` for `.sql`, Metro `sourceExts.push('sql')`, `<DbGate>` around the root `Stack` in `app/_layout.tsx`. Until then `src/db/client.ts` and `drizzle/migrations.js` are not exercised by the app or Jest (Jest maps `@/db/client` to the Node twin).
+- **Task 6 wiring done**; `src/db/client.ts` + `drizzle/migrations.js` are proven to bundle (Android export) but only run on a device: Jest still maps `@/db/client` to the Node twin. The emulator run is the first real execution of the expo-sqlite path.
 - **Future table rebuilds:** with `foreign_keys = ON`, drizzle-kit's `PRAGMA foreign_keys=OFF` inside the migration transaction is a no-op, so rebuilding a *parent* table (`lists`, `tasks`, `tags`) with children present will fail on devices. Write such migrations by hand (or run them outside the transaction) and prove them with the fixture harness.
 - `tags` uniqueness uses SQLite `lower()`, which folds ASCII only; Postgres `lower()` is Unicode-aware. TB-43 should align the rule.
 - The one-list query uses `tasks_list_id_idx` plus a sort of that list's rows (Node p95 ~1 ms at 10k). Add a `(list_id, deleted_at, status, due_at, sort_order)` index only if device numbers call for it.
 - Soft-deleted rows stay on device until TB-53 (hard delete + VACUUM). SQLCipher is out of scope (TB-54).
-- `status`/`priority` CHECK constraints: owner decision (finding 7).
+- `status`/`priority` CHECK constraints: decided by the owner and added (spec Decisions).
 
 ## Completion
 - [ ] All AC met with evidence (AC1/AC3 device runs pending the coordinator)

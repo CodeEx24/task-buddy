@@ -35,11 +35,12 @@ Versioned local schema with tested migrations, typed repositories, and a list qu
 ### Task 5 — Perf (AC3)
 - [ ] `listOpenTasks` keyset pagination using the `0001` index; `EXPLAIN QUERY PLAN` test asserts the index is used (no full scan).
 - [ ] Node benchmark test: seed 10,000 tasks, 100 runs, p95 < 50 ms (regression guard).
-- [ ] `app/dev/db-benchmark.tsx` (`__DEV__` only; otherwise not-found) seeding a separate `benchmark.db`.
+- [x] `src/app/dev/db-benchmark.tsx` (was `app/dev/`; `__DEV__` only; otherwise not-found) seeding a separate `benchmark.db`.
 - **Verify:** emulator run (owner decision: emulator as proxy) → p50/p95/max recorded with a screenshot.
 
 ### Task 6 — App wiring (after TB-17 merges)
-- [ ] Rebase on `main`; append `inline-import` (`.sql`) to `babel.config.js` and `sourceExts.push('sql')` to `metro.config.js`; `src/db/client.ts` + `DbGate` + `useDbMigrations`; wrap in `app/_layout.tsx`.
+- [x] Rebase on `main`; append `inline-import` (`.sql`) to `babel.config.js` and `sourceExts.push('sql')` to `metro.config.js`; `src/db/client.ts` + `DbGate` + `useDbMigrations`; wrap in `src/app/_layout.tsx` (routes moved by TB-15).
+- [ ] Device verify (coordinator, emulator).
 - **Verify:** fresh install on the emulator → app opens; benchmark screen lists the tables from `sqlite_master` (AC1 device evidence).
 
 ### Task 7 — Review and verification
