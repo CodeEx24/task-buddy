@@ -2,7 +2,7 @@
 
 > Jira: https://stratyge.atlassian.net/browse/TB-21 · Spec: [spec.md](spec.md)
 > Branch: `feat/tb-21/local-sqlite-schema` · Orca worktree `tb-21-local-sqlite` · Merge order: **3rd** (after TB-16 and TB-17; rebase onto TB-17's `babel.config.js` / `metro.config.js` before the PR)
-> Status: Draft · Risk: **High** (owner accepts the spec before code)
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Goal
 Versioned local schema with tested migrations, typed repositories, and a list query that stays under 50 ms p95 at 10,000 tasks.

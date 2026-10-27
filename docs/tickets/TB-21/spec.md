@@ -1,7 +1,7 @@
 # TB-21 — Spec
 
 > Jira: https://stratyge.atlassian.net/browse/TB-21 · Intent: [intent.md](intent.md)
-> Status: Draft. **High risk: implementation starts only after the owner accepts this spec.**
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Acceptance criteria (verbatim from Jira)
 - [ ] Given a first launch, then migrations run and tables tasks, subtasks, lists, tags exist with id (UUIDv7), updated_at and deleted_at

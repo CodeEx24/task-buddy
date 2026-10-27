@@ -1,7 +1,7 @@
 # TB-21 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-21 · Blueprint: US-007 · Wave 1 (batch B) · Risk: **High** (migrations on tables that TB-43 will sync)
-> Status: Draft. **High risk: the owner reads and accepts this spec before any code.**
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Problem
 The app has no storage. Task Buddy is local-first: core task use must work offline (CLAUDE.md §1), and later sync (TB-43) needs every row to carry a stable id, a change time and a soft-delete marker. Getting the schema wrong now means a painful migration on user data later.
