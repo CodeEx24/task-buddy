@@ -67,6 +67,8 @@ Indexes (shipped as migration `0001`, which also gives AC2 a real v1→v2 step):
 | Timestamps | ISO text · epoch ms integer | epoch ms (compact, sortable, cheap index) | Owner, 2026-10-27 ("accept all") |
 | Test driver | better-sqlite3 · node:sqlite via sqlite-proxy · expo-sqlite web | better-sqlite3, with node:sqlite fallback (fallback not needed) | Owner, 2026-10-27 ("accept all") |
 | Ownership column | add `user_id` now · add with auth/sync | later (TB-20/TB-43, additive migration) | Owner, 2026-10-27 ("accept all") |
+| DB CHECK constraints | Zod only · add CHECKs now (regenerate 0000 before release) · later migration (SQLite needs a table rebuild) | **Add now**: `tasks_status_check` (`open`/`done`) and `tasks_priority_check` (0–3) in `0000_init.sql`; `0001` unchanged | Owner, 2026-10-27 |
+| Soft-delete cascades (Deviation below) | keep · drop | **Keep** | Owner, 2026-10-27 |
 
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
