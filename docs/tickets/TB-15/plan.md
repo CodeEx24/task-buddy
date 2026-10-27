@@ -14,14 +14,14 @@ Blocked by: none (verified in Jira 2026-10-27). Story has the `ready` label.
 
 ### Task 1 — Generate the template
 - [ ] `pnpm create expo-app@latest <scratchpad>/tb15-template --template default@sdk-58 --no-install` (the repo is not empty, so generate outside it).
-- [ ] Copy into the repo: `app.json`, `package.json`, `tsconfig.json`, `eslint.config.js`, `expo-env.d.ts`, `.gitignore` (merge with ours: add `__pycache__/`, `.env*` except `.env.example`), `assets/` (icon, splash, adaptive icon, favicon only), and the `src/app/` router files needed. Do not copy the template README, `scripts/reset-project.js`, or example components, hooks and constants.
+- [ ] Copy into the repo: `app.json`, `package.json`, `tsconfig.json`, `eslint.config.js`, `expo-env.d.ts`, `.gitignore` (merge with ours: add `__pycache__/`, `.env*` except `.env.example`), `assets/` (icon, splash, adaptive icon, favicon only), and the `app/` router files needed. Do not copy the template README, `scripts/reset-project.js`, or example components, hooks and constants.
 - [ ] `app.json`: name "Task Buddy", slug `task-buddy`, scheme `taskbuddy` (TB-18's deep-link AC uses `taskbuddy://`), `experiments.typedRoutes: true` if the template sets it.
 - Verify: `pnpm install` succeeds; `git status` shows no template junk.
 
 ### Task 2 — Thin routes
-- [ ] `src/app/_layout.tsx`: root `<Stack />`.
-- [ ] `src/app/index.tsx`: re-exports the home screen (see Task 5).
-- [ ] `src/app/+not-found.tsx`: minimal not-found screen with a link home.
+- [ ] `app/_layout.tsx`: root `<Stack />`.
+- [ ] `app/index.tsx`: re-exports the home screen (see Task 5).
+- [ ] `app/+not-found.tsx`: minimal not-found screen with a link home.
 - Verify: `pnpm typecheck`.
 
 ### Task 3 — TypeScript strict + alias
@@ -36,7 +36,7 @@ Blocked by: none (verified in Jira 2026-10-27). Story has the `ready` label.
 - Verify: `pnpm lint` passes. A temporary `const x: any` makes it fail (checked, then reverted).
 
 ### Task 5 — Home screen + Jest/RNTL smoke test
-- [ ] `src/features/home/components/HomeScreen.tsx`: `<View testID="home-screen"><Text>{APP_NAME}</Text></View>`. `src/app/index.tsx` re-exports it, which keeps routes thin (CLAUDE.md §3). Tests can't live in `src/app/`, because Expo Router treats files there as routes.
+- [ ] `src/features/home/components/HomeScreen.tsx`: `<View testID="home-screen"><Text>{APP_NAME}</Text></View>`. `app/index.tsx` re-exports it, which keeps routes thin (CLAUDE.md §3). Tests can't live in `app/`, because Expo Router treats files there as routes.
 - [ ] Dev deps: `jest`, `jest-expo`, `@testing-library/react-native`, `@types/jest`. Use the versions `npx expo install` picks for SDK 58.
 - [ ] `jest.config.js`: preset `jest-expo`, plus a `moduleNameMapper` for `^@/(.*)$`.
 - [ ] `src/features/home/components/HomeScreen.test.tsx`: renders and asserts `home-screen` and the text "Task Buddy".

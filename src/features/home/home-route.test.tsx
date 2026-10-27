@@ -1,8 +1,8 @@
 import { renderRouter, screen } from 'expo-router/testing-library';
 
-// Renders the real `src/app/` routes, so a broken or moved route fails here (TB-15 AC1).
+// Renders the real `app/` routes, so a broken or moved route fails here (TB-15 AC1).
 // Resolved from the Jest rootDir (the repo root).
-const APP_DIR = './src/app';
+const APP_DIR = './app';
 
 describe('app routes', () => {
   it('serves the placeholder home screen at /', async () => {

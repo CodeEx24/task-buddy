@@ -16,7 +16,7 @@ Developers and agents working on every later ticket. No end-user behaviour beyon
 - Stack is locked by CLAUDE.md §2: Expo (latest stable SDK; npm shows **SDK 58**, expo 58.0.19), React Native, TypeScript strict, Expo Router, pnpm.
 - Folder structure and naming: CLAUDE.md §3–§4. Routes stay thin. `@/*` → `src/*`.
 - No secrets. No `EXPO_PUBLIC_*` values are needed yet.
-- Shared files this ticket creates (`package.json`, lockfile, `babel.config.js`, `metro.config.js`, `src/app/_layout.tsx`) become hotspots for Wave 1 batch B. Keep them minimal and conventional so TB-16/17/19/21 extend them cleanly.
+- Shared files this ticket creates (`package.json`, lockfile, `babel.config.js`, `metro.config.js`, `app/_layout.tsx`) become hotspots for Wave 1 batch B. Keep them minimal and conventional so TB-16/17/19/21 extend them cleanly.
 - Record the exact Expo SDK / React Native / React versions in CLAUDE.md §2 (the one CLAUDE.md edit this ticket allows).
 
 ## Out of scope

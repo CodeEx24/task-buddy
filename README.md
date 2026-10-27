@@ -34,4 +34,4 @@ Before opening a PR: `pnpm lint && pnpm typecheck && pnpm test` and `node script
 
 ## Layout
 
-Routes live in `src/app/` and stay thin. Feature code lives in `src/features/*`, and `@/*` maps to `src/*`. The full structure is in CLAUDE.md §3. Each placeholder folder has a README saying what belongs there and which ticket fills it.
+Routes live in `app/` and stay thin. Feature code lives in `src/features/*`, and `@/*` maps to `src/*`. The full structure is in CLAUDE.md §3. Each placeholder folder has a README saying what belongs there and which ticket fills it.

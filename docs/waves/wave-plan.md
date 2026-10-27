@@ -125,17 +125,17 @@ Parallel tickets each get one Orca worktree on branch `<type>/tb-<n>/<slug>` (se
 | Step | Worktrees (parallel) | Owns (may edit) | Must not edit |
 |---|---|---|---|
 | 1 | `feat/tb-15/scaffold-expo-app` (solo) | everything: creates the skeleton, `package.json`, configs. Note: its AC item "`docs/tickets/_TEMPLATE.md` exists" is already satisfied by the workflow PR | — |
-| 2 | `ci/tb-16/ci-and-eas-profiles` | `.github/workflows/**`, `eas.json`, README build section | `src/**` |
+| 2 | `ci/tb-16/ci-and-eas-profiles` | `.github/workflows/**`, `eas.json`, README build section | `app/**`, `src/**` |
 | 2 | `feat/tb-17/design-system` | `src/theme/**`, `src/components/ui/**`, `tailwind.config.*`, `global.css`, NativeWind entries in `babel.config.js` / `metro.config.js` | `src/db/**`, `supabase/**` |
 | 2 | `feat/tb-21/local-sqlite-schema` | `src/db/**`, `src/features/*/repo/**`, `drizzle.config.ts` | `src/theme/**`, `src/components/**` |
 | 2′ | `feat/tb-19/supabase-env-rls` (starts when a worker frees up) | `supabase/**`, `src/lib/env.ts`, `src/lib/supabase.ts`, `.env.example` | `src/db/**` |
-| 3 | `feat/tb-18/app-shell` | `src/app/(tabs)/**`, `src/app/task/[id].tsx`, `src/app/_layout.tsx` | — |
-| 4 | `feat/tb-20/email-otp-sign-in` | `src/app/(auth)/**`, `src/features/auth/**` | — |
+| 3 | `feat/tb-18/app-shell` | `app/(tabs)/**`, `app/task/[id].tsx`, `app/_layout.tsx` | — |
+| 4 | `feat/tb-20/email-otp-sign-in` | `app/(auth)/**`, `src/features/auth/**` | — |
 
 **Hotspots and coordination rules (Wave 1):**
 1. `package.json` / `pnpm-lock.yaml`: all of step 2 adds dependencies. **Never hand-merge the lockfile.** Rebase on `main` and run `pnpm install` to regenerate it.
 2. `babel.config.js` / `metro.config.js`: TB-17 (NativeWind) and TB-21 (Drizzle needs the `.sql` inline-import plugin and the metro `sql` extension) both edit them. **Merge order: TB-17 first, then TB-21 rebases.**
-3. `src/app/_layout.tsx`: TB-17 may add a ThemeProvider and TB-18 owns the layout. TB-17 exports a provider only. TB-18 wires it in.
+3. `app/_layout.tsx`: TB-17 may add a ThemeProvider and TB-18 owns the layout. TB-17 exports a provider only. TB-18 wires it in.
 4. Merge order for step 2: **TB-16 → TB-17 → TB-21 → TB-19**. CI comes first so the other PRs run against it.
 
 ### Wave 2
