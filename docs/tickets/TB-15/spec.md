@@ -11,11 +11,11 @@
 
 ## Behaviour
 - Launching the app shows a placeholder home screen with the text "Task Buddy" and a test ID `home-screen`. There is no network access, no permissions prompt, and no console errors.
-- An unknown route shows Expo Router's not-found screen (`app/+not-found.tsx`).
+- An unknown route shows Expo Router's not-found screen (`src/app/+not-found.tsx`).
 
 ## Technical design
 - **Scaffold:** `pnpm create expo-app` with the SDK 58 default template. Example screens, components and assets that the product doesn't use are removed. Expo Router config, the typed-routes setup and `expo-env.d.ts` are kept as generated.
-- **Routes (thin):** `app/_layout.tsx` (root Stack) and `app/index.tsx` (placeholder home), plus `app/+not-found.tsx`. Tab and auth groups are TB-18 / TB-20 (decision Q3).
+- **Routes (thin):** `src/app/_layout.tsx` (root Stack) and `src/app/index.tsx` (placeholder home), plus `src/app/+not-found.tsx`. Tab and auth groups are TB-18 / TB-20 (decision Q3).
 - **Start script:** `"start": "expo start"` for Expo Go (decision Q2). No `expo-dev-client` dependency yet.
 - **TypeScript:** `tsconfig.json` extends `expo/tsconfig.base` with `strict: true` and `noUncheckedIndexedAccess: true`. Paths: `@/*` → `./src/*`.
 - **Lint and format:** ESLint flat config `eslint-config-expo/flat` + `eslint-plugin-prettier/recommended`. `@typescript-eslint/no-explicit-any: error`. Prettier config committed.
@@ -47,6 +47,7 @@ No network calls, secrets or AI usage. `.gitignore` covers `.env*`, `node_module
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
 | 2026-10-27 | Routes in root `app/`, not the SDK 58 template's `src/app` | CLAUDE.md §3 is authoritative; Expo Router supports both | Within spec (no behaviour change) |
+| 2026-10-27 | Reversed: routes moved to `src/app/` | Owner decision: keep all code under one `src/` folder, matching the SDK 58 template. Expo Router finds `src/app` on its own, so no config change | Within spec (no behaviour change). CLAUDE.md §3, README and docs updated |
 | 2026-10-27 | `eslint` pinned to `^9` | `eslint-config-expo` 58 plugins require ESLint ≤ 9 | Within spec |
 | 2026-10-27 | `tsconfig` `"types": ["jest"]` | TypeScript 6 no longer loads `@types/*` automatically | Within spec |
 | 2026-10-27 | Kept the template's `@/assets/*` alias (Jest mapping added) | Asset imports later; keeps tsc and Jest consistent | Within spec |

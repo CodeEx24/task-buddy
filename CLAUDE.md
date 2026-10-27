@@ -29,12 +29,12 @@ Task Buddy is a local-first React Native (Expo) to-do app with an AI "buddy". Us
 
 ```
 taskbuddy/
-├─ app/                          # Expo Router routes (thin: compose features only)
-│  ├─ (tabs)/                    # today, inbox, buddy, settings
-│  ├─ (auth)/                    # sign-in
-│  ├─ task/[id].tsx              # task detail modal
-│  └─ _layout.tsx
 ├─ src/
+│  ├─ app/                       # Expo Router routes (thin: compose features only)
+│  │  ├─ (tabs)/                 # today, inbox, buddy, settings
+│  │  ├─ (auth)/                 # sign-in
+│  │  ├─ task/[id].tsx           # task detail modal
+│  │  └─ _layout.tsx
 │  ├─ features/                  # feature-first modules
 │  │  ├─ tasks/                  # components/ hooks/ repo/ schema.ts
 │  │  ├─ capture/                # quick-add, voice, photo
@@ -63,11 +63,11 @@ taskbuddy/
 ```
 
 Rules:
-- Routes stay thin; logic lives in `src/features/*`.
+- Routes stay thin; logic lives in `src/features/*`. Only route files go in `src/app/`: Expo Router treats every file there as a screen, so tests, helpers and components live elsewhere.
 - All local data access goes through repositories in `features/*/repo`; no raw SQL in components.
 - The app never calls an LLM directly. All AI goes through `supabase/functions/ai-gateway`.
 - Vendors (LLM, push, billing, analytics) sit behind interfaces so they can be swapped.
-- Server-only code lives in `supabase/functions`; never import it into `app/` or `src/`.
+- Server-only code lives in `supabase/functions`; never import it into `src/`.
 
 ## 4. Coding standards & naming conventions
 
