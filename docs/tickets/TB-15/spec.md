@@ -1,7 +1,7 @@
 # TB-15 — Spec: Scaffold Expo app
 
 > Jira: https://stratyge.atlassian.net/browse/TB-15 · Intent: [intent.md](intent.md)
-> Status: Draft, to be accepted by the owner after the Decisions are filled in
+> Status: **Accepted by the owner on 2026-10-27** (spec and plan)
 
 ## Acceptance criteria (verbatim from Jira)
 - [ ] Given a fresh clone, when I run `pnpm install && pnpm start`, then the app boots on an iOS simulator and an Android emulator with a placeholder home route
@@ -46,3 +46,9 @@ No network calls, secrets or AI usage. `.gitignore` covers `.env*`, `node_module
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-27 | Routes in root `app/`, not the SDK 58 template's `src/app` | CLAUDE.md §3 is authoritative; Expo Router supports both | Within spec (no behaviour change) |
+| 2026-10-27 | `eslint` pinned to `^9` | `eslint-config-expo` 58 plugins require ESLint ≤ 9 | Within spec |
+| 2026-10-27 | `tsconfig` `"types": ["jest"]` | TypeScript 6 no longer loads `@types/*` automatically | Within spec |
+| 2026-10-27 | Kept the template's `@/assets/*` alias (Jest mapping added) | Asset imports later; keeps tsc and Jest consistent | Within spec |
+| 2026-10-27 | Added `home-route.test.tsx` (router-level) next to the component test | Reviewer finding: the component test didn't guard the route | Within spec |
+| 2026-10-27 | `web.output: "static"` (template had `"server"`) | No server host is planned | Within spec |
