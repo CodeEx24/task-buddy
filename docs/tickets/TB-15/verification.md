@@ -15,6 +15,12 @@ All run on Windows 11, Node 24.21.0, pnpm 10.17.1, on 2026-10-27.
 | `npx expo-doctor` | pass | 20/20 checks passed |
 | `npx expo export --platform android --platform web` | pass | Android Hermes bundle `entry-….hbc` (2.5 MB). Static web `index.html` contains `<h1 role="heading">Task Buddy` |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-15/scaffold-expo-app` | pass | `workflow check: ok` |
+| `pnpm lint` (after moving routes to `src/app/`) | pass | 0 errors |
+| `pnpm typecheck` (after move) | pass | |
+| `pnpm test` (after move) | pass | 2 suites, 3 tests. Route test uses `renderRouter('./src/app')`. Negative check: moving `src/app/index.tsx` away → 1 failed (restored) |
+| Expo CLI routes folder (after move) | pass | `@expo/cli` 58.1.15 `getRouterDirectory()` uses `src/app` when it exists and logs "Using src/app as the root directory for Expo Router." No `app.json` change needed |
+
+Routes moved from root `app/` to `src/app/` on 2026-10-27 (owner decision, see the spec decision log). The rows marked "after move" are the re-run.
 
 Failures hit during the build, and their fixes:
 1. `tsc`: `Cannot find name 'describe'`. TypeScript 6 no longer loads `@types/*` automatically → added `"types": ["jest"]` to `tsconfig.json`.
@@ -24,15 +30,6 @@ Failures hit during the build, and their fixes:
 5. The route test first used `node:path`/`__dirname`, which needs Node types in app code → switched to `renderRouter('./app')`, which resolves from the Jest rootDir.
 6. After rebasing onto `main` (post PR #3 merge), Git's `core.autocrlf=true` checked files out with CRLF → `pnpm lint` failed with 86 `prettier/prettier Delete ␍` errors. A fresh Windows clone would have hit the same failure (AC2) → added `.gitattributes` (`* text=auto eol=lf`, binaries marked), renormalized, re-checked out → lint 0 errors, typecheck 0, tests 3/3.
 
-### Re-run after moving routes to `src/app/` (2026-10-27)
-Owner decision (see spec decision log): routes moved from root `app/` to `src/app/`. Route test now uses `renderRouter('./src/app')`.
-
-| Command | Result | Notes |
-|---|---|---|
-| `pnpm lint` | pass | |
-| `pnpm typecheck` | pass | |
-| `pnpm test` | pass | 2 suites, 3 tests. Negative check: moving `src/app/index.tsx` away → 1 failed (restored) |
-| Expo CLI routes folder | confirmed | `@expo/cli` 58.1.15 `getRouterDirectory()` uses `src/app` when it exists and logs "Using src/app as the root directory for Expo Router." No `app.json` change needed |
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence |
