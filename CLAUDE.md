@@ -52,7 +52,12 @@ taskbuddy/
 │  └─ tests/                     # RLS and SQL tests
 ├─ evals/                        # golden sets + eval runner
 ├─ .maestro/                     # E2E flows
-├─ docs/tickets/                 # _TEMPLATE.md and TB-###.md
+├─ docs/
+│  ├─ tickets/                   # _TEMPLATE.md (compact), _template/ (full), TB-###/ per ticket
+│  ├─ waves/                     # wave plan + Jira↔workbook reconciliation
+│  ├─ actions/                   # step-by-step guides for things the human must do
+│  └─ workflow/                  # delivery workflow (README.md) and REVIEW.md
+├─ scripts/workflow/             # deterministic workflow checks
 ├─ CLAUDE.md
 └─ AGENTS.md
 ```
@@ -96,7 +101,8 @@ General:
 
 - Branch: `<type>/tb-<ticket>/<short-kebab-title>` where type is `feat|fix|chore|refactor|docs|test|perf|build|ci`. Example: `feat/tb-015/quick-add-preview`.
 - Commit (Conventional Commits): `feat(capture): add parse preview (TB-015)`.
-- Trunk-based: short branch, PR, at least one review (human or agent review plus human merge) and green CI, then squash-merge. The PR restates the acceptance criteria and links `docs/tickets/TB-###.md`.
+- Trunk-based: short branch, PR, at least one review (human or agent review plus human merge) and green CI, then squash-merge. The PR restates the acceptance criteria and links `docs/tickets/TB-###/`.
+- **Delivery workflow** (Jira as source of truth, waves, intent → spec → plan → verification, Orca worktrees for parallel tickets, Jira status sync, human gates): `docs/workflow/README.md`. Review rules: `docs/workflow/REVIEW.md`.
 
 ## 6. Best-practice skills (consult when building features)
 
@@ -109,7 +115,7 @@ When developing any feature, load and follow these as the authority for framewor
 ## 7. Definition of Ready / Done (short)
 
 - Ready: AC testable; prerequisites done; 8 points or less; API contract or screen linked; security/privacy/AI-cost implications noted.
-- Done: AC met and demoed; PR reviewed and merged with CI green; unit + integration pass (E2E on critical paths); RLS/security tests pass where relevant; AI eval baseline not regressed; no new Sentry errors; `docs/tickets/TB-###.md` updated; migrations reversible.
+- Done: AC met and demoed; PR reviewed and merged with CI green; unit + integration pass (E2E on critical paths); RLS/security tests pass where relevant; AI eval baseline not regressed; no new Sentry errors; `docs/tickets/TB-###/` updated including `verification.md`; Jira status and PR link current; migrations reversible.
 
 ## 8. Documentation & knowledge management
 
@@ -119,7 +125,7 @@ Cadence: update only when an Epic completes or a decision becomes stable and reu
 
 Reuse-first applies before every new component, utility or pattern: shared component? utility? existing pattern to follow? something worth standardizing?
 
-Per-ticket detail lives in `docs/tickets/TB-###.md`, never in CLAUDE.md. Ticket doc sections: Overview · Implementation details · API changes · Database changes · Dependencies on other tickets · Known limitations · Testing notes · Follow-up tasks.
+Per-ticket detail lives in `docs/tickets/TB-###/`, never in CLAUDE.md. Medium/high-risk tickets: `intent.md`, `spec.md`, `plan.md`, `verification.md` (copy `docs/tickets/_template/`). Low-risk tickets: a compact `README.md` (copy `docs/tickets/_TEMPLATE.md`: Overview · Implementation details · API changes · Database changes · Dependencies on other tickets · Known limitations · Testing notes · Follow-up tasks) plus `verification.md`. Every file links its Jira issue.
 
 ## 9. Commands
 
