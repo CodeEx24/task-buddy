@@ -1,7 +1,7 @@
 # TB-16 — Spec
 
 > Jira: https://stratyge.atlassian.net/browse/TB-16 · Intent: [intent.md](intent.md)
-> Status: Draft. Implementation starts only after acceptance (medium risk).
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Acceptance criteria (verbatim from Jira)
 - [ ] Given a PR, when it is opened, then GitHub Actions runs lint, typecheck and unit tests and finishes in under 8 minutes

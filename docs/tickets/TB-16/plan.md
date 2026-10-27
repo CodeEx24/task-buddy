@@ -2,7 +2,7 @@
 
 > Jira: https://stratyge.atlassian.net/browse/TB-16 · Spec: [spec.md](spec.md)
 > Branch: `ci/tb-16/ci-and-eas-profiles` · Orca worktree `tb-16-ci-eas` · Merge order: **1st** in batch B (TB-16 → TB-17 → TB-21 → TB-19)
-> Status: Draft
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Goal
 Every PR is checked by CI in under 8 minutes, a dev-client build installs on the Android emulator, and `main` is protected.

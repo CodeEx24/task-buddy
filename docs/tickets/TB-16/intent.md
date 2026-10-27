@@ -1,7 +1,7 @@
 # TB-16 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-16 · Blueprint: US-002 · Wave 1 (batch B) · Risk: Medium
-> Status: Draft
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Problem
 Nothing checks a PR automatically. Lint, typecheck and tests only run when someone remembers to run them locally, and there is no installable development build. TB-15 ran on Expo Go, which can't load custom native modules (NativeWind's Reanimated setup, expo-sqlite config plugins and later notifications all need a dev client).
