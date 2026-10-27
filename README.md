@@ -17,6 +17,8 @@ pnpm start        # Expo dev server. Press "a" for Android, "w" for web, or scan
 
 `pnpm start` targets Expo Go for now. It switches to the dev client when the development build lands (TB-16).
 
+**Expo Go on iPhone:** scan the QR code with the Camera app (newer iOS Expo Go has no "Enter URL manually"). If Expo Go is signed in, the Expo CLI on your computer must be signed in to the same account. On Windows, log in with `npx expo login --no-browser`, because the browser login crashes there with Expo CLI 58.1.15.
+
 ## Scripts
 
 | Command | What it does |

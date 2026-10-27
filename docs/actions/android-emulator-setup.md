@@ -1,7 +1,8 @@
 # Set up an Android emulator and Expo Go on iPhone
 
 > Related: TB-15 (https://stratyge.atlassian.net/browse/TB-15) · Wave 1
-> Status: Open · Created by Claude Code on 2026-10-27
+> Status: Done (2026-10-27): Android emulator booted the app; the owner saw the app in Expo Go on iPhone. Created by Claude Code on 2026-10-27
+> Note: iOS Expo Go needs the computer's Expo CLI signed in to the same account. On Windows use `npx expo login --no-browser`, then scan the QR code with the iPhone Camera.
 
 ## Purpose
 TB-15's first acceptance criterion requires the app to boot on an Android emulator and on iOS. This Windows PC has no Android SDK or Java, and iOS simulators only run on macOS. You chose: an Android emulator on this PC (Claude drives it), plus a check in Expo Go on your iPhone.
