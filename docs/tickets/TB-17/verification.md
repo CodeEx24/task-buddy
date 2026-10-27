@@ -1,6 +1,6 @@
 # TB-17 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-17 · PR: (not opened yet) · Branch: `feat/tb-17/design-system`
+> Jira: https://stratyge.atlassian.net/browse/TB-17 · PR: https://github.com/CodeEx24/task-buddy/pull/7 · Branch: `feat/tb-17/design-system`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
