@@ -1,0 +1,6 @@
+# Keep LF everywhere so Prettier/ESLint pass on Windows clones too (TB-15).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.xlsx binary
