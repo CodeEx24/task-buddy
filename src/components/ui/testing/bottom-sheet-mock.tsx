@@ -1,7 +1,8 @@
 /**
  * Jest stand-in for `@gorhom/bottom-sheet` (TB-17). The library's own mock always renders its
  * children and ignores backdrops, so it cannot prove open/close behaviour. This one tracks the
- * presented state, renders the backdrop and background, and calls `onDismiss` like the library.
+ * current index, renders the backdrop and background, and calls `onChange(-1)` when it closes,
+ * like the library does at the end of its close animation.
  */
 import {
   createContext,
@@ -16,10 +17,14 @@ import { Pressable, View, type StyleProp, type ViewProps, type ViewStyle } from 
 
 type BackdropProps = { pressBehavior?: 'none' | 'close' | 'collapse' | number };
 
-type ModalProps = {
-  ref?: Ref<{ present: () => void; dismiss: () => void }>;
+type SheetMethods = { close: () => void; snapToIndex: (index: number) => void };
+
+type SheetProps = {
+  ref?: Ref<SheetMethods>;
+  index?: number;
   children?: ReactNode;
-  onDismiss?: () => void;
+  onChange?: (index: number) => void;
+  enablePanDownToClose?: boolean;
   backdropComponent?: (props: Record<string, unknown>) => ReactNode;
   backgroundStyle?: StyleProp<ViewStyle>;
   handleIndicatorStyle?: StyleProp<ViewStyle>;
@@ -28,50 +33,45 @@ type ModalProps = {
   accessibilityLabel?: string;
 };
 
+const CLOSED_INDEX = -1;
+
 // Library defaults (bottomSheet/constants.ts): the content container is one accessible
 // "adjustable" element labelled "Bottom Sheet" unless the caller overrides it.
 const DEFAULT_ACCESSIBLE = true;
 const DEFAULT_ACCESSIBILITY_ROLE = 'adjustable';
 const DEFAULT_ACCESSIBILITY_LABEL = 'Bottom Sheet';
 
-const DismissContext = createContext<() => void>(() => {});
+const CloseContext = createContext<() => void>(() => {});
 
-export function BottomSheetModalProvider({ children }: { children?: ReactNode }) {
-  return <>{children}</>;
-}
-
-export function BottomSheetModal({
+export default function BottomSheet({
   ref,
+  index = 0,
   children,
-  onDismiss,
+  onChange,
   backdropComponent,
   backgroundStyle,
   handleIndicatorStyle,
   accessible = DEFAULT_ACCESSIBLE,
   accessibilityRole = DEFAULT_ACCESSIBILITY_ROLE,
   accessibilityLabel = DEFAULT_ACCESSIBILITY_LABEL,
-}: ModalProps) {
-  const [isPresented, setIsPresented] = useState(false);
-  const isPresentedRef = useRef(false);
-
-  const present = () => {
-    isPresentedRef.current = true;
-    setIsPresented(true);
-  };
+}: SheetProps) {
+  const [currentIndex, setCurrentIndex] = useState(index);
+  const currentIndexRef = useRef(index);
 
   // Side effects stay outside state updaters (StrictMode-safe).
-  const dismiss = () => {
-    if (!isPresentedRef.current) return;
-    isPresentedRef.current = false;
-    setIsPresented(false);
-    onDismiss?.();
+  const snapToIndex = (next: number) => {
+    if (currentIndexRef.current === next) return;
+    currentIndexRef.current = next;
+    setCurrentIndex(next);
+    onChange?.(next);
   };
+  const close = () => snapToIndex(CLOSED_INDEX);
 
-  useImperativeHandle(ref, () => ({ present, dismiss }));
+  useImperativeHandle(ref, () => ({ close, snapToIndex }));
 
-  if (!isPresented) return null;
+  if (currentIndex === CLOSED_INDEX) return null;
   return (
-    <DismissContext.Provider value={dismiss}>
+    <CloseContext.Provider value={close}>
       {backdropComponent?.({ animatedIndex: { value: 0 }, animatedPosition: { value: 0 } })}
       <View
         testID="bottom-sheet-background"
@@ -83,17 +83,17 @@ export function BottomSheetModal({
         <View testID="bottom-sheet-handle" style={handleIndicatorStyle} />
         {children}
       </View>
-    </DismissContext.Provider>
+    </CloseContext.Provider>
   );
 }
 
 export function BottomSheetBackdrop({ pressBehavior = 'close' }: BackdropProps) {
-  const dismiss = useContext(DismissContext);
+  const close = useContext(CloseContext);
   return (
     <Pressable
       testID="bottom-sheet-backdrop"
       onPress={() => {
-        if (pressBehavior === 'close') dismiss();
+        if (pressBehavior === 'close') close();
       }}
     />
   );

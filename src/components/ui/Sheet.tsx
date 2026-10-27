@@ -1,13 +1,14 @@
-import {
+import BottomSheet, {
   BottomSheetBackdrop,
-  BottomSheetModal,
   BottomSheetView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { BackHandler, Text, View } from 'react-native';
 
 import { themeVars, useTheme } from '@/theme';
+
+import { useSheetHost } from './SheetHost';
 
 export type SheetProps = {
   /** Controlled visibility. */
@@ -23,37 +24,48 @@ export type SheetProps = {
   testID?: string;
 };
 
+/** Index of the single open snap point; -1 is the library's "closed". */
+const OPEN_INDEX = 0;
+const CLOSED_INDEX = -1;
+
 function renderBackdrop(props: BottomSheetBackdropProps) {
   return (
     <BottomSheetBackdrop
       {...props}
-      appearsOnIndex={0}
-      disappearsOnIndex={-1}
+      appearsOnIndex={OPEN_INDEX}
+      disappearsOnIndex={CLOSED_INDEX}
       pressBehavior="close"
     />
   );
 }
 
 /**
- * Controlled bottom sheet (`@gorhom/bottom-sheet` modal). Needs `UiProvider` above it.
- * Closes on backdrop press, swipe down, the Android hardware back button and the iOS
+ * Controlled bottom sheet built on `@gorhom/bottom-sheet`'s plain `BottomSheet`, rendered above
+ * the app by `SheetHost` (part of `UiProvider`, which must be above it). Mounted only while open
+ * or closing. Closes on backdrop press, swipe down, the Android hardware back button and the iOS
  * accessibility escape gesture.
  *
  * Known limit: screen readers can still reach app content behind the sheet (no focus trap yet).
  */
 export function Sheet({ open, onOpenChange, title, children, testID }: SheetProps) {
   const { colors, scheme } = useTheme();
-  const modalRef = useRef<BottomSheetModal>(null);
-  // Lets onDismiss tell a user-initiated close apart from one the parent already made.
+  const { setSheet } = useSheetHost();
+  const key = useId();
+  const sheetRef = useRef<BottomSheet>(null);
+  // Stays true through the close animation, so the sheet can slide out before it unmounts.
+  const [isMounted, setIsMounted] = useState(open);
+  if (open && !isMounted) setIsMounted(true);
+  // Lets the close callback tell a user-initiated close apart from one the parent already made.
   const isOpenRef = useRef(open);
 
-  // Sync the controlled prop with the library's imperative API.
+  // Sync the controlled prop with the library's imperative API. The first open animates on
+  // mount (index 0); re-opening during a close animation snaps back up.
   useEffect(() => {
     isOpenRef.current = open;
     if (open) {
-      modalRef.current?.present();
+      sheetRef.current?.snapToIndex(OPEN_INDEX);
     } else {
-      modalRef.current?.dismiss();
+      sheetRef.current?.close();
     }
   }, [open]);
 
@@ -66,17 +78,21 @@ export function Sheet({ open, onOpenChange, title, children, testID }: SheetProp
     return () => subscription.remove();
   }, [open, onOpenChange]);
 
-  const handleDismiss = () => {
+  const handleChange = (index: number) => {
+    if (index !== CLOSED_INDEX) return;
+    setIsMounted(false);
     if (isOpenRef.current) {
       isOpenRef.current = false;
       onOpenChange(false);
     }
   };
 
-  return (
-    <BottomSheetModal
-      ref={modalRef}
-      onDismiss={handleDismiss}
+  const node = isMounted ? (
+    <BottomSheet
+      ref={sheetRef}
+      index={OPEN_INDEX}
+      enablePanDownToClose
+      onChange={handleChange}
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: colors.surface }}
       handleIndicatorStyle={{ backgroundColor: colors.outline }}
@@ -87,7 +103,7 @@ export function Sheet({ open, onOpenChange, title, children, testID }: SheetProp
       <BottomSheetView>
         {/*
           Core View: BottomSheetView is not NativeWind-interop, so classes go here. The sheet renders
-          through a portal, so the theme variables are re-applied instead of relying on context.
+          in SheetHost, so the theme variables are re-applied instead of relying on an ancestor.
         */}
         <View
           testID={testID}
@@ -101,6 +117,16 @@ export function Sheet({ open, onOpenChange, title, children, testID }: SheetProp
           {children}
         </View>
       </BottomSheetView>
-    </BottomSheetModal>
-  );
+    </BottomSheet>
+  ) : null;
+
+  // Hand the latest sheet (props, theme, children) to the host after every render.
+  useEffect(() => {
+    setSheet(key, node);
+  });
+
+  // Remove it when the Sheet itself unmounts.
+  useEffect(() => () => setSheet(key, null), [setSheet, key]);
+
+  return null;
 }
