@@ -15,6 +15,12 @@ All run on Windows 11, Node 24.21.0, pnpm 10.17.1, on 2026-10-27.
 | `npx expo-doctor` | pass | 20/20 checks passed |
 | `npx expo export --platform android --platform web` | pass | Android Hermes bundle `entry-….hbc` (2.5 MB). Static web `index.html` contains `<h1 role="heading">Task Buddy` |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-15/scaffold-expo-app` | pass | `workflow check: ok` |
+| `pnpm lint` (after moving routes to `src/app/`) | pass | 0 errors |
+| `pnpm typecheck` (after move) | pass | |
+| `pnpm test` (after move) | pass | 2 suites, 3 tests. Route test uses `renderRouter('./src/app')`. Negative check: moving `src/app/index.tsx` away → 1 failed (restored) |
+| Expo CLI routes folder (after move) | pass | `@expo/cli` 58.1.15 `getRouterDirectory()` uses `src/app` when it exists and logs "Using src/app as the root directory for Expo Router." No `app.json` change needed |
+
+Routes moved from root `app/` to `src/app/` on 2026-10-27 (owner decision, see the spec decision log). The rows marked "after move" are the re-run.
 
 Failures hit during the build, and their fixes:
 1. `tsc`: `Cannot find name 'describe'`. TypeScript 6 no longer loads `@types/*` automatically → added `"types": ["jest"]` to `tsconfig.json`.
@@ -24,12 +30,13 @@ Failures hit during the build, and their fixes:
 5. The route test first used `node:path`/`__dirname`, which needs Node types in app code → switched to `renderRouter('./app')`, which resolves from the Jest rootDir.
 6. After rebasing onto `main` (post PR #3 merge), Git's `core.autocrlf=true` checked files out with CRLF → `pnpm lint` failed with 86 `prettier/prettier Delete ␍` errors. A fresh Windows clone would have hit the same failure (AC2) → added `.gitattributes` (`* text=auto eol=lf`, binaries marked), renormalized, re-checked out → lint 0 errors, typecheck 0, tests 3/3.
 
+
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence |
 |---|---|---|
-| Given a fresh clone, when I run `pnpm install && pnpm start`, then the app boots on an iOS simulator and an Android emulator with a placeholder home route | met | **Android emulator:** booted, placeholder home shown (UI tree `home-screen` + "Task Buddy"; [screenshot](android-emulator-home.png)). **iOS:** placeholder home shown in Expo Go on the owner's iPhone. Route-level test renders the real `app/` at `/` → `home-screen`. **Accepted exception (owner decision Q1, 2026-10-27):** iOS was verified on a physical device, not the *simulator*, because this is a Windows machine. An iOS-simulator boot job is a TB-16 follow-up |
+| Given a fresh clone, when I run `pnpm install && pnpm start`, then the app boots on an iOS simulator and an Android emulator with a placeholder home route | met | **Android emulator:** booted, placeholder home shown (UI tree `home-screen` + "Task Buddy"; [screenshot](android-emulator-home.png)). **iOS:** placeholder home shown in Expo Go on the owner's iPhone. Route-level test renders the real `src/app/` at `/` → `home-screen`. **Accepted exception (owner decision Q1, 2026-10-27):** iOS was verified on a physical device, not the *simulator*, because this is a Windows machine. An iOS-simulator boot job is a TB-16 follow-up |
 | Given the repo, when I run `pnpm lint && pnpm typecheck`, then both pass with zero errors in strict mode | met | Both exit 0 (table above). `strict: true` + `noUncheckedIndexedAccess`; `any` is a lint error |
-| The folder structure matches CLAUDE.md section 3 and `docs/tickets/_TEMPLATE.md` exists | met | `app/`, `src/{features,components/ui,db,lib,stores,theme}`, `packages/schemas`, `supabase/{migrations,functions,tests}`, `evals`, `.maestro`, `docs/tickets/` all exist; placeholder folders have purpose READMEs. `docs/tickets/_TEMPLATE.md` exists (from the workflow PR #3, which this branch is stacked on) |
+| The folder structure matches CLAUDE.md section 3 and `docs/tickets/_TEMPLATE.md` exists | met | `src/app/`, `src/{features,components/ui,db,lib,stores,theme}`, `packages/schemas`, `supabase/{migrations,functions,tests}`, `evals`, `.maestro`, `docs/tickets/` all exist; placeholder folders have purpose READMEs. `docs/tickets/_TEMPLATE.md` exists (from the workflow PR #3, which this branch is stacked on) |
 | Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | Tests added and passing (3). No prior code, so no regressions possible. Ticket docs written (intent, spec, plan, this file). Pre-PR review done (independent reviewer, findings below). The human PR review is enforced at merge (`/merge-ticket`), not before the PR is opened |
 
 ## Manual / E2E

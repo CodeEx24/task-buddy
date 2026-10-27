@@ -59,7 +59,7 @@ One **coordinator** session (where you talk to Claude) runs the wave. **Workers*
 
 **Worker brief** (the coordinator writes it; the worker reads nothing else to start):
 - Jira key and URL, plus the paths to `intent.md`, `spec.md`, `plan.md`.
-- **Owns:** the paths it may edit. **Must not edit:** the paths it may not touch. Shared files (`package.json`, lockfile, `babel.config.js`, `metro.config.js`, `app/_layout.tsx`, `packages/schemas/**`) are listed explicitly, together with the coordination rule from the wave plan.
+- **Owns:** the paths it may edit. **Must not edit:** the paths it may not touch. Shared files (`package.json`, lockfile, `babel.config.js`, `metro.config.js`, `src/app/_layout.tsx`, `packages/schemas/**`) are listed explicitly, together with the coordination rule from the wave plan.
 - The gates to run, and the instruction to stop before `git push`.
 - **Report format** (`worker_done` payload): changed files; gate results with the commands run; AC status table; deviations from the plan; open concerns.
 
