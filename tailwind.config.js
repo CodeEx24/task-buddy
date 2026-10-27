@@ -2,7 +2,13 @@
 // Colour classes resolve to CSS variables set per colour scheme by `UiProvider`,
 // so primitives use semantic names (`bg-surface`, `text-muted`) and never raw hex.
 // Tailwind loads config dependencies through jiti, so the TypeScript tokens are the single source.
-const { COLOR_TOKENS, fontSize, radius, spacing } = require('./src/theme/tokens.ts');
+const {
+  COLOR_TOKENS,
+  MIN_TOUCH_TARGET,
+  fontSize,
+  radius,
+  spacing,
+} = require('./src/theme/tokens.ts');
 
 /** `textMuted` → `text-muted` class key and `--color-text-muted` variable. */
 const toKebab = (token) => token.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
@@ -31,8 +37,8 @@ module.exports = {
           [`${size}px`, { lineHeight: `${lineHeight}px` }],
         ]),
       ),
-      minHeight: { touch: '44px' },
-      minWidth: { touch: '44px' },
+      minHeight: { touch: `${MIN_TOUCH_TARGET}px` },
+      minWidth: { touch: `${MIN_TOUCH_TARGET}px` },
     },
   },
   plugins: [],

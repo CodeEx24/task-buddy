@@ -6,9 +6,12 @@ import { MIN_TOUCH_TARGET } from '@/theme';
 export type CardProps = {
   title?: string;
   children?: ReactNode;
-  /** Makes the whole card a pressable button. */
+  /**
+   * Makes the whole card a pressable button. Don't put interactive children in a pressable
+   * card: screen readers treat it as one button and can't reach them.
+   */
   onPress?: (event: GestureResponderEvent) => void;
-  /** Defaults to `title` when the card is pressable. */
+  /** Defaults to `title` when the card is pressable; describe the body here if it matters. */
   accessibilityLabel?: string;
   className?: string;
   testID?: string;

@@ -50,6 +50,28 @@ describe('Sheet', () => {
     });
   });
 
+  it('does not group its content into one accessible element (screen readers reach the controls)', async () => {
+    await render(
+      <Sheet open onOpenChange={jest.fn()} title="Details">
+        <Text>Content</Text>
+      </Sheet>,
+    );
+    // The library defaults to accessible=true + role "adjustable", which on iOS hides the
+    // header and buttons inside the sheet from VoiceOver.
+    expect(screen.getByTestId('bottom-sheet-background').props.accessible).toBe(false);
+  });
+
+  it('closes on the iOS accessibility escape gesture', async () => {
+    const onOpenChange = jest.fn();
+    await render(
+      <Sheet open onOpenChange={onOpenChange} title="Details" testID="sheet">
+        <Text>Content</Text>
+      </Sheet>,
+    );
+    await act(() => screen.getByTestId('sheet').props.onAccessibilityEscape());
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('requests close on backdrop press', async () => {
     const onOpenChange = jest.fn();
     await render(

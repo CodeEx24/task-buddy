@@ -13,6 +13,7 @@ export type ButtonProps = Omit<PressableProps, 'children' | 'style' | 'disabled'
   /** Shows a spinner, ignores presses and reports `busy` to assistive tech. */
   loading?: boolean;
   disabled?: boolean;
+  /** Layout only (margins, flex). Colour overrides conflict with the variant classes. */
   className?: string;
 };
 
@@ -69,7 +70,11 @@ export function Button({
       {loading ? (
         <ActivityIndicator testID="button-spinner" size="small" color={colors[SPINNER[variant]]} />
       ) : null}
-      <Text className={`font-semibold ${LABEL[variant]} ${SIZE[size].label}`}>{label}</Text>
+      <Text
+        className={`flex-shrink text-center font-semibold ${LABEL[variant]} ${SIZE[size].label}`}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

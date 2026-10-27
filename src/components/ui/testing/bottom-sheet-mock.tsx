@@ -7,6 +7,7 @@ import {
   createContext,
   useContext,
   useImperativeHandle,
+  useRef,
   useState,
   type ReactNode,
   type Ref,
@@ -22,7 +23,16 @@ type ModalProps = {
   backdropComponent?: (props: Record<string, unknown>) => ReactNode;
   backgroundStyle?: StyleProp<ViewStyle>;
   handleIndicatorStyle?: StyleProp<ViewStyle>;
+  accessible?: boolean;
+  accessibilityRole?: ViewProps['accessibilityRole'];
+  accessibilityLabel?: string;
 };
+
+// Library defaults (bottomSheet/constants.ts): the content container is one accessible
+// "adjustable" element labelled "Bottom Sheet" unless the caller overrides it.
+const DEFAULT_ACCESSIBLE = true;
+const DEFAULT_ACCESSIBILITY_ROLE = 'adjustable';
+const DEFAULT_ACCESSIBILITY_LABEL = 'Bottom Sheet';
 
 const DismissContext = createContext<() => void>(() => {});
 
@@ -37,23 +47,39 @@ export function BottomSheetModal({
   backdropComponent,
   backgroundStyle,
   handleIndicatorStyle,
+  accessible = DEFAULT_ACCESSIBLE,
+  accessibilityRole = DEFAULT_ACCESSIBILITY_ROLE,
+  accessibilityLabel = DEFAULT_ACCESSIBILITY_LABEL,
 }: ModalProps) {
   const [isPresented, setIsPresented] = useState(false);
+  const isPresentedRef = useRef(false);
 
-  const dismiss = () => {
-    setIsPresented((wasPresented) => {
-      if (wasPresented) onDismiss?.();
-      return false;
-    });
+  const present = () => {
+    isPresentedRef.current = true;
+    setIsPresented(true);
   };
 
-  useImperativeHandle(ref, () => ({ present: () => setIsPresented(true), dismiss }));
+  // Side effects stay outside state updaters (StrictMode-safe).
+  const dismiss = () => {
+    if (!isPresentedRef.current) return;
+    isPresentedRef.current = false;
+    setIsPresented(false);
+    onDismiss?.();
+  };
+
+  useImperativeHandle(ref, () => ({ present, dismiss }));
 
   if (!isPresented) return null;
   return (
     <DismissContext.Provider value={dismiss}>
       {backdropComponent?.({ animatedIndex: { value: 0 }, animatedPosition: { value: 0 } })}
-      <View testID="bottom-sheet-background" style={backgroundStyle}>
+      <View
+        testID="bottom-sheet-background"
+        style={backgroundStyle}
+        accessible={accessible}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+      >
         <View testID="bottom-sheet-handle" style={handleIndicatorStyle} />
         {children}
       </View>

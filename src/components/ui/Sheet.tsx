@@ -12,7 +12,11 @@ import { themeVars, useTheme } from '@/theme';
 export type SheetProps = {
   /** Controlled visibility. */
   open: boolean;
-  /** Called with `false` when the user closes the sheet (backdrop, swipe down, back button). */
+  /**
+   * Called with `false` when the user closes the sheet (backdrop, swipe down, back button,
+   * iOS escape gesture). The parent must accept it (set `open` to false); the sheet is already
+   * closing, and ignoring it leaves `open` stuck at true.
+   */
   onOpenChange: (open: boolean) => void;
   title: string;
   children?: ReactNode;
@@ -32,7 +36,10 @@ function renderBackdrop(props: BottomSheetBackdropProps) {
 
 /**
  * Controlled bottom sheet (`@gorhom/bottom-sheet` modal). Needs `UiProvider` above it.
- * Closes on backdrop press, swipe down and the Android hardware back button.
+ * Closes on backdrop press, swipe down, the Android hardware back button and the iOS
+ * accessibility escape gesture.
+ *
+ * Known limit: screen readers can still reach app content behind the sheet (no focus trap yet).
  */
 export function Sheet({ open, onOpenChange, title, children, testID }: SheetProps) {
   const { colors, scheme } = useTheme();
@@ -73,14 +80,21 @@ export function Sheet({ open, onOpenChange, title, children, testID }: SheetProp
       backdropComponent={renderBackdrop}
       backgroundStyle={{ backgroundColor: colors.surface }}
       handleIndicatorStyle={{ backgroundColor: colors.outline }}
-      accessibilityLabel={title}
+      // The library groups the sheet into one "adjustable" element by default, which hides the
+      // header and buttons inside it from VoiceOver. Keep the children individually reachable.
+      accessible={false}
     >
-      <BottomSheetView accessibilityViewIsModal>
+      <BottomSheetView>
         {/*
           Core View: BottomSheetView is not NativeWind-interop, so classes go here. The sheet renders
           through a portal, so the theme variables are re-applied instead of relying on context.
         */}
-        <View testID={testID} style={themeVars[scheme]} className="gap-lg px-xl pb-2xl pt-sm">
+        <View
+          testID={testID}
+          style={themeVars[scheme]}
+          onAccessibilityEscape={() => onOpenChange(false)}
+          className="gap-lg px-xl pb-2xl pt-sm"
+        >
           <Text accessibilityRole="header" className="text-xl font-semibold text-text">
             {title}
           </Text>
