@@ -22,6 +22,7 @@ Failures hit during the build, and their fixes:
 3. Jest picked up `.claude/skills/secret-redactor/tests` → added `/.claude/` (and `/supabase/`) to `testPathIgnorePatterns`.
 4. `pnpm expo install` added ESLint 10, but `eslint-config-expo` 58's plugins require ESLint ≤ 9 (peer warnings) → pinned `eslint@^9`.
 5. The route test first used `node:path`/`__dirname`, which needs Node types in app code → switched to `renderRouter('./app')`, which resolves from the Jest rootDir.
+6. After rebasing onto `main` (post PR #3 merge), Git's `core.autocrlf=true` checked files out with CRLF → `pnpm lint` failed with 86 `prettier/prettier Delete ␍` errors. A fresh Windows clone would have hit the same failure (AC2) → added `.gitattributes` (`* text=auto eol=lf`, binaries marked), renormalized, re-checked out → lint 0 errors, typecheck 0, tests 3/3.
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence |
