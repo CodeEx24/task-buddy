@@ -65,6 +65,22 @@ describe('local schema (first launch)', () => {
     });
   });
 
+  it('rejects an unknown task status or out-of-range priority at the DB level', () => {
+    // CHECK constraints back up the Zod input schemas for any write that bypasses the repos.
+    const { db, sqlite, close } = openNodeDb();
+    migrateNodeDb(db);
+    const insert = sqlite.prepare(
+      'insert into tasks (id, created_at, updated_at, title, status, priority) values (?, 1, 1, ?, ?, ?)',
+    );
+
+    expect(() => insert.run('t-ok-low', 'ok', 'open', 0)).not.toThrow();
+    expect(() => insert.run('t-ok-high', 'ok', 'done', 3)).not.toThrow();
+    expect(() => insert.run('t-bad-status', 'bad', 'archived', 0)).toThrow(/tasks_status_check/);
+    expect(() => insert.run('t-bad-low', 'bad', 'open', -1)).toThrow(/tasks_priority_check/);
+    expect(() => insert.run('t-bad-high', 'bad', 'open', 4)).toThrow(/tasks_priority_check/);
+    close();
+  });
+
   it('bundles every journal migration for the app (drizzle/migrations.js)', () => {
     // The app imports drizzle/migrations.js (expo driver); a missing entry would skip a migration.
     const bundle = readFileSync(join(MIGRATIONS_FOLDER, 'migrations.js'), 'utf8');

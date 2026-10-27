@@ -55,5 +55,7 @@ CREATE TABLE `tasks` (
 	`due_at` integer,
 	`completed_at` integer,
 	`sort_order` real DEFAULT 0 NOT NULL,
-	FOREIGN KEY (`list_id`) REFERENCES `lists`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`list_id`) REFERENCES `lists`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "tasks_status_check" CHECK("tasks"."status" IN ('open', 'done')),
+	CONSTRAINT "tasks_priority_check" CHECK("tasks"."priority" BETWEEN 0 AND 3)
 );

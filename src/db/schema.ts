@@ -5,7 +5,15 @@
 // After a release, never edit a shipped migration: change this file and run `pnpm db:generate`
 // to fix forward with a new migration.
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 /** Columns every synced table carries. */
 function syncColumns() {
@@ -41,6 +49,9 @@ export const tasks = sqliteTable(
     sortOrder: real('sort_order').notNull().default(0),
   },
   (t) => [
+    // DB-level guards that match the Zod input schemas, so bad rows fail even outside the repos.
+    check('tasks_status_check', sql`${t.status} IN ('open', 'done')`),
+    check('tasks_priority_check', sql`${t.priority} BETWEEN 0 AND 3`),
     // Main list query: live + open, ordered by due date then manual order (migration 0001).
     index('tasks_live_status_due_sort_idx').on(t.deletedAt, t.status, t.dueAt, t.sortOrder),
     index('tasks_list_id_idx').on(t.listId),

@@ -25,6 +25,15 @@ export type TableSnapshot = {
 const ROWS_PER_TABLE = 6;
 const BASE_TIME = 1_790_000_000_000;
 
+/**
+ * Allowed values for columns guarded by a CHECK constraint, keyed `table.column`.
+ * Add an entry when a migration adds a CHECK, or seeding fails with "CHECK constraint failed".
+ */
+const CHECKED_COLUMN_VALUES: Record<string, readonly unknown[]> = {
+  'tasks.status': ['open', 'done'],
+  'tasks.priority': [0, 1, 2, 3],
+};
+
 function userTables(sqlite: Database.Database): string[] {
   return (
     sqlite
@@ -65,6 +74,8 @@ const quote = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
 function valueFor(table: string, column: Column, row: number): unknown {
   if (column.name === 'deleted_at') return row % 2 === 1 ? BASE_TIME + row : null; // live + soft-deleted
   if (column.name.endsWith('_at')) return BASE_TIME + row * 1000;
+  const allowed = CHECKED_COLUMN_VALUES[`${table}.${column.name}`];
+  if (allowed) return allowed[row % allowed.length];
   const type = column.type.toUpperCase();
   if (type.includes('INT')) return row % 2;
   if (type.includes('REAL') || type.includes('FLOA') || type.includes('DOUB')) return row + 0.5;
