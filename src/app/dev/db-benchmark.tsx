@@ -2,7 +2,9 @@
 // listOpenTasks on 10,000 tasks in a separate benchmark.db (AC3). Not available in release builds.
 // Logic lives in src/db and src/features/tasks/repo; this route only renders it.
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, type TextStyle } from 'react-native';
+
+import { Button, Card } from '@/components/ui';
 
 import { getDb, migrateDb, openBenchmarkDb } from '@/db/client';
 import { logDbError } from '@/db/db-errors';
@@ -12,6 +14,9 @@ import { runListBenchmark, type BenchmarkResult } from '@/features/tasks/repo/li
 import NotFoundScreen from '../+not-found';
 
 type DbInfo = { tables: string[]; migrations: number };
+
+/** Fixed-width digits so timings line up (no Tailwind class for font-variant in NativeWind). */
+const TABULAR: TextStyle = { fontVariant: ['tabular-nums'] };
 
 async function readDbInfo(): Promise<DbInfo> {
   const db = getDb();
@@ -62,42 +67,54 @@ function DbBenchmarkScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} testID="db-benchmark-screen">
-      <Text style={styles.title} accessibilityRole="header">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="gap-md p-xl"
+      testID="db-benchmark-screen"
+    >
+      <Text accessibilityRole="header" className="text-xl font-semibold text-text">
         Local DB check
       </Text>
-      <Text style={styles.label}>Tables in taskbuddy.db</Text>
-      <Text testID="db-tables">{info ? info.tables.join(', ') : '…'}</Text>
-      <Text testID="db-migrations">Migrations applied: {info ? info.migrations : '…'}</Text>
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={state === 'running'}
-        onPress={start}
-        style={styles.button}
-        testID="db-benchmark-run"
-      >
-        <Text style={styles.buttonLabel}>
-          {state === 'running' ? 'Running…' : 'Run benchmark (10,000 tasks)'}
+      <Card title="Tables in taskbuddy.db">
+        <Text className="text-base text-text" testID="db-tables">
+          {info ? info.tables.join(', ') : '…'}
         </Text>
-      </Pressable>
+        <Text className="text-base text-text" testID="db-migrations">
+          Migrations applied: {info ? info.migrations : '…'}
+        </Text>
+      </Card>
 
-      {state === 'error' ? <Text testID="db-benchmark-error">Failed. See the log.</Text> : null}
+      <Button
+        label={state === 'running' ? 'Running…' : 'Run benchmark (10,000 tasks)'}
+        loading={state === 'running'}
+        onPress={start}
+        testID="db-benchmark-run"
+      />
+
+      {state === 'error' ? (
+        <Text className="text-base text-danger" testID="db-benchmark-error">
+          Failed. See the log.
+        </Text>
+      ) : null}
       {result ? (
-        <View testID="db-benchmark-result" style={styles.result}>
-          <Text>
+        <Card testID="db-benchmark-result">
+          <Text className="text-base text-text">
             listOpenTasks first page ({result.pageSize} rows) × {result.runs} runs
           </Text>
-          <Text style={styles.metric}>p50 {result.p50Ms} ms</Text>
-          <Text style={styles.metric} testID="db-benchmark-p95">
+          <Text className="text-lg text-text" style={TABULAR}>
+            p50 {result.p50Ms} ms
+          </Text>
+          <Text className="text-lg text-text" style={TABULAR} testID="db-benchmark-p95">
             p95 {result.p95Ms} ms
           </Text>
-          <Text style={styles.metric}>max {result.maxMs} ms</Text>
-          <Text>one-list p95 {result.listP95Ms} ms</Text>
-          <Text>
+          <Text className="text-lg text-text" style={TABULAR}>
+            max {result.maxMs} ms
+          </Text>
+          <Text className="text-base text-text-muted">one-list p95 {result.listP95Ms} ms</Text>
+          <Text className="text-base text-text-muted">
             seeded {result.taskCount} tasks in {result.seedMs} ms
           </Text>
-        </View>
+        </Card>
       ) : null}
     </ScrollView>
   );
@@ -106,13 +123,3 @@ function DbBenchmarkScreen() {
 export default function DbBenchmarkRoute() {
   return __DEV__ ? <DbBenchmarkScreen /> : <NotFoundScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 24, gap: 12 },
-  title: { fontSize: 20, fontWeight: '600' },
-  label: { fontWeight: '600' },
-  button: { padding: 12, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
-  buttonLabel: { fontSize: 16, fontWeight: '600' },
-  result: { gap: 4 },
-  metric: { fontSize: 18, fontVariant: ['tabular-nums'] },
-});

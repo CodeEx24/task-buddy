@@ -2,8 +2,8 @@ import { renderRouter, screen, fireEvent } from 'expo-router/testing-library';
 
 import { resetDbForTests } from '@/db/node-client';
 
-// Renders the real app/dev/db-benchmark.tsx route (dev build: __DEV__ is true in Jest).
-const APP_DIR = './app';
+// Renders the real src/app/dev/db-benchmark.tsx route (dev build: __DEV__ is true in Jest).
+const APP_DIR = './src/app';
 
 beforeEach(() => resetDbForTests());
 

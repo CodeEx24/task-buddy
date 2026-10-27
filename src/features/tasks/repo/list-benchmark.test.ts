@@ -11,7 +11,7 @@ import {
 import { listOpenTasks } from './task-repo';
 
 // TB-21 AC3 regression guard (Node + better-sqlite3). The AC evidence is the device/emulator
-// run of app/dev/db-benchmark.tsx; this keeps the query plan from regressing in CI.
+// run of src/app/dev/db-benchmark.tsx; this keeps the query plan from regressing in CI.
 describe('listOpenTasks performance', () => {
   it('serves the first page of 10,000 tasks under 50 ms at p95', () => {
     const handle = openMigratedNodeDb();

@@ -1,8 +1,11 @@
-// NativeWind v4 (TB-17). TB-21 appends to this file after TB-17 merges.
+// NativeWind v4 (TB-17) + Drizzle SQL migrations (TB-21).
 const { getDefaultConfig } = require('expo/metro-config');
 const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
+
+// TB-21: let Metro resolve the generated drizzle/*.sql migrations (inlined by Babel).
+config.resolver.sourceExts.push('sql');
 
 module.exports = withNativeWind(config, {
   input: './global.css',
