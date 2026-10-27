@@ -5,7 +5,10 @@
 export function describeDbError(error: unknown): { name: string; code?: string } {
   if (!(error instanceof Error)) return { name: typeof error };
   const withCode = error as Error & { code?: unknown; cause?: unknown };
-  const fromCode = typeof withCode.code === 'string' ? withCode.code : undefined;
+  // Drizzle wraps driver errors (DrizzleQueryError) and keeps the driver error as `cause`.
+  const cause = withCode.cause as { code?: unknown } | undefined;
+  const rawCode = withCode.code ?? cause?.code;
+  const fromCode = typeof rawCode === 'string' ? rawCode : undefined;
   // expo-sqlite: "... Error code 5: database is locked"; better-sqlite3: code "SQLITE_BUSY".
   const fromMessage = /Error code (\d+)/.exec(error.message)?.[1];
   const code = fromCode ?? (fromMessage ? `SQLITE_${fromMessage}` : undefined);

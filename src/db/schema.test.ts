@@ -54,6 +54,17 @@ describe('local schema (first launch)', () => {
     close();
   });
 
+  it('keeps the journal ordered (Drizzle skips a migration whose "when" is not newer)', () => {
+    // The migrator applies an entry only if its `when` is later than the last applied one, so an
+    // out-of-order timestamp would be skipped silently on devices that already migrated.
+    const entries = readJournal();
+    entries.forEach((entry, i) => {
+      expect(entry.idx).toBe(i);
+      const previous = entries[i - 1];
+      if (previous) expect(entry.when).toBeGreaterThan(previous.when);
+    });
+  });
+
   it('bundles every journal migration for the app (drizzle/migrations.js)', () => {
     // The app imports drizzle/migrations.js (expo driver); a missing entry would skip a migration.
     const bundle = readFileSync(join(MIGRATIONS_FOLDER, 'migrations.js'), 'utf8');
