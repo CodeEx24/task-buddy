@@ -32,7 +32,7 @@ The mapping from workbook IDs to Jira keys (`US-001` → `TB-15`) is the `Bluepr
 | **Build** | Same skill, phase 6, in an Orca worktree | Code and tests on `<type>/tb-<n>/<slug>` | None for routine work. A scope change beyond the spec goes back to the human |
 | **Verify** | Phases 7–11 (+ `/verify-ticket`) | `verification.md` | Deterministic gates must be green. Independent review for medium/high risk |
 | **Review / PR** | Phase 12 | PR (body restates the AC, links Jira and the ticket docs) | **Human go before push.** Merge needs human approval and green CI |
-| **Merge / close** | `/merge-ticket TB-###` | Jira comment, status `Done` | Refuses on red CI or a failed deploy |
+| **Merge / close** | `/merge-ticket TB-###` | Jira comment, status `Done` | Refuses on red CI or a failed deploy. `main` is protected (since TB-16): required check `ci`, branch up to date, 1 approval, linear history. A solo owner can't approve their own PR, so the owner merges with the admin bypass, or explicitly tells the agent to use `gh pr merge --squash --admin` |
 | **Deploy** | EAS Build / Update / Submit | Release notes and an action guide in `docs/actions/` | **A named human authorizes every store submission and production OTA update** |
 | **Maintain** | Incident or regression | New Jira bug + `docs/tickets/TB-###/intent.md` + a regression test | Same pipeline as any ticket |
 
@@ -117,8 +117,8 @@ Ask the human (batched, with a recommendation first) whenever a choice changes b
 | Check | Command | Runs |
 |---|---|---|
 | Jira ↔ workbook reconciliation, graph validity | `python scripts/workflow/reconcile_workbook.py <export.json>` | `/plan-waves` |
-| Ticket docs link Jira; folder layout; action-guide structure; branch name | `node scripts/workflow/check-ticket-docs.mjs [--branch <b>] [--pr]` | Before every PR (`--pr`). **Follow-up: add it to CI in TB-16** |
-| Lint, typecheck, unit/integration tests | `pnpm lint && pnpm typecheck && pnpm test` | Every task (fast subset) and before every PR. CI from TB-16 |
+| Ticket docs link Jira; folder layout; action-guide structure; branch name | `node scripts/workflow/check-ticket-docs.mjs [--branch <b>] [--pr]` | Before every PR (`--pr`). Runs in CI (`ci` job) on every non-draft PR |
+| Lint, typecheck, unit/integration tests | `pnpm lint && pnpm typecheck && pnpm test` | Every task (fast subset) and before every PR. CI (`.github/workflows/ci.yml`, job `ci`) on every PR and push to `main` |
 | AI evals | `pnpm eval` | AI-touching PRs from TB-39. Before that, per-ticket golden examples (wave plan, judgement call 1) |
 | E2E | `pnpm e2e` | Critical paths from TB-52 |
 
