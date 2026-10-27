@@ -3,6 +3,7 @@
 // this file, so code under test (DbGate, the benchmark screen) runs real migrations in Node.
 // Never import this from app code: better-sqlite3 is a dev dependency.
 import Database from 'better-sqlite3';
+import type { Logger } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -25,11 +26,11 @@ export type NodeDb = {
 };
 
 /** Opens a SQLite DB with the same pragmas as the app (WAL, foreign keys on). */
-export function openNodeDb(filename = ':memory:'): NodeDb {
+export function openNodeDb(filename = ':memory:', options: { logger?: Logger } = {}): NodeDb {
   const sqlite = new Database(filename);
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
-  const db = drizzle(sqlite, { schema });
+  const db = drizzle(sqlite, { schema, logger: options.logger });
   return { db, sqlite, close: () => sqlite.close() };
 }
 
@@ -97,4 +98,11 @@ export function openBenchmarkDb(): { db: TaskBuddyDb; close: () => void } {
 export function resetDbForTests(): void {
   appDb?.close();
   appDb = undefined;
+}
+
+/** Test helper: an in-memory DB with every migration applied. */
+export function openMigratedNodeDb(options: { logger?: Logger } = {}): NodeDb {
+  const handle = openNodeDb(':memory:', options);
+  migrateNodeDb(handle.db);
+  return handle;
 }
