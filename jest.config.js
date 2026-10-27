@@ -5,7 +5,12 @@ module.exports = {
     // Keep in sync with tsconfig.json "paths" (more specific alias first).
     '^@/assets/(.*)$': '<rootDir>/assets/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
+    // NativeWind's global.css is compiled by Metro; Jest only needs the import to resolve (TB-17).
+    '\\.css$': '<rootDir>/src/components/ui/testing/css-stub.ts',
   },
+  // Gesture-handler and bottom-sheet mocks for the design system primitives (TB-17).
+  // Jest appends these to the jest-expo preset's own setupFiles.
+  setupFiles: ['<rootDir>/src/components/ui/testing/jest-setup.ts'],
   // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase CLI.
   testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/.claude/', '/supabase/'],
 };

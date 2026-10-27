@@ -1,0 +1,78 @@
+/**
+ * Jest stand-in for `@gorhom/bottom-sheet` (TB-17). The library's own mock always renders its
+ * children and ignores backdrops, so it cannot prove open/close behaviour. This one tracks the
+ * presented state, renders the backdrop and background, and calls `onDismiss` like the library.
+ */
+import {
+  createContext,
+  useContext,
+  useImperativeHandle,
+  useState,
+  type ReactNode,
+  type Ref,
+} from 'react';
+import { Pressable, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
+
+type BackdropProps = { pressBehavior?: 'none' | 'close' | 'collapse' | number };
+
+type ModalProps = {
+  ref?: Ref<{ present: () => void; dismiss: () => void }>;
+  children?: ReactNode;
+  onDismiss?: () => void;
+  backdropComponent?: (props: Record<string, unknown>) => ReactNode;
+  backgroundStyle?: StyleProp<ViewStyle>;
+  handleIndicatorStyle?: StyleProp<ViewStyle>;
+};
+
+const DismissContext = createContext<() => void>(() => {});
+
+export function BottomSheetModalProvider({ children }: { children?: ReactNode }) {
+  return <>{children}</>;
+}
+
+export function BottomSheetModal({
+  ref,
+  children,
+  onDismiss,
+  backdropComponent,
+  backgroundStyle,
+  handleIndicatorStyle,
+}: ModalProps) {
+  const [isPresented, setIsPresented] = useState(false);
+
+  const dismiss = () => {
+    setIsPresented((wasPresented) => {
+      if (wasPresented) onDismiss?.();
+      return false;
+    });
+  };
+
+  useImperativeHandle(ref, () => ({ present: () => setIsPresented(true), dismiss }));
+
+  if (!isPresented) return null;
+  return (
+    <DismissContext.Provider value={dismiss}>
+      {backdropComponent?.({ animatedIndex: { value: 0 }, animatedPosition: { value: 0 } })}
+      <View testID="bottom-sheet-background" style={backgroundStyle}>
+        <View testID="bottom-sheet-handle" style={handleIndicatorStyle} />
+        {children}
+      </View>
+    </DismissContext.Provider>
+  );
+}
+
+export function BottomSheetBackdrop({ pressBehavior = 'close' }: BackdropProps) {
+  const dismiss = useContext(DismissContext);
+  return (
+    <Pressable
+      testID="bottom-sheet-backdrop"
+      onPress={() => {
+        if (pressBehavior === 'close') dismiss();
+      }}
+    />
+  );
+}
+
+export function BottomSheetView(props: ViewProps) {
+  return <View {...props} />;
+}
