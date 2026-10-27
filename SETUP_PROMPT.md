@@ -25,11 +25,11 @@ Do ONLY the first two stories of Sprint 1:
 
 Rules:
 - Record the exact Expo SDK, React Native and React versions in CLAUDE.md section 2 (this is the only CLAUDE.md edit allowed in this task).
-- Create `docs/tickets/` notes for both stories from `_TEMPLATE.md`.
+- Create `docs/tickets/TB-###/` notes for both stories (compact `README.md` from `docs/tickets/_TEMPLATE.md`, plus `verification.md` from `docs/tickets/_template/`). See `docs/workflow/README.md`.
 - Use branches `feat/tb-<jira number>/<title>` and Conventional Commits; open PRs, do not push to main.
 - Do not implement any other story. Stop after both are done and tell me how to verify them.
 ```
 
 ## Next prompts (one per sprint)
 
-After Sprint 1 foundations, use the sprint goal in the workbook's *Sprint Backlog* tab and say: "Implement story <Jira key> following its acceptance criteria. Read CLAUDE.md and AGENTS.md. Create docs/tickets/<key>.md. Stop when done." Work one story per branch.
+After Sprint 1 foundations, use the sprint goal in the workbook's *Sprint Backlog* tab and run `/implement-ticket <Jira key>` (it follows `docs/workflow/README.md`: ticket docs in `docs/tickets/<key>/`, one branch per story, parallel stories in Orca worktrees per `docs/waves/wave-plan.md`).

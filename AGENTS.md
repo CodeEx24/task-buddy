@@ -11,18 +11,21 @@ Rules for all coding agents working in this repo. `CLAUDE.md` is canonical; this
 - Every Postgres table has RLS. Add or change policies together with a test in `supabase/tests`.
 - Synced tables keep `id (UUIDv7)`, `updated_at`, `deleted_at`. Deletes are soft deletes.
 - **Reuse-first:** before creating a component, hook, utility or pattern, check for a shared component, a utility, or an existing pattern. Do not duplicate solutions.
-- **Do not bloat CLAUDE.md.** Never edit it per ticket. Update it only when an Epic completes or a decision becomes stable and reusable. Per-ticket notes go in `docs/tickets/TB-###.md`.
+- **Do not bloat CLAUDE.md.** Never edit it per ticket. Update it only when an Epic completes or a decision becomes stable and reusable. Per-ticket notes go in `docs/tickets/TB-###/`.
 - Strict TypeScript, no `any`. No secrets client-side (`EXPO_PUBLIC_*` is for non-secret values only).
 - Keep task text and notes out of logs, Sentry breadcrumbs and analytics events.
 
 ## Workflow
 
-1. Read the ticket (`TB-###`), its acceptance criteria and `docs/tickets/TB-###.md` if present.
-2. Branch: `<type>/tb-<ticket>/<short-kebab-title>`. Commits: Conventional Commits with `(TB-###)`.
-3. Write or update tests from the acceptance criteria first or alongside the code.
-4. Run `pnpm lint && pnpm typecheck && pnpm test`. If you touched prompts, models or schemas, run `pnpm eval` and do not regress the baseline.
-5. Self-review the diff for security, performance and correctness before opening the PR. The PR restates the AC.
-6. Update `docs/tickets/TB-###.md` (copy `_TEMPLATE.md`).
+Full process: `docs/workflow/README.md`. In short:
+
+1. Read the Jira ticket (`TB-###`), its AC, comments and blockers, and `docs/tickets/TB-###/` if present. Do not start unless every blocker is Done in Jira and the story is Ready.
+2. Write intent → spec → plan in `docs/tickets/TB-###/` (scaled by risk tier). Medium/high risk: the human accepts the spec before code.
+3. Branch: `<type>/tb-<ticket>/<short-kebab-title>` (one Orca worktree per parallel ticket; edit only your owned paths). Commits: Conventional Commits with `(TB-###)`.
+4. Write or update tests from the acceptance criteria first or alongside the code.
+5. Run `pnpm lint && pnpm typecheck && pnpm test`. If you touched prompts, models or schemas, run `pnpm eval` and do not regress the baseline.
+6. Review against `docs/workflow/REVIEW.md` (independent reviewer for medium/high risk). Record evidence in `verification.md`; `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` must pass. The PR restates the AC.
+7. Jira: In Progress at start, In Review when the PR opens, Done only after merge with green CI.
 
 ## Skills to consult
 
