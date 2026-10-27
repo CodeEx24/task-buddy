@@ -2,7 +2,7 @@
 
 > Jira: https://stratyge.atlassian.net/browse/TB-17 · Spec: [spec.md](spec.md)
 > Branch: `feat/tb-17/design-system` · Orca worktree `tb-17-design-system` · Merge order: **2nd** (after TB-16; before TB-21, which rebases onto its babel/metro config)
-> Status: Draft
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Goal
 Token theme + five accessible primitives that follow the system theme live, with contrast proven by a test and every primitive used on the home screen.

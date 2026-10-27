@@ -1,7 +1,7 @@
 # TB-17 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-17 · Blueprint: US-003 · Wave 1 (batch B, critical path) · Risk: Medium
-> Status: Draft
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Problem
 The app has one unstyled placeholder screen. Without shared tokens and primitives, every later screen (TB-18 shell, TB-26 task CRUD, TB-27 Today/Inbox) would invent its own colours, spacing and controls, which breaks dark mode and accessibility.

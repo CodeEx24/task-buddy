@@ -1,7 +1,7 @@
 # TB-17 — Spec
 
 > Jira: https://stratyge.atlassian.net/browse/TB-17 · Intent: [intent.md](intent.md)
-> Status: Draft. Implementation starts only after acceptance (medium risk).
+> Status: **Accepted by the owner on 2026-10-27** ("accept all")
 
 ## Acceptance criteria (verbatim from Jira)
 - [ ] Given the system theme changes, when the app is open, then all primitives (Button, Input, Card, Checkbox, Sheet) switch theme without a reload
