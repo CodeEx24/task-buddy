@@ -49,3 +49,5 @@
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-27 | The ticket-docs gate skips **draft** PRs; CI also runs on `ready_for_review` | `verification.md` is finished last (TB-16's own AC1 evidence needs CI to have run), so the gate would be red on every early push | Coordinator (within the accepted plan's intent) |
+| 2026-10-27 | Added `ios.bundleIdentifier` / `android.package` = `com.codeex24.taskbuddy` and `owner: codeex24` in `app.json`; removed an unrelated `extra.router.asyncRoutes` that `eas init` inserted | EAS builds need app identifiers; the identifier can still change until store submission (TB-38) | Coordinator; flagged to owner |

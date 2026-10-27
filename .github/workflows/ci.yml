@@ -5,6 +5,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -43,8 +44,9 @@ jobs:
       - name: Unit tests
         run: pnpm test --ci
 
+      # Skipped on draft PRs: verification.md is completed last, so the gate runs when the PR is marked ready.
       - name: Ticket docs gate
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/workflow/check-ticket-docs.mjs --branch "$HEAD_REF" --pr
