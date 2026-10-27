@@ -1,0 +1,53 @@
+# CI for every PR and every push to main (TB-16).
+# The job name `ci` is the required status check on `main`. Add steps here rather than new workflows.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded PR runs only; every push to main keeps its own run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from package.json "packageManager".
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test --ci
+
+      # Skipped on draft PRs: verification.md is completed last, so the gate runs when the PR is marked ready.
+      - name: Ticket docs gate
+        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/workflow/check-ticket-docs.mjs --branch "$HEAD_REF" --pr

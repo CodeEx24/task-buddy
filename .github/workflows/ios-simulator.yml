@@ -1,0 +1,63 @@
+# Manual iOS-simulator boot check (TB-16; follow-up from TB-15).
+# Manual only: macOS runner minutes cost more than Linux minutes, so this never runs on PRs.
+# Run it from the Actions tab ("Run workflow") before a release or after native dependency changes.
+# Release configuration embeds the JS bundle, so no Metro server is needed on the runner.
+# The iOS icon is an Icon Composer file (assets/expo.icon), which needs a recent Xcode on the runner image.
+name: iOS simulator boot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    name: ios-simulator
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prebuild iOS project
+        run: npx expo prebuild --platform ios
+
+      - name: Build for simulator
+        run: |
+          xcodebuild \
+            -workspace ios/TaskBuddy.xcworkspace \
+            -scheme TaskBuddy \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Boot simulator, install and launch
+        run: |
+          # Pick an iPhone on the newest installed iOS runtime (runtime keys sort by version).
+          DEVICE=$(xcrun simctl list devices available -j | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const keys=Object.keys(j.devices).filter(k=>k.includes("iOS")).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));for(const k of keys.reverse()){const p=j.devices[k].find(x=>x.name.startsWith("iPhone"));if(p){console.log(p.udid);return}}process.exit(1)})')
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP=$(find build/Build/Products/Release-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" com.codeex24.taskbuddy
+          sleep 20
+          # Fail if the app is no longer running (crashed on launch).
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -q com.codeex24.taskbuddy
+          xcrun simctl io "$DEVICE" screenshot ios-simulator.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-screenshot
+          path: ios-simulator.png

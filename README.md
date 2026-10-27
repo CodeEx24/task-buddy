@@ -12,23 +12,33 @@ Local-first to-do app (Expo + React Native) with an AI buddy. Product, stack and
 
 ```bash
 pnpm install
-pnpm start        # Expo dev server. Press "a" for Android, "w" for web, or scan the QR code with Expo Go
+pnpm start        # Expo dev server for the development build. Press "a" for Android, "w" for web
 ```
 
-`pnpm start` targets Expo Go for now. It switches to the dev client when the development build lands (TB-16).
+`pnpm start` targets the **development build** (dev client) since TB-16. Install it once per device:
 
-**Expo Go on iPhone:** scan the QR code with the Camera app (newer iOS Expo Go has no "Enter URL manually"). If Expo Go is signed in, the Expo CLI on your computer must be signed in to the same account. On Windows, log in with `npx expo login --no-browser`, because the browser login crashes there with Expo CLI 58.1.15.
+- **Android emulator:** `npx eas-cli@26 build:run -p android --latest` downloads the latest `development` build from EAS and installs it.
+- **New dev build** (after adding a native module): `npx eas-cli@26 build --profile development --platform android`.
+- **Expo Go** still works for JS-only checks: `npx expo start --go`. It can't load native modules that Expo Go doesn't ship.
+
+**Expo login on Windows:** if Expo asks you to sign in, use `npx expo login --no-browser`, because the browser login crashes there with Expo CLI 58.1.15.
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
-| `pnpm start` | Start the Expo dev server |
+| `pnpm start` | Start the Expo dev server for the development build |
 | `pnpm android` / `pnpm ios` / `pnpm web` | Start and open on that platform |
 | `pnpm lint` | ESLint (Expo flat config + Prettier; `any` is an error) |
 | `pnpm typecheck` | `tsc --noEmit` in strict mode |
 | `pnpm test` | Jest (`jest-expo`) + React Native Testing Library |
 | `pnpm format` | Prettier write |
+
+## Build & CI
+
+- **CI** (`.github/workflows/ci.yml`): every PR to `main` and every push to `main` runs install → lint → typecheck → tests → ticket-docs gate. Job `ci` is the required check on `main`, with an 8-minute timeout.
+- **iOS simulator** (`.github/workflows/ios-simulator.yml`): manual only (Actions tab → *Run workflow*). It builds and boots the app on a macOS runner and uploads a screenshot. macOS minutes cost more, so it never runs on PRs.
+- **EAS** (`eas.json`): profiles `development` (dev client, Android APK, iOS simulator), `preview` (internal) and `production`. Project `@codeex24/task-buddy`; app id `com.codeex24.taskbuddy`.
 
 Before opening a PR: `pnpm lint && pnpm typecheck && pnpm test` and `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr`.
 
