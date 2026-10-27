@@ -8,3 +8,4 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 |---|---|---|
 | [Align Jira and the workbook](jira-workbook-alignment.md) | Workflow / Wave 1 | Done (one optional workbook edit left) |
 | [Set up an Android emulator and Expo Go on iPhone](android-emulator-setup.md) | TB-15 | Done |
+| [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Open |
