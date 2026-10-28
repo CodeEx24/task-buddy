@@ -2,6 +2,11 @@ import { renderRouter, screen, fireEvent } from 'expo-router/testing-library';
 
 import { resetDbForTests } from '@/db/node-client';
 
+// The tab bar's icons load fonts through expo-asset, which Jest can't resolve (TB-18).
+jest.mock('@expo/vector-icons/Ionicons', () =>
+  jest.requireActual('@/features/navigation/testing/ionicons-mock'),
+);
+
 // Renders the real src/app/dev/db-benchmark.tsx route (dev build: __DEV__ is true in Jest).
 const APP_DIR = './src/app';
 
