@@ -7,7 +7,7 @@
 `feat/tb-27/today-inbox-swipe` (Orca worktree `tb-27-today-inbox`, from `main` ceb46ab).
 - Owns: `src/features/tasks/{task-sections,task-actions,task-routes}*`, `components/{TaskListScreen,TaskRow,SwipeableTaskRow,NewTaskModal,PerfTasksDevScreen}*`, `hooks/use-task-quick-action.ts`, `repo/perf-seed*`, `src/app/(tabs)/{index,inbox}.tsx`, `src/app/dev/{ui-showcase,perf-tasks}.tsx`, `src/features/showcase/`.
 - Must not edit: `TaskDetailModal*`, `src/app/task/[id].tsx` (TB-28 runs in parallel), lint/format configs.
-- Shared files touched: `src/components/ui/Checkbox.tsx` (2 optional props), `src/components/ui/testing/jest-setup.ts` (+ `swipeable-mock.tsx`), `src/features/navigation/*.test.tsx`, `docs/guides/beginner-mobile-guide.md` (paths only).
+- Shared files touched: `src/components/ui/Checkbox.tsx` (2 optional props), `src/components/ui/testing/jest-setup.ts` (+ `swipe-row-mock.tsx`), new primitive `src/components/ui/SwipeRow.tsx` + `swipe-row-config.ts` (exported from `src/components/ui/index.ts`), `src/features/navigation/*.test.tsx`, `docs/guides/beginner-mobile-guide.md` (paths only).
 
 ## Dependencies
 Blocked by: TB-26 (US-012), merged to `main` as ceb46ab (PR #14). Uses TB-21 repositories and TB-18 navigation.

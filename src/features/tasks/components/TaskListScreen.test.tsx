@@ -4,7 +4,6 @@ import { AccessibilityInfo } from 'react-native';
 
 import { getDb } from '@/db/client';
 import { addLocalDays, startOfLocalDay } from '@/lib/dates';
-import { swipeableClose } from '@/components/ui/testing/swipeable-mock';
 import { UNDO_WINDOW_MS, useUndoStore } from '@/stores/undo-store';
 
 import { createTask, softDeleteTask, updateTask } from '../repo/task-repo';
@@ -119,7 +118,6 @@ describe('Today and Inbox screens (TB-27)', () => {
     expect(await screen.findByTestId('today-section-completed')).toBeOnTheScreen();
     expect(screen.queryByTestId('today-section-today')).toBeNull();
     expect(screen.getByRole('checkbox', { name: 'Pay rent' })).toBeChecked();
-    expect(swipeableClose).toHaveBeenCalled();
     await waitFor(() =>
       expect(storedTask(task.id)).toMatchObject({
         status: 'done',
@@ -151,7 +149,6 @@ describe('Today and Inbox screens (TB-27)', () => {
     expect(await screen.findByTestId('today-section-later')).toBeOnTheScreen();
     expect(screen.queryByTestId('today-section-overdue')).toBeNull();
     expect(screen.getByTestId(`task-meta-${task.id}`)).toHaveTextContent('Tomorrow');
-    expect(swipeableClose).toHaveBeenCalled();
     await waitFor(() => expect(storedTask(task.id)?.dueAt).toBe(tomorrow()));
     expect(storedTask(task.id)?.status).toBe('open');
   });

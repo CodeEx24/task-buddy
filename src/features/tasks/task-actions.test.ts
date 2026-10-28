@@ -18,16 +18,6 @@ describe('task quick actions (TB-27 AC2)', () => {
     expect(quickActionForSwipe('left')).toBe('tomorrow');
   });
 
-  it("matches gesture-handler's SwipeDirection values (the direction the finger moved)", () => {
-    // The props module only declares the enum; loading it needs no native runtime.
-    const { SwipeDirection } = jest.requireActual<{
-      SwipeDirection: { LEFT: string; RIGHT: string };
-    }>(
-      'react-native-gesture-handler/lib/module/components/ReanimatedSwipeable/ReanimatedSwipeableProps',
-    );
-    expect(SwipeDirection).toEqual({ LEFT: 'left', RIGHT: 'right' });
-  });
-
   it('offers reschedule on open tasks only', () => {
     expect(availableQuickActions(open)).toEqual(['toggle-done', 'tomorrow']);
     expect(availableQuickActions(done)).toEqual(['toggle-done']);

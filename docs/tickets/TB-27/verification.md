@@ -14,10 +14,11 @@ Windows 11, Node 24.21.0, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-27-today-i
 | `pnpm test --ci` | pass | 46 suites, 293 tests, ~19 s after the review fixes (first run 45 / 290; `main` 42 / 265); no "worker failed to exit" warning |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine" (re-run). No schema change, no migration |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-27/today-inbox-swipe` | pass | `workflow check: ok` (re-run after this docs update) |
+| Gates after the diagonal-swipe fix (`SwipeRow`): install `--ignore-scripts`, `pnpm lint`, `pnpm typecheck`, `pnpm test --ci`, `pnpm exec drizzle-kit check`, check-ticket-docs | pass | All green; `pnpm test --ci` 50 suites, 336 tests (incl. `swipe-row-config.test.ts`, `SwipeRow.test.tsx`) |
 | `git merge origin/main` (merge of main (TB-28) `1a00ccf`), then all gates again | pass after conflicts | Conflicts in `NewTaskModal.test.tsx` (kept TB-27's `?due=today` tests and TB-28's notes test) and `task-crud-routes.test.tsx` (kept TB-28's autosave + notes + step + Close flow, with TB-27's Today paths/testIDs: Close → `/`, `today-section-today`). No `package.json`/lockfile conflict. After merge: install `--ignore-scripts`, lint, typecheck, drizzle check, ticket-docs check pass; `pnpm test --ci` 48 suites, 327 tests |
 
 Failures hit during the build, and their fixes:
-1. The real `ReanimatedSwipeable` throws in Jest (`Reanimated?.isSharedValue is not a function`), and loading it with `jest.requireActual` inside a mock factory breaks Reanimated's setup (`loadUnpackersWithCode`) → a Jest stand-in (`src/components/ui/testing/swipeable-mock.tsx`, installed in `jest-setup.ts`) that renders both action panels and two test buttons that release a swipe left/right. The real enum values are checked separately (`task-actions.test.ts`).
+1. The real swipe gesture throws in Jest (`Reanimated?.isSharedValue is not a function`) → a Jest stand-in for screens (now `src/components/ui/testing/swipe-row-mock.tsx`, installed in `jest-setup.ts`) renders both action panels and two test buttons that release a swipe left/right. The gesture rules are pure and unit-tested (`swipe-row-config.test.ts`), and `SwipeRow.test.tsx` renders the real row with gesture-handler/Reanimated stubbed to assert the pan config and release handling.
 2. Swipe panels are hidden from assistive tech, so RNTL's default queries skip them → tests query them with `includeHiddenElements: true`.
 3. Review fix 1: a refetch from SQLite returns new objects for unchanged tasks (TanStack's structural sharing did not keep the reference in the test), so `React.memo` with default comparison still re-rendered every row → `SwipeableTaskRow` compares task fields (`areRowPropsEqual`).
 4. Both tabs stay mounted (`lazy: false`), so shared testIDs (`task-list-empty`, `task-section-completed`) would collide in route tests → every screen testID is prefixed per tab (`today-*`, `inbox-*`).
@@ -33,7 +34,7 @@ Failures hit during the build, and their fixes:
 ## Manual / E2E
 For the coordinator. **No new dev build needed**: no dependency changes; gesture-handler 3.3 and Reanimated 4.7 are already in the TB-21 dev build (`e98f091e`). Android emulator `Medium_Phone_API_37.0` (1080 × 2400), `adb reverse tcp:8081 tcp:8081`, `pnpm start`.
 
-**What only the device can check.** Jest replaces `ReanimatedSwipeable` with a stand-in, so it does not cover: gesture conflicts (vertical scroll vs horizontal pan, tab navigator, diagonal drags; `dragOffsetFromLeft/Right` stay at the library default of 10 until the coordinator judges them on device), the panels' `pointerEvents` and touch behaviour while open/closing, the `GestureHandlerRootView` wiring (from `UiProvider`), thresholds, springs and frame rate. Steps 3–6 cover these.
+**What only the device can check.** Jest replaces `SwipeRow` with a stand-in on screens, so it does not cover: gesture conflicts (vertical scroll vs horizontal pan, tab navigator, diagonal drags — now `activeOffsetX ±20` / `failOffsetY ±12`; re-run `adb shell input swipe 400 764 650 1164 300`: the row must not move and the list scrolls), the panels' `pointerEvents` and touch behaviour while open/closing, the `GestureHandlerRootView` wiring (from `UiProvider`), thresholds, springs and frame rate. Steps 3–6 cover these.
 
 Swipe with `adb shell input swipe <x1> <y> <x2> <y> 300` along the middle of the row (y = the row's vertical centre: tap-and-hold the title in the screenshot, or `adb shell uiautomator dump` and read the bounds of the node whose text is the task title). Right swipe: `x1=150 → x2=900`; left swipe: `x1=900 → x2=150` (both well past the 72 dp ≈ 190 px threshold). A short swipe for the negative check: `x1=300 → x2=420`.
 
@@ -53,6 +54,7 @@ Swipe with `adb shell input swipe <x1> <y> <x2> <y> 300` along the middle of the
 | 3 | Low | Duplicate testIDs across the two always-mounted tabs | self | Per-tab prefixes |
 | 4 | Low | `Checkbox` primitive could not carry accessibility actions | self | Two optional pass-through props + test (shared file) |
 | 5 | Important | `TaskListScreen.tsx`: inline `renderItem`, unmemoised `SwipeableTaskRow` and a new `runQuickAction` per render: the 60 s `useNow` tick and every board change re-rendered all rows in both mounted tabs | reviewer agent (PR #17) | `SwipeableTaskRow` = `memo(…, areRowPropsEqual)` (field-wise task compare); `useTaskQuickAction` returns a `useCallback` on TanStack's stable `mutate`; `toggleDone` / `openTask` / `renderItem` are `useCallback`s; rows get a precomputed `meta` label instead of `now`. Test: `TaskListScreen.render.test.tsx` |
+| 7 | Blocking (device) | A mostly vertical diagonal drag, `adb shell input swipe 400 764 650 1164 300` (250 px right, 400 px down on a Today row, emulator 420 dpi), completed the task: `ReanimatedSwipeable` activates on 10 pt horizontal travel and exposes no `failOffsetY` | coordinator (emulator) | New `SwipeRow` primitive: `usePanGesture` with `activeOffsetX ±20` and `failOffsetY ±12` (vertical move first → the row fails and the list scrolls), and a release more vertical than horizontal never commits; 72 pt commit unchanged. Tests: `swipe-row-config.test.ts` (the finding's path fails, straight swipes activate, thresholds), `SwipeRow.test.tsx` (config passed to the pan, release handling). Device re-check pending |
 | 6 | Nit | No test that swipe panels are hidden from accessibility; device-only coverage not stated | reviewer agent (PR #17) | Test "hides the swipe panels from assistive tech"; "What only the device can check" in Manual / E2E |
 
 Independent reviewer pass (medium risk): done by the coordinator on draft PR #17, nothing blocking; findings 5–6 fixed. `dragOffsetFromLeft/Right` left unchanged pending the coordinator's device check.
@@ -63,7 +65,7 @@ Independent reviewer pass (medium risk): done by the coordinator on draft PR #17
 - Completed groups show up to the 100 most recent completions overall (TB-26 board limit), split by tab; open tasks beyond 500 are not shown (TB-63).
 - 60 fps is not provable in Jest; Jest only proves virtualisation. If the release-build check fails, try FlashList (new JS dependency).
 - `pnpm install` on Windows without Visual Studio needs `--ignore-scripts` (better-sqlite3 build script; see TB-26).
-- The real `ReanimatedSwipeable` is never rendered in Jest (stand-in); thresholds, springs and gesture conflicts are covered by Manual steps 3–4 only.
+- The real `SwipeRow` gesture never runs in Jest (screens use a stand-in; `SwipeRow.test.tsx` stubs gesture-handler/Reanimated); actual touch arbitration with the list, springs and feel are covered by Manual steps 3–4 only.
 
 ## Completion
 - [ ] All AC met with evidence (AC2, AC3 device steps pending)

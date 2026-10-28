@@ -1,8 +1,8 @@
-import { memo, useRef } from 'react';
+import { memo } from 'react';
 import { Text, View } from 'react-native';
-import ReanimatedSwipeable, {
-  type SwipeableMethods,
-} from 'react-native-gesture-handler/ReanimatedSwipeable';
+
+import { SwipeRow } from '@/components/ui';
+import { SWIPE_PANEL_WIDTH } from '@/components/ui/swipe-row-config';
 
 import type { Task } from '../repo/task-repo';
 import {
@@ -12,11 +12,6 @@ import {
   type TaskQuickAction,
 } from '../task-actions';
 import { TaskRow, type TaskRowProps } from './TaskRow';
-
-/** Width of the panel a swipe reveals. */
-export const SWIPE_PANEL_WIDTH = 120;
-/** Release past this distance (60 % of the panel) to commit; less snaps the row back. */
-export const SWIPE_COMMIT_DISTANCE = 72;
 
 type SwipeActionPanelProps = { action: TaskQuickAction; task: Task; side: 'left' | 'right' };
 
@@ -65,36 +60,26 @@ export function areRowPropsEqual(prev: TaskRowProps, next: TaskRowProps): boolea
 
 /**
  * A task row with swipe actions (TB-27 AC2): swipe right to complete (or reopen a done task),
- * swipe left to move an open task to tomorrow. The gesture and its spring run on the UI thread
- * (gesture-handler's ReanimatedSwipeable); the action fires once, when the panel opens.
+ * swipe left to move an open task to tomorrow. `SwipeRow` runs the gesture on the UI thread,
+ * ignores vertical-dominant drags (the list scrolls) and calls back once on a committed release.
  * Memoised: with the list's stable callbacks, a row re-renders only when its task's content or
  * its label changes. Task objects are compared by field, because every SQLite refetch returns
  * new objects for unchanged rows.
  */
 export const SwipeableTaskRow = memo(function SwipeableTaskRow(props: TaskRowProps) {
   const { task, onQuickAction } = props;
-  const swipeRef = useRef<SwipeableMethods>(null);
   const canReschedule = availableQuickActions(task).includes('tomorrow');
 
   return (
-    <ReanimatedSwipeable
-      ref={swipeRef}
+    <SwipeRow
       testID={`task-swipe-${task.id}`}
-      leftThreshold={SWIPE_COMMIT_DISTANCE}
-      rightThreshold={SWIPE_COMMIT_DISTANCE}
-      overshootFriction={8}
-      renderLeftActions={() => <SwipeActionPanel action="toggle-done" task={task} side="left" />}
-      renderRightActions={
-        canReschedule
-          ? () => <SwipeActionPanel action="tomorrow" task={task} side="right" />
-          : undefined
+      leftPanel={<SwipeActionPanel action="toggle-done" task={task} side="left" />}
+      rightPanel={
+        canReschedule ? <SwipeActionPanel action="tomorrow" task={task} side="right" /> : undefined
       }
-      onSwipeableOpen={(direction) => {
-        swipeRef.current?.close();
-        onQuickAction(task, quickActionForSwipe(direction));
-      }}
+      onSwipe={(side) => onQuickAction(task, quickActionForSwipe(side))}
     >
       <TaskRow {...props} />
-    </ReanimatedSwipeable>
+    </SwipeRow>
   );
 }, areRowPropsEqual);

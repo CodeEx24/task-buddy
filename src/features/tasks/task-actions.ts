@@ -2,6 +2,7 @@
 // Swipe right toggles done; swipe left moves an open task to tomorrow. Every swipe has a
 // non-gesture twin: the same action in the row's accessibility actions (VoiceOver / TalkBack),
 // the row checkbox for done, and the edit modal's Tomorrow chip for rescheduling.
+import type { SwipeSide } from '@/components/ui/swipe-row-config';
 import { addLocalDays } from '@/lib/dates';
 
 import type { Task } from './repo/task-repo';
@@ -9,8 +10,8 @@ import type { UpdateTaskInput } from './schema';
 
 export type TaskQuickAction = 'toggle-done' | 'tomorrow';
 
-/** The direction the finger moves (gesture-handler's `SwipeDirection` values). */
-export type SwipeDirectionName = 'left' | 'right';
+/** The direction the finger moved (`SwipeRow`'s `SwipeSide`). */
+export type SwipeDirectionName = SwipeSide;
 
 /** Swipe right → complete (or reopen a done task); swipe left → tomorrow. */
 export function quickActionForSwipe(direction: SwipeDirectionName): TaskQuickAction {
