@@ -84,7 +84,7 @@ function TaskDetailContent({ id }: { id: string }) {
 }
 
 /**
- * Task detail modal at `/task/[id]` (TB-18, editing since TB-26, detail since TB-28), also opened by
+ * Task detail modal at `/task/[id]` (TB-18; editing since TB-26), also opened by
  * `taskbuddy://task/<id>`. The id is untrusted (deep link): it is validated, shown only as text and
  * never logged. Since TB-28 it edits notes too, autosaves every edit and holds the subtask
  * checklist.

@@ -25,7 +25,7 @@ import {
   TASK_NOT_FOUND_MESSAGE,
   TaskDetailModal,
 } from './TaskDetailModal';
-import { SAVED_MESSAGE, SAVING_MESSAGE } from './TaskDetailForm';
+import { NOT_SAVED_INVALID_MESSAGE, SAVED_MESSAGE, SAVING_MESSAGE } from './TaskDetailForm';
 import { SAVE_FAILED_MESSAGE } from './TaskForm';
 
 jest.mock('expo-router', () => ({
@@ -140,6 +140,9 @@ describe('TaskDetailModal', () => {
     expect(await screen.findByText('Add a title')).toBeOnTheScreen();
     expect(screen.getByText('Use a real date as YYYY-MM-DD')).toBeOnTheScreen();
     expect(screen.getByText(NOTES_TOO_LONG_MESSAGE)).toBeOnTheScreen();
+    expect(screen.getByTestId('task-detail-save-status')).toHaveTextContent(
+      NOT_SAVED_INVALID_MESSAGE,
+    );
     await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS + 100));
     expect(storedTask(task.id)).toMatchObject({ title: 'Pay rent', notes: null, dueAt: null });
 

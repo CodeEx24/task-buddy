@@ -20,6 +20,7 @@ import { TaskFormFields } from './TaskFormFields';
 
 export const SAVED_MESSAGE = 'All changes saved';
 export const SAVING_MESSAGE = 'Saving…';
+export const NOT_SAVED_INVALID_MESSAGE = 'Not saved yet: fix the field marked in red.';
 
 export type TaskDetailFormProps = {
   task: Task;
@@ -45,18 +46,19 @@ export function TaskDetailForm({ task, ref }: TaskDetailFormProps) {
 
   // What still differs from the stored (optimistically updated) task, or null when nothing does
   // or the values are not valid yet.
-  const pending = useMemo(() => {
+  const { pending, isValid } = useMemo(() => {
     const parsed = taskFormSchema.safeParse(values);
-    if (!parsed.success) return null;
+    if (!parsed.success) return { pending: null, isValid: false };
     const patch = changedTaskFields(toTaskFields(parsed.data), task);
-    return Object.keys(patch).length === 0 ? null : patch;
+    return { pending: Object.keys(patch).length === 0 ? null : patch, isValid: true };
   }, [values, task]);
 
   const autosave = useAutosave(pending, (patch) => update.mutateAsync({ id: task.id, patch }));
   useImperativeHandle(ref, () => autosave, [autosave]);
 
   let status: { text: string; isError: boolean } | null = null;
-  if (update.isError) status = { text: SAVE_FAILED_MESSAGE, isError: true };
+  if (!isValid) status = { text: NOT_SAVED_INVALID_MESSAGE, isError: true };
+  else if (update.isError) status = { text: SAVE_FAILED_MESSAGE, isError: true };
   else if (pending !== null || update.isPending) status = { text: SAVING_MESSAGE, isError: false };
   else if (update.isSuccess) status = { text: SAVED_MESSAGE, isError: false };
 
