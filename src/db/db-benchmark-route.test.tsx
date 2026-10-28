@@ -1,6 +1,6 @@
 import { renderRouter, screen, fireEvent } from 'expo-router/testing-library';
 
-import { resetDbForTests } from '@/db/node-client';
+import { readJournal, resetDbForTests } from '@/db/node-client';
 
 // The tab bar's icons load fonts through expo-asset, which Jest can't resolve (TB-18).
 jest.mock('@expo/vector-icons/Ionicons', () =>
@@ -18,9 +18,11 @@ describe('dev DB benchmark route', () => {
     await renderRouter(APP_DIR, { initialUrl: '/dev/db-benchmark' });
 
     expect(
-      await screen.findByText('lists, preferences, subtasks, tags, task_tags, tasks'),
+      await screen.findByText('lists, preferences, subtasks, sync_meta, tags, task_tags, tasks'),
     ).toBeOnTheScreen();
-    expect(screen.getByTestId('db-migrations')).toHaveTextContent('Migrations applied: 3');
+    expect(screen.getByTestId('db-migrations')).toHaveTextContent(
+      `Migrations applied: ${readJournal().length}`,
+    );
 
     fireEvent.press(screen.getByTestId('db-benchmark-run'));
 

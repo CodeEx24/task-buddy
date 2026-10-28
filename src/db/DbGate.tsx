@@ -7,19 +7,22 @@ import type { TaskBuddyDb } from './types';
 import { useDbMigrations } from './use-db-migrations';
 
 /**
- * Renders children only once the local DB is migrated (TB-21 AC1). Blank while migrating;
- * a retryable error screen if the DB can't be opened or migrated.
+ * Renders children only once the signed-in user's local DB is open and migrated (TB-21 AC1,
+ * TB-43: one DB per account). Blank while migrating; a retryable error screen if the DB can't be
+ * opened or migrated. Signed out (`userId` null) it renders children without opening a DB.
  * Must sit inside `UiProvider` (the error screen uses the design-system theme).
  * `onReady` runs once the DB is migrated, before children first render (must not throw).
  */
 export function DbGate({
+  userId,
   children,
   onReady,
 }: {
+  userId: string | null;
   children: ReactNode;
   onReady?: (db: TaskBuddyDb) => void;
 }) {
-  const { status, retry } = useDbMigrations(onReady);
+  const { status, retry } = useDbMigrations(userId, onReady);
 
   if (status === 'pending') {
     return <View className="flex-1 bg-background" testID="db-gate-pending" />;

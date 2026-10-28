@@ -10,6 +10,10 @@ export const APP_TABLES = [
   'task_tags',
   'preferences',
 ] as const;
+/** Device-only tables without sync columns (TB-43: owner and pull cursors). */
+export const LOCAL_ONLY_TABLES = ['sync_meta'] as const;
+/** Every table the migrations create, sorted like `listTables`. */
+export const ALL_TABLES = [...APP_TABLES, ...LOCAL_ONLY_TABLES].sort();
 export const SYNC_COLUMNS = ['id', 'created_at', 'updated_at', 'deleted_at'] as const;
 
 export type ColumnInfo = { name: string; type: string; notnull: number; pk: number };

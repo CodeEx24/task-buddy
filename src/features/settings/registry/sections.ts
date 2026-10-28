@@ -1,8 +1,9 @@
 // Settings sections (TB-32), in display order. The Settings screen renders exactly this list, so
 // a later story adds a row by editing this file (or `pages.ts` for a preference page), never the
 // screen. The Account section reuses TB-20's sign-out button (confirm dialog included) as a
-// `custom` row; the Legal section shows TB-54's legal links.
+// `custom` row; the Legal section shows TB-54's legal links. TB-43 adds the sync status row.
 import { SignOutButton } from '@/features/auth/components/SignOutButton';
+import { SyncStatus } from '@/features/sync/components/SyncStatus';
 
 import { AccountEmailRow } from '../components/AccountEmailRow';
 import { SettingsLegalLinksRow } from '../components/SettingsLegalLinksRow';
@@ -15,6 +16,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDefinition[] = [
     title: 'Account',
     rows: [
       { kind: 'custom', id: 'account-email', Component: AccountEmailRow },
+      { kind: 'custom', id: 'sync-status', Component: SyncStatus },
       { kind: 'custom', id: 'sign-out', Component: SignOutButton },
     ],
   },

@@ -10,8 +10,9 @@ import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-
 import migrations from '../../drizzle/migrations';
 import * as schema from './schema';
 import type { TaskBuddyDb } from './types';
+import { LEGACY_DATABASE_NAME, resolveUserDb } from './user-db';
 
-export const DATABASE_NAME = 'taskbuddy.db';
+export const DATABASE_NAME = LEGACY_DATABASE_NAME;
 export const BENCHMARK_DATABASE_NAME = 'benchmark.db';
 
 type ExpoDb = ReturnType<typeof drizzle<typeof schema>>;
@@ -22,12 +23,40 @@ function open(name: string): { db: ExpoDb; sqlite: SQLiteDatabase } {
   return { db: drizzle(sqlite, { schema }), sqlite };
 }
 
-let appDb: ExpoDb | undefined;
+const openDbs = new Map<string, ExpoDb>();
+let userDb: TaskBuddyDb | undefined;
+let userDbGeneration = 0;
 
-/** The app database, opened lazily once. Run `migrateDb` (via DbGate) before using it. */
+function openNamed(name: string): ExpoDb {
+  let db = openDbs.get(name);
+  if (!db) {
+    db = open(name).db;
+    openDbs.set(name, db);
+  }
+  return db;
+}
+
+/**
+ * The signed-in user's database (selected by `openUserDb`, via DbGate). Before any user is
+ * selected it falls back to the legacy file; screens that read data only render after DbGate.
+ */
 export function getDb(): TaskBuddyDb {
-  appDb ??= open(DATABASE_NAME).db;
-  return appDb;
+  return userDb ?? openNamed(DATABASE_NAME);
+}
+
+/** TB-43: opens, migrates and selects the database owned by `userId` (see `user-db.ts`). */
+export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
+  // A newer open (fast account switch) or a sign-out wins over this one finishing late.
+  const generation = ++userDbGeneration;
+  const { db } = await resolveUserDb(userId, { open: openNamed, migrate: migrateDb });
+  if (generation === userDbGeneration) userDb = db;
+  return db;
+}
+
+/** TB-43: sign-out. Deselects the user's DB and cancels any open still in flight. */
+export function clearUserDb(): void {
+  userDbGeneration += 1;
+  userDb = undefined;
 }
 
 /** Applies pending migrations. Drizzle runs them in one transaction, so a failure leaves no partial schema. */

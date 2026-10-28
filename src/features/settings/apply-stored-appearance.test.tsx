@@ -4,6 +4,7 @@ import { Appearance, Text } from 'react-native';
 
 import { DbGate } from '@/db/DbGate';
 import { getDb, migrateDb, resetDbForTests } from '@/db/node-client';
+import { FAKE_USER_ID } from '@/features/auth/testing/fake-auth-client';
 import { getColorSchemePreference, setColorSchemePreference } from '@/theme';
 
 import { applyStoredAppearance } from './apply-stored-appearance';
@@ -24,7 +25,8 @@ afterEach(() => {
 
 describe('applyStoredAppearance at start-up (TB-32, no theme flash)', () => {
   it('applies the stored Dark choice before the first screen renders', async () => {
-    // A previous session stored Dark (same DB file the next launch opens).
+    // A previous session stored Dark (same DB file the next launch opens; TB-43: the signed-in
+    // user's DB, which is this file once they claim it).
     await migrateDb(getDb());
     writePreference(getDb(), appearanceThemePreference, 'dark');
 
@@ -35,7 +37,7 @@ describe('applyStoredAppearance at start-up (TB-32, no theme flash)', () => {
     }
 
     await render(
-      <DbGate onReady={applyStoredAppearance}>
+      <DbGate userId={FAKE_USER_ID} onReady={applyStoredAppearance}>
         <FirstScreen />
       </DbGate>,
     );
