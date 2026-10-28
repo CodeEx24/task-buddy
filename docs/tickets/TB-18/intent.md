@@ -1,7 +1,7 @@
 # TB-18 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-18 · Blueprint: US-004 · Wave 1 (batch C, critical path) · Risk: Medium (see "Risk tier" below)
-> Status: Draft — awaiting owner acceptance
+> Status: **Accepted by the owner on 2026-10-28**
 
 ## Problem
 The app has one route (`/`), which shows the TB-17 design-system showcase. The product's main areas (Today, Inbox, Buddy, Settings) don't exist, and there is nowhere to open a single task. Five tickets need this structure before they can start: TB-20 (sign-in sits beside the tabs), TB-26 (task CRUD opens the task modal), TB-32 (Settings tab), and TB-65/TB-66 (analytics and localization of the shell).
@@ -34,8 +34,8 @@ By the workflow table (`docs/workflow/README.md` §5), 2 pts with no high-risk a
 ## Open questions
 | # | Question | Why it matters | Answer (who, date) |
 |---|---|---|---|
-| 1 | Tab bar: JS `Tabs` or native `NativeTabs`? (spec D1) | Native look vs no rebuild and full theming/testability | |
-| 2 | How is the 300 ms AC measured? (spec D2) | Can't be proven in Jest. Needs a device or emulator proxy | |
-| 3 | Modal presentation: `modal`, `formSheet` or `card`? (spec D3) | iOS gesture semantics ("swipe-back") and the look | |
-| 4 | What does Today show, and what does the modal show before TB-26? (spec D4) | TB-17's "every primitive used on a screen" AC depends on the showcase staying | |
-| 5 | Risk tier Medium (recommended) or Low? | Doc set and review depth | |
+| 1 | Tab bar: JS `Tabs` or native `NativeTabs`? (spec D1) | Native look vs no rebuild and full theming/testability | JS `Tabs` + `@expo/vector-icons` (owner, 2026-10-28) |
+| 2 | How is the 300 ms AC measured? (spec D2) | Can't be proven in Jest. Needs a device or emulator proxy | Android emulator proxy, dev-only timing hook, 20 taps/tab, p95 (owner, 2026-10-28) |
+| 3 | Modal presentation: `modal`, `formSheet` or `card`? (spec D3) | iOS gesture semantics ("swipe-back") and the look | `modal`; iOS swipe-back = sheet swipe-down (owner, 2026-10-28) |
+| 4 | What does Today show, and what does the modal show before TB-26? (spec D4) | TB-17's "every primitive used on a screen" AC depends on the showcase staying | Showcase + "Open sample task"; placeholder modal (owner, 2026-10-28) |
+| 5 | Risk tier Medium (recommended) or Low? | Doc set and review depth | Medium (owner, 2026-10-28) |

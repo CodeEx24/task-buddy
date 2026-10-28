@@ -1,7 +1,7 @@
 # TB-18 — Implementation plan
 
 > Jira: https://stratyge.atlassian.net/browse/TB-18 · Spec: [spec.md](spec.md)
-> Status: **Draft — awaiting owner acceptance** (and answers to spec D1–D4). Written for the recommended options. If the owner picks differently, Tasks 2 and 5 change as noted.
+> Status: **Accepted by the owner on 2026-10-28** (recommended options D1-A, D2-A, D3-A, D4-A; Medium tier).
 > Bar: an engineer who has never seen the conversation could implement the change from this plan alone.
 
 ## Branch & worktree
