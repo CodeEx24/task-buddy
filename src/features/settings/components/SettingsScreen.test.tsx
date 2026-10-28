@@ -100,7 +100,7 @@ describe('SettingsScreen (TB-32)', () => {
     await renderSettings(sections);
 
     const titles = screen.getAllByRole('header').map((h) => h.props.children);
-    expect(titles).toEqual(['Settings', 'Account', 'Preferences', 'Notifications']);
+    expect(titles).toEqual(['Settings', 'Account', 'Preferences', 'Legal', 'Notifications']);
     const added = screen.getByTestId('settings-section-notifications');
     expect(within(added).getByText('Row added by a later story')).toBeVisible();
     await fireEvent.press(within(added).getByRole('button', { name: 'Quiet hours' }));
