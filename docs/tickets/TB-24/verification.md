@@ -1,6 +1,6 @@
 # TB-24 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-24 · Spec: [spec.md](spec.md) · Plan: [plan.md](plan.md) · Branch: `feat/tb-24/ai-output-schemas`
+> Jira: https://stratyge.atlassian.net/browse/TB-24 · PR: https://github.com/CodeEx24/task-buddy/pull/24 (draft) · Spec: [spec.md](spec.md) · Plan: [plan.md](plan.md) · Branch: `feat/tb-24/ai-output-schemas`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`. **AC1 is `partial` on purpose:** the real-model run is still to do, so this PR stays a draft.
 
 ## Commands run
@@ -20,6 +20,8 @@ All run locally on 2026-10-28 (Windows 11, Node 24.21, pnpm 10.17.1, Deno 2.9.8,
 | Golden run B, mix `valid=80,repair=15,fail=5` | pass | 190/200 (95 %), runner correctly prints `AC1: FAIL`; measured = predicted (163 + 27 + 10; 200 + 37 calls) |
 | Partial golden run `--routes plan` (final code) | pass | `AC1: not assessed (ran 35 of 200 golden cases)`, exit 1 as designed |
 | TB-22 smoke on the same runtime: 200 on all 3 routes, 401 without token, `SLOW` → 504 at 20 s | pass | Log lines carry `promptVersion` on all of them |
+| Rebase onto `origin/main` @ 8d9cd11 (TB-54), conflict in `docs/actions/README.md` resolved by keeping both to-do items; then `pnpm lint`, `pnpm typecheck`, edge-functions Jest | pass | 113 edge-function tests |
+| CI on PR #24, run 40734880150 (`b208c3b`) | pass | `ci` 1m13s (ticket-docs gate skipped on drafts), `bundle` 1m33s, `supabase` 1m32s |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-24/ai-output-schemas` | pass | "workflow check: ok". Without `--pr` while the PR is a draft (the `--pr` gate fails on the `partial` AC1 row, as intended) |
 
 ## Acceptance criteria
@@ -60,6 +62,6 @@ No app UI in this ticket (the first client is TB-29). End to end through the rea
 
 ## Completion
 - [ ] All AC met with evidence (AC1 partial: real-model run pending)
-- [ ] Gates green locally and in CI
+- [x] Gates green locally and in CI (run 40734880150)
 - [x] No open Blocking findings in code (docs finding resolved)
 - [ ] Jira updated (In Progress 2026-10-28; In Review when the PR opens; Done after merge)
