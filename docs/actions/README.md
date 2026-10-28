@@ -6,6 +6,7 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 
 ## Your to-do list (open actions, in order)
 1. **[Push the database migration to Supabase](supabase-db-push.md)** (TB-19 deploy step). About 5 minutes. It creates the `profiles` table in dev and staging, and TB-20 sign-in needs it.
+2. **[Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md)** (TB-20). About 15 minutes, plus pasting one CI job and a new dev build. Decisions made (D1–D9 option A). Do it after step 1.
 
 Everything else is done.
 
@@ -13,6 +14,7 @@ Everything else is done.
 | Action | Related | Status |
 |---|---|---|
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
+| [Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md) | TB-20 | Open (decisions made) |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
 | [Make the Supabase and bundle checks required](github-required-checks.md) | TB-19 | Done (2026-10-28, by Claude) |
