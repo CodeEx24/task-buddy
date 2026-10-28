@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
@@ -45,12 +45,33 @@ function SwipeActionPanel({ action, task, side }: SwipeActionPanelProps) {
   );
 }
 
+/** Same task content: every column is a primitive, so a shallow field check is exact. */
+function isSameTask(a: Task, b: Task): boolean {
+  if (a === b) return true;
+  const keys = Object.keys(a) as (keyof Task)[];
+  return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
+}
+
+/** Re-render only when the label, a callback or the task's content changed. */
+export function areRowPropsEqual(prev: TaskRowProps, next: TaskRowProps): boolean {
+  return (
+    prev.meta === next.meta &&
+    prev.onToggleDone === next.onToggleDone &&
+    prev.onOpen === next.onOpen &&
+    prev.onQuickAction === next.onQuickAction &&
+    isSameTask(prev.task, next.task)
+  );
+}
+
 /**
  * A task row with swipe actions (TB-27 AC2): swipe right to complete (or reopen a done task),
  * swipe left to move an open task to tomorrow. The gesture and its spring run on the UI thread
  * (gesture-handler's ReanimatedSwipeable); the action fires once, when the panel opens.
+ * Memoised: with the list's stable callbacks, a row re-renders only when its task's content or
+ * its label changes. Task objects are compared by field, because every SQLite refetch returns
+ * new objects for unchanged rows.
  */
-export function SwipeableTaskRow(props: TaskRowProps) {
+export const SwipeableTaskRow = memo(function SwipeableTaskRow(props: TaskRowProps) {
   const { task, onQuickAction } = props;
   const swipeRef = useRef<SwipeableMethods>(null);
   const canReschedule = availableQuickActions(task).includes('tomorrow');
@@ -76,4 +97,4 @@ export function SwipeableTaskRow(props: TaskRowProps) {
       <TaskRow {...props} />
     </ReanimatedSwipeable>
   );
-}
+}, areRowPropsEqual);

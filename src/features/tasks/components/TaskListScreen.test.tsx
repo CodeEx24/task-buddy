@@ -170,6 +170,21 @@ describe('Today and Inbox screens (TB-27)', () => {
   });
 
   describe('accessible alternative to swiping (AC2)', () => {
+    it('hides the swipe panels from assistive tech (the actions live on the checkbox)', async () => {
+      const task = createTask(getDb(), { title: 'Pay rent', dueAt: today() });
+      await renderWithQuery(<TaskListScreen kind="today" />);
+      await screen.findByRole('checkbox', { name: 'Pay rent' });
+
+      for (const action of ['toggle-done', 'tomorrow'] as const) {
+        const panel = swipePanel(action, task.id);
+        expect(panel).toHaveProp('accessibilityElementsHidden', true);
+        expect(panel).toHaveProp('importantForAccessibility', 'no-hide-descendants');
+        // Default (accessibility-aware) queries don't find them either.
+        expect(screen.queryByTestId(`task-swipe-${action}-${task.id}`)).toBeNull();
+      }
+      expect(screen.queryByText('Move to tomorrow')).toBeNull();
+    });
+
     it('offers the swipe actions as accessibility actions on the row', async () => {
       const open = createTask(getDb(), { title: 'Open task', dueAt: today() });
       const done = createTask(getDb(), { title: 'Done task', dueAt: today() });

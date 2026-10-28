@@ -1,5 +1,12 @@
 import { router, type Href } from 'expo-router';
-import { ActivityIndicator, SectionList, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import {
+  ActivityIndicator,
+  SectionList,
+  Text,
+  View,
+  type SectionListRenderItem,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Card } from '@/components/ui';
@@ -18,6 +25,7 @@ import {
 } from '../task-sections';
 import { NEW_TASK_HREF, NEW_TODAY_TASK_HREF, taskHref } from '../task-routes';
 import { SwipeableTaskRow } from './SwipeableTaskRow';
+import { taskMetaLine } from './TaskRow';
 
 type ScreenConfig = {
   title: string;
@@ -66,14 +74,31 @@ const INITIAL_ROWS = 30;
 export function TaskListScreen({ kind }: { kind: TaskScreenKind }) {
   const config = TASK_SCREENS[kind];
   const board = useTaskBoard();
-  const update = useUpdateTask();
+  const { mutate: updateTask } = useUpdateTask();
   const runQuickAction = useTaskQuickAction();
   const now = useNow();
   const sections = board.data ? config.group(board.data, now) : [];
 
-  const toggleDone = (task: Task, isDone: boolean) =>
-    update.mutate({ id: task.id, patch: { status: isDone ? 'done' : 'open' } });
-  const openTask = (task: Task) => router.push(taskHref(task.id));
+  // Stable callbacks + a per-row label string: a clock tick or a change to another task leaves
+  // every other memoised row untouched (both tabs stay mounted, so this matters twice).
+  const toggleDone = useCallback(
+    (task: Task, isDone: boolean) =>
+      updateTask({ id: task.id, patch: { status: isDone ? 'done' : 'open' } }),
+    [updateTask],
+  );
+  const openTask = useCallback((task: Task) => router.push(taskHref(task.id)), []);
+  const renderItem = useCallback<SectionListRenderItem<Task, TaskSection>>(
+    ({ item }) => (
+      <SwipeableTaskRow
+        task={item}
+        meta={taskMetaLine(item, now)}
+        onToggleDone={toggleDone}
+        onOpen={openTask}
+        onQuickAction={runQuickAction}
+      />
+    ),
+    [now, toggleDone, openTask, runQuickAction],
+  );
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
@@ -115,15 +140,7 @@ export function TaskListScreen({ kind }: { kind: TaskScreenKind }) {
                 {section.title}
               </Text>
             )}
-            renderItem={({ item }) => (
-              <SwipeableTaskRow
-                task={item}
-                now={now}
-                onToggleDone={toggleDone}
-                onOpen={openTask}
-                onQuickAction={runQuickAction}
-              />
-            )}
+            renderItem={renderItem}
             ListEmptyComponent={
               <Card testID={`${config.testID}-empty`} title={config.empty.title} className="mt-lg">
                 <Text className="text-base text-text-muted">{config.empty.body}</Text>
