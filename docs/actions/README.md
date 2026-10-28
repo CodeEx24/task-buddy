@@ -7,7 +7,9 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 ## Your to-do list (open actions, in order)
 1. **[Push the database migration to Supabase](supabase-db-push.md)** (TB-19 deploy step). About 5 minutes. It creates the `profiles` table in dev and staging, and TB-20 sign-in needs it.
 2. **[Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md)** (TB-20). About 15 minutes, plus pasting one CI job and a new dev build. Decisions made (D1–D9 option A). Do it after step 1.
-3. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
+3. **[Add the Deno type check for Edge Functions to CI](ci-deno-check.md)** (TB-22, after its PR merges). About 5 minutes: paste one job into `ci.yml`.
+4. **[Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md)** (TB-22). About 10 minutes, once you have an Anthropic API key and before AI features are tried on a device.
+5. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
 
 Everything else is done.
 
@@ -16,6 +18,8 @@ Everything else is done.
 |---|---|---|
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
 | [Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md) | TB-20 | Open (decisions made) |
+| [Add the Deno type check for Edge Functions to CI](ci-deno-check.md) | TB-22 | Open |
+| [Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md) | TB-22 | Open |
 | [Confirm the operator facts on the legal pages](legal-owner-facts.md) | TB-54 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
