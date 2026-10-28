@@ -9,6 +9,7 @@ import {
   renderWithQuery,
   resetTaskData,
 } from '@/features/tasks/testing/task-test-utils';
+import { getColorSchemePreference, setColorSchemePreference } from '@/theme';
 
 import { preferenceQueryKeys } from '../hooks/use-preference';
 import { appearanceThemePreference } from '../preferences/appearance';
@@ -16,16 +17,22 @@ import { readPreference } from '../repo/preference-repo';
 import { APPEARANCE_SAVE_ERROR, AppearanceSettings } from './AppearanceSettings';
 import { AppearanceSync } from './AppearanceSync';
 
-let setColorScheme: jest.SpyInstance;
+let setNativeColorScheme: jest.SpyInstance;
 
 beforeEach(async () => {
   await resetTaskData();
-  setColorScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
+  setColorSchemePreference('system');
+  setNativeColorScheme = jest.spyOn(Appearance, 'setColorScheme');
 });
 afterEach(() => {
-  setColorScheme.mockRestore();
+  // The app theme is JS-only: never a native night-mode override (it clipped text on device).
+  expect(setNativeColorScheme).not.toHaveBeenCalled();
+  setNativeColorScheme.mockRestore();
+  setColorSchemePreference('system');
   cleanupTaskTests();
 });
+
+const appScheme = getColorSchemePreference;
 
 function AppearancePage() {
   return (
@@ -42,44 +49,54 @@ describe('Appearance preference (TB-32 AC2)', () => {
   it('starts on System and leaves the system scheme in charge', async () => {
     await renderWithQuery(<AppearancePage />);
 
-    await waitFor(() => expect(setColorScheme).toHaveBeenCalledWith('auto'));
-    expect(chip('System')).toBeChecked();
+    await waitFor(() => expect(chip('System')).toBeChecked());
+    expect(appScheme()).toBe('system');
     expect(chip('Dark')).not.toBeChecked();
   });
 
   it('applies a choice at once and stores it locally', async () => {
     await renderWithQuery(<AppearancePage />);
-    await waitFor(() => expect(setColorScheme).toHaveBeenCalledWith('auto'));
+    await waitFor(() => expect(chip('System')).toBeChecked());
 
     await fireEvent.press(chip('Dark'));
 
     // The cache changes in the press handler; TanStack Query re-renders observers in a 0 ms batch
     // that `fireEvent` doesn't wait for, hence `waitFor` (no DB read is involved).
     await waitFor(() => expect(chip('Dark')).toBeChecked());
-    expect(setColorScheme).toHaveBeenLastCalledWith('dark');
+    expect(appScheme()).toBe('dark');
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('dark'));
 
     await fireEvent.press(chip('Light'));
-    await waitFor(() => expect(setColorScheme).toHaveBeenLastCalledWith('light'));
+    await waitFor(() => expect(appScheme()).toBe('light'));
     await fireEvent.press(chip('System'));
-    await waitFor(() => expect(setColorScheme).toHaveBeenLastCalledWith('auto'));
+    await waitFor(() => expect(appScheme()).toBe('system'));
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('system'));
   });
 
   it('restores the stored choice on a cold start (new query cache)', async () => {
     const first = await renderWithQuery(<AppearancePage />);
-    await waitFor(() => expect(setColorScheme).toHaveBeenCalledWith('auto'));
+    await waitFor(() => expect(chip('System')).toBeChecked());
     await fireEvent.press(chip('Dark'));
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('dark'));
     await first.unmount();
-    setColorScheme.mockClear();
+    const seen: string[] = [];
+    function Watch() {
+      seen.push(appScheme());
+      return null;
+    }
 
-    await renderWithQuery(<AppearancePage />, createTestQueryClient());
+    await renderWithQuery(
+      <>
+        <Watch />
+        <AppearancePage />
+      </>,
+      createTestQueryClient(),
+    );
 
     await waitFor(() => expect(chip('Dark')).toBeChecked());
-    expect(setColorScheme).toHaveBeenCalledWith('dark');
-    // The stored value is applied directly: no flash through 'auto' first.
-    expect(setColorScheme).not.toHaveBeenCalledWith('auto');
+    expect(appScheme()).toBe('dark');
+    // While the stored value loads, the scheme is left as it was (no flash through 'system').
+    expect(seen).not.toContain('system');
   });
 
   it('rolls back and says so when the write fails', async () => {
@@ -95,6 +112,6 @@ describe('Appearance preference (TB-32 AC2)', () => {
 
     expect(await screen.findByText(APPEARANCE_SAVE_ERROR)).toBeVisible();
     expect(chip('System')).toBeChecked();
-    expect(setColorScheme).toHaveBeenLastCalledWith('auto');
+    expect(appScheme()).toBe('system');
   });
 });

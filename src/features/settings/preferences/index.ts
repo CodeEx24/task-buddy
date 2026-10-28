@@ -4,12 +4,7 @@
 import { appearanceThemePreference } from './appearance';
 import type { PreferenceDefinition } from './define-preference';
 
-export {
-  APPEARANCE_THEMES,
-  appearanceThemePreference,
-  toColorSchemeOverride,
-  type AppearanceTheme,
-} from './appearance';
+export { APPEARANCE_THEMES, appearanceThemePreference, type AppearanceTheme } from './appearance';
 export {
   decodePreference,
   definePreference,

@@ -4,33 +4,33 @@ import { Appearance, Text } from 'react-native';
 
 import { DbGate } from '@/db/DbGate';
 import { getDb, migrateDb, resetDbForTests } from '@/db/node-client';
+import { getColorSchemePreference, setColorSchemePreference } from '@/theme';
 
 import { applyStoredAppearance } from './apply-stored-appearance';
 import { appearanceThemePreference } from './preferences/appearance';
 import { writePreference } from './repo/preference-repo';
 
-let setColorScheme: jest.SpyInstance;
+let setNativeColorScheme: jest.SpyInstance;
 beforeEach(() => {
   resetDbForTests();
-  setColorScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
+  setColorSchemePreference('system');
+  setNativeColorScheme = jest.spyOn(Appearance, 'setColorScheme');
 });
 afterEach(() => {
-  setColorScheme.mockRestore();
+  setNativeColorScheme.mockRestore();
+  setColorSchemePreference('system');
   resetDbForTests();
 });
 
 describe('applyStoredAppearance at start-up (TB-32, no theme flash)', () => {
-  it('applies the stored Dark override before the first screen renders', async () => {
+  it('applies the stored Dark choice before the first screen renders', async () => {
     // A previous session stored Dark (same DB file the next launch opens).
     await migrateDb(getDb());
     writePreference(getDb(), appearanceThemePreference, 'dark');
-    setColorScheme.mockClear();
 
-    const overrideAtFirstRender: unknown[][] = [];
+    const schemeAtFirstRender: string[] = [];
     function FirstScreen() {
-      if (overrideAtFirstRender.length === 0) {
-        overrideAtFirstRender.push(...setColorScheme.mock.calls);
-      }
+      if (schemeAtFirstRender.length === 0) schemeAtFirstRender.push(getColorSchemePreference());
       return <Text testID="first-screen">today</Text>;
     }
 
@@ -41,22 +41,25 @@ describe('applyStoredAppearance at start-up (TB-32, no theme flash)', () => {
     );
 
     expect(await screen.findByTestId('first-screen')).toBeOnTheScreen();
-    expect(overrideAtFirstRender).toEqual([['dark']]);
+    expect(schemeAtFirstRender).toEqual(['dark']);
+    // The app theme is JS-only: no native night-mode override (it clipped text on device).
+    expect(setNativeColorScheme).not.toHaveBeenCalled();
   });
 
-  it('clears any override for System (first launch, nothing stored)', async () => {
+  it('follows the system when nothing is stored (first launch)', async () => {
     await migrateDb(getDb());
+    setColorSchemePreference('light');
 
     applyStoredAppearance(getDb());
 
-    expect(setColorScheme).toHaveBeenCalledWith('auto');
+    expect(getColorSchemePreference()).toBe('system');
   });
 
-  it('never throws on a DB failure and leaves the system scheme alone', async () => {
+  it('never throws on a DB failure and leaves the current scheme alone', async () => {
     await migrateDb(getDb());
     getDb().run(sql`DROP TABLE preferences`);
 
     expect(() => applyStoredAppearance(getDb())).not.toThrow();
-    expect(setColorScheme).not.toHaveBeenCalled();
+    expect(getColorSchemePreference()).toBe('system');
   });
 });

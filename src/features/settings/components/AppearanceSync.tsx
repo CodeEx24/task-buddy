@@ -1,20 +1,22 @@
 import { useEffect } from 'react';
-import { Appearance } from 'react-native';
+
+import { setColorSchemePreference } from '@/theme';
 
 import { usePreference } from '../hooks/use-preference';
-import { appearanceThemePreference, toColorSchemeOverride } from '../preferences/appearance';
+import { appearanceThemePreference } from '../preferences/appearance';
 
 /**
- * Applies the stored theme app-wide (TB-32). `Appearance.setColorScheme` is an app-level override
- * that `useColorScheme` (and so `useTheme`, the tab bar and native alerts/pickers) follows, so a
- * change re-styles every screen at once. Mount once, inside the QueryClient provider.
+ * Applies the stored theme app-wide (TB-32). `setColorSchemePreference` re-renders every
+ * `useTheme` consumer (UiProvider's colour variables, headers, the tab bar, the status bar) in the
+ * same pass, including the screen where the choice was made. Mount once, inside the QueryClient
+ * provider.
  */
 export function AppearanceSync() {
   const { value, isLoading } = usePreference(appearanceThemePreference);
   useEffect(() => {
-    // Until the stored value is read, keep what the app started with (the system scheme).
+    // Until the stored value is read, keep what start-up applied (`applyStoredAppearance`).
     if (isLoading) return;
-    Appearance.setColorScheme(toColorSchemeOverride(value));
+    setColorSchemePreference(value);
   }, [value, isLoading]);
   return null;
 }

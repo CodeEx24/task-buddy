@@ -1,8 +1,7 @@
-import { Appearance } from 'react-native';
-
 import type { TaskBuddyDb } from '@/db/types';
+import { setColorSchemePreference } from '@/theme';
 
-import { appearanceThemePreference, toColorSchemeOverride } from './preferences/appearance';
+import { appearanceThemePreference } from './preferences/appearance';
 import { readPreference } from './repo/preference-repo';
 
 /**
@@ -12,7 +11,7 @@ import { readPreference } from './repo/preference-repo';
  */
 export function applyStoredAppearance(db: TaskBuddyDb): void {
   try {
-    Appearance.setColorScheme(toColorSchemeOverride(readPreference(db, appearanceThemePreference)));
+    setColorSchemePreference(readPreference(db, appearanceThemePreference));
   } catch {
     // Unreadable preference: keep the system scheme; AppearanceSync retries via the query.
   }

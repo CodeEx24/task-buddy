@@ -6,6 +6,7 @@ import { migrateDb, resetDbForTests } from '@/db/node-client';
 import { getFakeAuth } from '@/features/auth/testing/fake-auth';
 import { FAKE_EMAIL } from '@/features/auth/testing/fake-auth-client';
 import { cleanupTaskTests } from '@/features/tasks/testing/task-test-utils';
+import { setColorSchemePreference, themeVars } from '@/theme';
 
 import { appearanceThemePreference } from './preferences/appearance';
 import { readPreference, writePreference } from './repo/preference-repo';
@@ -19,17 +20,27 @@ jest.mock('@expo/vector-icons/Ionicons', () =>
 const APP_DIR = './src/app';
 const ROUTE_TEST_TIMEOUT_MS = 30_000;
 
-let setColorScheme: jest.SpyInstance;
+let setNativeColorScheme: jest.SpyInstance;
 beforeEach(() => {
+  setColorSchemePreference('system');
   cleanupTaskTests();
   resetDbForTests();
   getFakeAuth().control.reset({ signedIn: true });
-  setColorScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
+  setNativeColorScheme = jest.spyOn(Appearance, 'setColorScheme');
 });
 afterEach(() => {
+  // The app theme is JS-only: never a native night-mode override (it clipped text on device).
+  expect(setNativeColorScheme).not.toHaveBeenCalled();
+  setColorSchemePreference('system');
   jest.restoreAllMocks();
   cleanupTaskTests();
 });
+
+/** UiProvider's colour variables: every token class on screen resolves through them. */
+function expectAppScheme(scheme: 'light' | 'dark') {
+  const style: unknown = screen.getByTestId('ui-provider-root').props.style;
+  expect(style).toContain(themeVars[scheme]);
+}
 
 /** The listener React Navigation registers for the Android hardware back key. */
 function captureHardwareBack() {
@@ -50,7 +61,7 @@ function captureHardwareBack() {
 
 describe('Settings routes (TB-32)', () => {
   it(
-    'Settings tab → Appearance page (tab bar stays) → Dark applies and persists → back',
+    'Settings tab → Appearance page (tab bar stays) → Dark re-themes the open page and persists → back',
     async () => {
       const pressBack = captureHardwareBack();
       await renderRouter(APP_DIR, { initialUrl: '/' });
@@ -66,10 +77,17 @@ describe('Settings routes (TB-32)', () => {
       expect(screen.getByTestId('tab-settings')).toBeVisible();
       expect(screen.getByTestId('tab-settings')).toBeSelected();
 
+      expectAppScheme('light');
       await fireEvent.press(screen.getByRole('radio', { name: 'Dark' }));
       await waitFor(() => expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked());
-      expect(setColorScheme).toHaveBeenLastCalledWith('dark');
+      // Regression (device, PR #19): the page where the choice is made re-themes at once, while
+      // it stays mounted, without any Appearance change event.
+      expectAppScheme('dark');
+      expect(screen.getByTestId('settings-page-appearance')).toBeVisible();
       await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('dark'));
+
+      await fireEvent.press(screen.getByRole('radio', { name: 'Light' }));
+      await waitFor(() => expectAppScheme('light'));
 
       await pressBack();
       expect(screen).toHavePathname('/settings');
@@ -128,16 +146,15 @@ describe('Settings routes (TB-32)', () => {
   it(
     'a stored Appearance preference is applied when the app launches',
     async () => {
-      // A previous session stored Light in the same database the next launch opens.
+      // A previous session stored Dark in the same database the next launch opens.
       await migrateDb(getDb());
-      writePreference(getDb(), appearanceThemePreference, 'light');
-      setColorScheme.mockClear();
+      writePreference(getDb(), appearanceThemePreference, 'dark');
 
       await renderRouter(APP_DIR, { initialUrl: '/settings/appearance' });
 
-      expect(setColorScheme).toHaveBeenCalledWith('light');
       await screen.findByTestId('settings-page-appearance');
-      await waitFor(() => expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked());
+      expectAppScheme('dark');
+      await waitFor(() => expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked());
     },
     ROUTE_TEST_TIMEOUT_MS,
   );

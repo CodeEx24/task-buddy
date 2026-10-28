@@ -13,8 +13,3 @@ export const appearanceThemePreference = definePreference<AppearanceTheme>({
   schema: appearanceThemeSchema,
   defaultValue: 'system',
 });
-
-/** React Native `Appearance.setColorScheme` value: `'auto'` removes the override. */
-export function toColorSchemeOverride(theme: AppearanceTheme): 'light' | 'dark' | 'auto' {
-  return theme === 'system' ? 'auto' : theme;
-}
