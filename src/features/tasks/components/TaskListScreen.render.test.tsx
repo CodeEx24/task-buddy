@@ -13,7 +13,7 @@ import {
   resetTaskData,
   storedTask,
 } from '../testing/task-test-utils';
-import { TaskListScreen } from './TaskListScreen';
+import { LIST_TUNING, TaskListScreen } from './TaskListScreen';
 import { TaskRow, taskMetaLine, type TaskRowProps } from './TaskRow';
 
 jest.mock('expo-router', () => ({
@@ -83,5 +83,53 @@ describe('task list render cost (TB-27)', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('scrolling a long list re-renders none of the rows already on screen (AC3)', async () => {
+    const today = startOfLocalDay(Date.now());
+    const ids = Array.from(
+      { length: 120 },
+      (_, i) =>
+        createTask(getDb(), { title: `Task ${i}`, dueAt: addLocalDays(today, (i % 20) + 2) }).id,
+    );
+    await renderWithQuery(<TaskListScreen kind="today" />);
+    await screen.findByTestId('today-section-later');
+    const mounted = ids.filter((id) => rendersOf(id) > 0);
+    expect(mounted.length).toBeGreaterThan(0);
+    expect(mounted.length).toBeLessThan(ids.length);
+    const before = new Map(mounted.map((id) => [id, rendersOf(id)]));
+
+    // Jest has no layout: give the list its viewport and content size, as the native side does.
+    const list = screen.getByTestId('today-list');
+    await fireEvent(list, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } },
+    });
+    await fireEvent(list, 'contentSizeChange', 390, 8000);
+    for (const y of [600, 1800, 3600]) {
+      await fireEvent.scroll(screen.getByTestId('today-list'), {
+        nativeEvent: {
+          contentOffset: { x: 0, y },
+          contentSize: { width: 390, height: 8000 },
+          layoutMeasurement: { width: 390, height: 844 },
+        },
+      });
+    }
+
+    // Control: the scroll was processed (rows further down were mounted) ...
+    await waitFor(() =>
+      expect(ids.filter((id) => rendersOf(id) > 0).length).toBeGreaterThan(mounted.length),
+    );
+    // ... and none of the rows already mounted rendered again.
+    for (const [id, count] of before) expect(rendersOf(id)).toBe(count);
+  });
+
+  it('uses the tuned virtualisation settings', () => {
+    expect(LIST_TUNING).toEqual({
+      initialNumToRender: 16,
+      windowSize: 11,
+      maxToRenderPerBatch: 8,
+      updateCellsBatchingPeriod: 50,
+      removeClippedSubviews: false, // Jest runs as iOS; true on Android
+    });
   });
 });

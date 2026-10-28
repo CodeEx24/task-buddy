@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -42,6 +42,10 @@ const SNAP_BACK = {
  * scrolling the list never opens a row (`swipe-row-config.ts`). Everything after activation runs
  * on the UI thread; `onSwipe` is scheduled back to React once, on release.
  *
+ * Cheap at rest (TB-27 AC3, 500-row lists): one shared value, one animated style and the pan per
+ * row. The panels mount only when a finger first touches the row (`onBegin`, before the 20 pt
+ * activation), and stay mounted after that; they sit under the row, so no per-panel animation.
+ *
  * Panels are decorative: give screen-reader users the same actions another way (for example
  * accessibility actions on the row's main control) and hide the panels from assistive tech.
  */
@@ -49,10 +53,17 @@ export function SwipeRow({ testID, children, leftPanel, rightPanel, onSwipe }: S
   const hasLeftPanel = leftPanel !== undefined;
   const hasRightPanel = rightPanel !== undefined;
   const offset = useSharedValue(0);
+  const [hasPanels, setHasPanels] = useState(false);
+  const mountPanels = useCallback(() => setHasPanels(true), []);
 
   const panConfig = useMemo(
     () => ({
       ...SWIPE_PAN_OFFSETS,
+      onBegin: () => {
+        'worklet';
+        // Once per touch, never per frame; a repeated `true` is a no-op render bail-out.
+        scheduleOnRN(mountPanels);
+      },
       onUpdate: (event: { translationX: number }) => {
         'worklet';
         offset.set(swipeRowOffset(event.translationX, hasLeftPanel, hasRightPanel));
@@ -74,25 +85,23 @@ export function SwipeRow({ testID, children, leftPanel, rightPanel, onSwipe }: S
         if (offset.get() !== 0) offset.set(withSpring(0, SNAP_BACK));
       },
     }),
-    [hasLeftPanel, hasRightPanel, offset, onSwipe],
+    [hasLeftPanel, hasRightPanel, mountPanels, offset, onSwipe],
   );
   const pan = usePanGesture(panConfig);
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
-  const leftPanelStyle = useAnimatedStyle(() => ({ opacity: offset.get() > 0 ? 1 : 0 }));
-  const rightPanelStyle = useAnimatedStyle(() => ({ opacity: offset.get() < 0 ? 1 : 0 }));
 
   return (
     <View testID={testID} style={styles.container}>
-      {hasLeftPanel ? (
-        <Animated.View pointerEvents="none" style={[styles.leftPanel, leftPanelStyle]}>
+      {hasPanels && hasLeftPanel ? (
+        <View pointerEvents="none" style={styles.leftPanel}>
           {leftPanel}
-        </Animated.View>
+        </View>
       ) : null}
-      {hasRightPanel ? (
-        <Animated.View pointerEvents="none" style={[styles.rightPanel, rightPanelStyle]}>
+      {hasPanels && hasRightPanel ? (
+        <View pointerEvents="none" style={styles.rightPanel}>
           {rightPanel}
-        </Animated.View>
+        </View>
       ) : null}
       <GestureDetector gesture={pan}>
         <Animated.View style={rowStyle}>{children}</Animated.View>

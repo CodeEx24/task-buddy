@@ -1,10 +1,12 @@
 import { router, type Href } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   SectionList,
   Text,
   View,
+  type SectionListData,
   type SectionListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -64,8 +66,22 @@ export const TASK_SCREENS: Record<TaskScreenKind, ScreenConfig> = {
   },
 };
 
-/** Rows rendered before the first scroll: a typical day without waiting (headers count too). */
-const INITIAL_ROWS = 30;
+/**
+ * Virtualisation tuning for 500-row lists (TB-27 AC3): render about one screen up front, keep a
+ * smaller window (5 screens above + below instead of 10), and mount new rows in small, spaced
+ * batches so a fling never blocks the JS thread for long. Android also detaches off-screen rows.
+ */
+export const LIST_TUNING = {
+  /** Rows (headers count) rendered before the first scroll: a phone screen and a bit. */
+  initialNumToRender: 16,
+  windowSize: 11,
+  maxToRenderPerBatch: 8,
+  updateCellsBatchingPeriod: 50,
+  removeClippedSubviews: Platform.OS === 'android',
+} as const;
+
+/** Module-level, so the list never sees a new function. */
+const keyExtractor = (task: Task) => task.id;
 
 /**
  * The Today and Inbox tabs (TB-27): the shared task board, grouped per tab, with swipe actions on
@@ -77,7 +93,11 @@ export function TaskListScreen({ kind }: { kind: TaskScreenKind }) {
   const { mutate: updateTask } = useUpdateTask();
   const runQuickAction = useTaskQuickAction();
   const now = useNow();
-  const sections = board.data ? config.group(board.data, now) : [];
+  // Regrouped only when the board or the minute changes, never on an unrelated re-render.
+  const sections = useMemo(
+    () => (board.data ? config.group(board.data, now) : []),
+    [board.data, config, now],
+  );
 
   // Stable callbacks + a per-row label string: a clock tick or a change to another task leaves
   // every other memoised row untouched (both tabs stay mounted, so this matters twice).
@@ -98,6 +118,18 @@ export function TaskListScreen({ kind }: { kind: TaskScreenKind }) {
       />
     ),
     [now, toggleDone, openTask, runQuickAction],
+  );
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: SectionListData<Task, TaskSection> }) => (
+      <Text
+        testID={`${config.testID}-section-${section.key}`}
+        accessibilityRole="header"
+        className="pb-xs pt-lg text-lg font-semibold text-text"
+      >
+        {section.title}
+      </Text>
+    ),
+    [config.testID],
   );
 
   return (
@@ -126,20 +158,12 @@ export function TaskListScreen({ kind }: { kind: TaskScreenKind }) {
           <SectionList
             testID={`${config.testID}-list`}
             sections={sections}
-            keyExtractor={(task) => task.id}
+            keyExtractor={keyExtractor}
             stickySectionHeadersEnabled={false}
-            initialNumToRender={INITIAL_ROWS}
+            {...LIST_TUNING}
             keyboardShouldPersistTaps="handled"
             contentContainerClassName="px-xl pb-[96px]"
-            renderSectionHeader={({ section }) => (
-              <Text
-                testID={`${config.testID}-section-${section.key}`}
-                accessibilityRole="header"
-                className="pb-xs pt-lg text-lg font-semibold text-text"
-              >
-                {section.title}
-              </Text>
-            )}
+            renderSectionHeader={renderSectionHeader}
             renderItem={renderItem}
             ListEmptyComponent={
               <Card testID={`${config.testID}-empty`} title={config.empty.title} className="mt-lg">

@@ -1,6 +1,6 @@
 // The real SwipeRow (jest-setup installs a stand-in for screens). Gesture-handler and Reanimated
 // are replaced so the test can read the pan config and drive its callbacks like the UI thread.
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { usePanGesture } from 'react-native-gesture-handler';
 
@@ -34,6 +34,7 @@ jest.mock('react-native-worklets', () => ({
 }));
 
 type PanConfig = typeof SWIPE_PAN_OFFSETS & {
+  onBegin: () => void;
   onUpdate: (e: { translationX: number }) => void;
   onDeactivate: (e: {
     canceled: boolean;
@@ -59,6 +60,17 @@ async function renderRow(onSwipe = jest.fn(), withRight = true) {
 }
 
 describe('SwipeRow (TB-27)', () => {
+  it('mounts the action panels only once a finger touches the row (AC3 per-row cost)', async () => {
+    await renderRow();
+    expect(screen.queryByText('Left')).toBeNull();
+    expect(screen.queryByText('Right')).toBeNull();
+
+    await act(async () => lastPanConfig().onBegin());
+
+    expect(screen.getByText('Left')).toBeOnTheScreen();
+    expect(screen.getByText('Right')).toBeOnTheScreen();
+  });
+
   it('passes the vertical-fail / horizontal-activate offsets to the pan gesture', async () => {
     await renderRow();
     expect(lastPanConfig()).toMatchObject({ activeOffsetX: [-20, 20], failOffsetY: [-12, 12] });
@@ -88,6 +100,8 @@ describe('SwipeRow (TB-27)', () => {
       velocityX: 0,
     });
     expect(onSwipe).not.toHaveBeenCalled();
+    await act(async () => lastPanConfig().onBegin());
+    expect(screen.getByText('Left')).toBeOnTheScreen();
     expect(screen.queryByText('Right')).toBeNull();
   });
 });
