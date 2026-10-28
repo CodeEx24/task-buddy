@@ -2,6 +2,8 @@
 module.exports = {
   preset: 'jest-expo',
   moduleNameMapper: {
+    // TB-21: tests run the DB on better-sqlite3 (Node) instead of expo-sqlite (native).
+    '^@/db/client$': '<rootDir>/src/db/node-client.ts',
     // Keep in sync with tsconfig.json "paths" (more specific alias first).
     '^@/assets/(.*)$': '<rootDir>/assets/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
