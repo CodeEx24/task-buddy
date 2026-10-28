@@ -20,6 +20,10 @@ export const sentryReporter: CrashReporter = {
       attachViewHierarchy: false,
       reportAccessibilityIdentifier: false,
       enableLogs: false,
+      // Native network breadcrumbs (OkHttp / NSURLSession) carry full URLs and never pass through
+      // the JS beforeBreadcrumb scrubber, so they stay off; failed-request events too.
+      enableNetworkBreadcrumbs: false,
+      enableCaptureFailedRequests: false,
       maxBreadcrumbs: 50,
       beforeSend: (event) => scrubEvent(event),
       beforeBreadcrumb: (breadcrumb) => scrubBreadcrumb(breadcrumb),

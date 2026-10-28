@@ -117,3 +117,31 @@ describe('isTestCrashAvailable', () => {
     expect(isTestCrashAvailable(isDev, appEnv)).toBe(expected);
   });
 });
+
+describe('security review fixes (TB-37 PR #20)', () => {
+  it('stays off and never throws when the vendor init throws', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const reporter = fakeReporter();
+    reporter.init.mockImplementation(() => {
+      throw new TypeError(`bad options ${DSN}`);
+    });
+    expect(() => initCrashReporting({ appEnv: 'staging', sentryDsn: DSN }, reporter)).not.toThrow();
+    expect(isCrashReportingEnabled()).toBe(false);
+    expect(wrapRoot(Root)).toBe(Root);
+    captureException(new Error('x'));
+    expect(reporter.captureException).not.toHaveBeenCalled();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(DSN);
+    expect(warn).toHaveBeenCalledWith('[crash-reporting] init failed, staying off', {
+      name: 'TypeError',
+    });
+    warn.mockRestore();
+  });
+
+  it('triggerTestCrash is a no-op where the test crash is not available', () => {
+    const reporter = fakeReporter();
+    initCrashReporting({ appEnv: 'production', sentryDsn: DSN }, reporter);
+    expect(() => triggerTestCrash('js', false)).not.toThrow();
+    expect(() => triggerTestCrash('native', false)).not.toThrow();
+    expect(reporter.nativeCrash).not.toHaveBeenCalled();
+  });
+});

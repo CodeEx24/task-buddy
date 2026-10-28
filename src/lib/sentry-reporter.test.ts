@@ -21,6 +21,9 @@ describe('sentryReporter', () => {
       enableAutoSessionTracking: true,
       attachScreenshot: false,
       attachViewHierarchy: false,
+      enableNetworkBreadcrumbs: false,
+      enableCaptureFailedRequests: false,
+      reportAccessibilityIdentifier: false,
     });
     expect(options.tracesSampleRate).toBeUndefined();
     // Release/dist come from the native build, matching the source-map upload.

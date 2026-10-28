@@ -19,7 +19,7 @@ describe('scrubText', () => {
   it.each([
     ['an email', 'sign-in failed for ana.cruz+tb@example.co.uk', 'sign-in failed for [email]'],
     ['a bearer token', `Authorization: Bearer ${JWT}`, 'Authorization: Bearer [token]'],
-    ['a bare JWT', `token=${JWT} expired`, 'token=[token] expired'],
+    ['a bare JWT', `jwt ${JWT} expired`, 'jwt [token] expired'],
     ['a Supabase key', `key ${SB_KEY} rejected`, 'key [token] rejected'],
     ['a Sentry auth token', `upload with ${SENTRY_TOKEN}`, 'upload with [token]'],
     ['a six-digit OTP code', 'verifyOtp(482913) failed', 'verifyOtp([code]) failed'],
@@ -161,5 +161,107 @@ describe('scrubEvent', () => {
     const scrubbed = scrubEvent({ user: {}, exception: { values: [{ value: 'boom' }] } });
     expect(scrubbed.user).toBeUndefined();
     expect(scrubbed.exception).toEqual({ values: [{ value: 'boom' }] });
+  });
+});
+
+describe('security review fixes (TB-37 PR #20)', () => {
+  it.each([
+    [
+      'a URL query inside an error message',
+      'fetch failed: https://x.supabase.co/auth/v1/verify?token_hash=abc&type=email (500)',
+      `fetch failed: https://x.supabase.co/auth/v1/verify?${REDACTED} (500)`,
+    ],
+    [
+      'a URL fragment inside free text',
+      'redirect to taskbuddy://auth#access_token=zzz&refresh_token=yyy',
+      `redirect to taskbuddy://auth?${REDACTED}`,
+    ],
+    [
+      'a bare token_hash param',
+      'verify token_hash=abc123 failed',
+      `verify token_hash=${REDACTED} failed`,
+    ],
+    ['a bare code param', 'exchange code=4f2a9 failed', `exchange code=${REDACTED} failed`],
+    ['an apikey param', 'apikey=xyz rejected', `apikey=${REDACTED} rejected`],
+    ['a key param', 'key=xyz rejected', `key=${REDACTED} rejected`],
+    ['an OTP typed with a space', 'code 123 456 wrong', 'code [code] wrong'],
+    ['an OTP typed with a hyphen', 'code 123-456 wrong', 'code [code] wrong'],
+  ])('removes %s', (_name, input, expected) => {
+    expect(scrubText(input)).toBe(expected);
+  });
+
+  it('leaves a URL without a query alone', () => {
+    expect(scrubText('GET https://x.supabase.co/rest/v1/tasks failed')).toBe(
+      'GET https://x.supabase.co/rest/v1/tasks failed',
+    );
+  });
+
+  it.each(['query', 'sql', 'value', 'arguments', 'subject', 'q'])('treats %s as sensitive', (key) =>
+    expect(isSensitiveKey(key)).toBe(true),
+  );
+
+  it('redacts name in breadcrumb data but keeps os.name in contexts', () => {
+    const crumb = scrubBreadcrumb({
+      category: 'sqlite',
+      data: { name: TASK_TITLE, sql: 'select 1' },
+    });
+    expect(crumb.data).toEqual({ name: REDACTED, sql: REDACTED });
+    const scrubbed = scrubEvent({ contexts: { os: { name: 'Android', version: '15' } } });
+    expect(scrubbed.contexts).toEqual({ os: { name: 'Android', version: '15' } });
+  });
+
+  it('navigation breadcrumbs keep route paths with opaque ids and drop queries', () => {
+    const id = '0192f3a4-5b6c-7d8e-9f01-23456789abcd';
+    expect(
+      scrubBreadcrumb({
+        category: 'navigation',
+        data: { from: '/(tabs)', to: `/task/${id}?title=${encodeURIComponent(TASK_TITLE)}` },
+      }),
+    ).toEqual({ category: 'navigation', data: { from: '/(tabs)', to: `/task/${id}` } });
+  });
+
+  it('scrubs exception type, mechanism data, logentry, transaction and threads', () => {
+    const scrubbed = scrubEvent({
+      exception: {
+        values: [
+          {
+            type: 'Error for ana@example.com',
+            value: 'boom',
+            mechanism: { data: { name: TASK_TITLE, handler: 'onerror' } },
+          },
+        ],
+      },
+      logentry: { message: 'saved %s for ana@example.com', params: [TASK_TITLE] },
+      transaction: '/task/abc?title=secret',
+      threads: {
+        values: [
+          {
+            id: 1,
+            name: 'main',
+            stacktrace: { frames: [{ function: 'f', vars: { title: TASK_TITLE } }] },
+          },
+        ],
+      },
+    });
+    const json = JSON.stringify(scrubbed);
+    expect(json).not.toContain(TASK_TITLE);
+    expect(json).not.toContain('ana@example.com');
+    expect(json).not.toContain('secret');
+    expect(scrubbed.exception?.values?.[0]).toEqual({
+      type: 'Error for [email]',
+      value: 'boom',
+      mechanism: { data: { name: REDACTED, handler: 'onerror' } },
+    });
+    expect(scrubbed.logentry).toEqual({ message: 'saved %s for [email]', params: [REDACTED] });
+    expect(scrubbed.transaction).toBe('/task/abc');
+    expect(scrubbed.threads).toEqual({
+      values: [
+        {
+          id: 1,
+          name: 'main',
+          stacktrace: { frames: [{ function: 'f', vars: { title: REDACTED } }] },
+        },
+      ],
+    });
   });
 });

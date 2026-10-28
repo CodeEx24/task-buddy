@@ -26,7 +26,8 @@ let active: CrashReporter | undefined;
 
 /**
  * Starts crash reporting once, at app start. Returns whether it is enabled.
- * Missing or invalid DSN → disabled (returns false, sends nothing).
+ * Missing or invalid DSN → disabled (returns false, sends nothing). A vendor init that throws
+ * also leaves it disabled: crash reporting must never crash start-up.
  */
 export function initCrashReporting(
   env: CrashReportingEnv = getCrashReportingEnv(),
@@ -34,7 +35,15 @@ export function initCrashReporting(
 ): boolean {
   if (active) return true;
   if (!env.sentryDsn) return false;
-  reporter.init({ dsn: env.sentryDsn, environment: env.appEnv ?? 'unknown' });
+  try {
+    reporter.init({ dsn: env.sentryDsn, environment: env.appEnv ?? 'unknown' });
+  } catch (error) {
+    // Fixed text + error class only: the message could echo the DSN or options.
+    console.warn('[crash-reporting] init failed, staying off', {
+      name: error instanceof Error ? error.name : typeof error,
+    });
+    return false;
+  }
   active = reporter;
   return true;
 }
@@ -67,8 +76,15 @@ export function isTestCrashAvailable(
   return isDev || appEnv === 'development' || appEnv === 'staging';
 }
 
-/** Throws (JS) or aborts the process (native) so a report reaches Sentry. */
-export function triggerTestCrash(kind: TestCrashKind): never {
+/**
+ * Throws (JS) or aborts the process (native) so a report reaches Sentry. A no-op where the test
+ * crash is not available (production), even if something calls it directly.
+ */
+export function triggerTestCrash(
+  kind: TestCrashKind,
+  isAvailable: boolean = isTestCrashAvailable(),
+): void {
+  if (!isAvailable) return;
   if (kind === 'native' && active) {
     active.nativeCrash();
   }
