@@ -43,6 +43,24 @@ describe('scanText', () => {
   });
 });
 
+describe('scanText: Sentry (TB-37)', () => {
+  it('flags a Sentry auth token and never echoes it', () => {
+    const token = `${['sntry', 's'].join('')}_${'eyJpYXQiOjE3'.repeat(4)}`;
+    const findings = scanText('a.js', `t="${token}"`);
+    expect(findings).toEqual([{ file: 'a.js', rule: 'sentry auth token', preview: redact(token) }]);
+    expect(JSON.stringify(findings)).not.toContain(token);
+  });
+
+  it('flags the auth token variable name but not a public DSN', () => {
+    const name = ['SENTRY', 'AUTH', 'TOKEN'].join('_');
+    expect(scanText('a.js', `process.env.${name}`)).toEqual([
+      { file: 'a.js', rule: 'server-only key name', preview: name },
+    ]);
+    const dsn = `https://${'a1'.repeat(16)}@o123.ingest.sentry.io/456`;
+    expect(scanText('a.js', `var d="${dsn}"`)).toEqual([]);
+  });
+});
+
 describe('scanDirectory', () => {
   let dir: string;
   beforeEach(() => {

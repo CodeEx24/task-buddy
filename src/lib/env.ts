@@ -36,7 +36,10 @@ export class EnvError extends Error {
 }
 
 const PUBLISHABLE_KEY_PREFIX = 'sb_publishable_';
-const SECRET_KEY_PREFIX = 'sb_secret_';
+// Built at runtime on purpose: Hermes packs string literals back to back, so a literal
+// `sb_secret_` followed by an unrelated string looks like a leaked key to the bundle scanner
+// (scripts/check-bundle-secrets.ts). Same trick as the scanner itself. Don't inline it.
+const SECRET_KEY_PREFIX = ['sb', 'secret', ''].join('_');
 
 function decodeBase64Url(segment: string): string {
   const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
@@ -149,4 +152,44 @@ let cached: Env | undefined;
 export function getEnv(): Env {
   cached ??= parseEnv(readRawEnv());
   return cached;
+}
+
+// --- Crash reporting (TB-37) -------------------------------------------------------------------
+// Read separately from getEnv() so a missing Supabase variable never switches crash reporting
+// off (that is exactly the crash we want to see) and so this never throws at app start.
+
+export type CrashReportingEnv = {
+  /** `undefined` when EXPO_PUBLIC_APP_ENV is missing or unknown. */
+  appEnv: AppEnv | undefined;
+  /** `undefined` when EXPO_PUBLIC_SENTRY_DSN is missing or not a Sentry DSN: reporting stays off. */
+  sentryDsn: string | undefined;
+};
+
+export type RawCrashReportingEnv = {
+  EXPO_PUBLIC_APP_ENV?: string;
+  EXPO_PUBLIC_SENTRY_DSN?: string;
+};
+
+// https://<32-hex public key>@<ingest host>/<numeric project id>. The DSN is public by design;
+// anything with a password part or a token shape is rejected so a secret is never sent along.
+const SENTRY_DSN = /^https:\/\/[0-9a-f]{32}@[a-z0-9.-]+(:\d{1,5})?\/\d+$/;
+
+export const sentryDsnSchema = z.string().trim().regex(SENTRY_DSN);
+
+/** Pure and total: invalid values become `undefined` instead of throwing. */
+export function parseCrashReportingEnv(raw: RawCrashReportingEnv): CrashReportingEnv {
+  const appEnv = z.enum(APP_ENVS).safeParse(raw.EXPO_PUBLIC_APP_ENV);
+  const dsn = sentryDsnSchema.safeParse(raw.EXPO_PUBLIC_SENTRY_DSN);
+  return {
+    appEnv: appEnv.success ? appEnv.data : undefined,
+    sentryDsn: dsn.success ? dsn.data : undefined,
+  };
+}
+
+/** Crash-reporting config from the bundle's EXPO_PUBLIC_* values (static reads, see above). */
+export function getCrashReportingEnv(): CrashReportingEnv {
+  return parseCrashReportingEnv({
+    EXPO_PUBLIC_APP_ENV: process.env.EXPO_PUBLIC_APP_ENV,
+    EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  });
 }

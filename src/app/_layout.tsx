@@ -6,12 +6,16 @@ import { StatusBar } from 'expo-status-bar';
 import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
 import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
+import { initCrashReporting, wrapRoot } from '@/lib/crash-reporting';
 import { QueryProvider } from '@/lib/QueryProvider';
+
+// TB-37: before any render, so start-up crashes are reported. No-op without a Sentry DSN.
+initCrashReporting();
 
 // A deep link straight to a modal (`taskbuddy://task/<id>`) still loads the tabs underneath (TB-18).
 export const unstable_settings = { anchor: '(tabs)' };
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <UiProvider>
       {/* TB-21: run local DB migrations before any screen reads data. */}
@@ -31,3 +35,5 @@ export default function RootLayout() {
     </UiProvider>
   );
 }
+
+export default wrapRoot(RootLayout);
