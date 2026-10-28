@@ -9,6 +9,8 @@ import {
   createSubtaskInputSchema,
   createTaskInputSchema,
   idSchema,
+  MAX_SUBTASKS_PER_TASK,
+  subtaskMoveDirectionSchema,
   listCompletedTasksInputSchema,
   listOpenTasksInputSchema,
   updateSubtaskInputSchema,
@@ -17,11 +19,12 @@ import {
   type CreateTaskInput,
   type ListCompletedTasksInput,
   type ListOpenTasksInput,
+  type SubtaskMoveDirection,
   type TaskCursor,
   type UpdateSubtaskInput,
   type UpdateTaskInput,
 } from '../schema';
-import { definedOnly, notFound, guardDb } from './repo-utils';
+import { definedOnly, guardDb, notFound, RepoError } from './repo-utils';
 
 export type Task = TaskRow;
 export type Subtask = SubtaskRow;
@@ -231,6 +234,17 @@ function listOpenTasksUnchecked(db: TaskBuddyDb, input: ListOpenTasksInput = {})
 
 // --- Subtasks ---
 
+/**
+ * A live subtask whose task is live too (TB-28): a subtask of a deleted task can't be changed,
+ * since undoing the task's delete must bring back the checklist exactly as it was.
+ * Throws NOT_FOUND('Task') when the subtask is live but its task is not.
+ */
+function findEditableSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
+  const subtask = findLiveSubtask(db, id);
+  if (subtask && !findLiveTask(db, subtask.taskId)) throw notFound('Task');
+  return subtask;
+}
+
 function findLiveSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
   return db
     .select()
@@ -239,10 +253,35 @@ function findLiveSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
     .get();
 }
 
+function liveSubtasksOf(db: TaskBuddyDb, taskId: string): Subtask[] {
+  return db
+    .select()
+    .from(subtasks)
+    .where(and(eq(subtasks.taskId, taskId), isNull(subtasks.deletedAt)))
+    .orderBy(asc(subtasks.sortOrder), asc(subtasks.id))
+    .all();
+}
+
+/**
+ * Adds a subtask. Without `sortOrder` it goes to the end of the checklist (TB-28). A task holds at
+ * most `MAX_SUBTASKS_PER_TASK` live subtasks (LIMIT_REACHED).
+ */
 function createSubtaskUnchecked(db: TaskBuddyDb, input: CreateSubtaskInput): Subtask {
   const data = createSubtaskInputSchema.parse(input);
   return db.transaction((tx) => {
     if (!findLiveTask(tx, data.taskId)) throw notFound('Task');
+    const siblings = tx
+      .select({
+        count: sql<number>`count(*)`,
+        maxSort: sql<number | null>`max(${subtasks.sortOrder})`,
+      })
+      .from(subtasks)
+      .where(and(eq(subtasks.taskId, data.taskId), isNull(subtasks.deletedAt)))
+      .get();
+    if ((siblings?.count ?? 0) >= MAX_SUBTASKS_PER_TASK) {
+      throw new RepoError('LIMIT_REACHED', 'Subtask limit reached');
+    }
+    const maxSort = siblings?.maxSort ?? null;
     const now = Date.now();
     const row: Subtask = {
       id: newId(),
@@ -252,7 +291,7 @@ function createSubtaskUnchecked(db: TaskBuddyDb, input: CreateSubtaskInput): Sub
       taskId: data.taskId,
       title: data.title,
       isDone: false,
-      sortOrder: data.sortOrder ?? 0,
+      sortOrder: data.sortOrder ?? (maxSort === null ? 0 : Math.floor(maxSort) + 1),
     };
     tx.insert(subtasks).values(row).run();
     return row;
@@ -263,7 +302,7 @@ function updateSubtaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateSubtas
   const subtaskId = idSchema.parse(id);
   const data = definedOnly(updateSubtaskInputSchema.parse(patch));
   return db.transaction((tx) => {
-    const current = findLiveSubtask(tx, subtaskId);
+    const current = findEditableSubtask(tx, subtaskId);
     if (!current) throw notFound('Subtask');
     // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
     if (Object.keys(data).length === 0) return current;
@@ -279,7 +318,7 @@ function updateSubtaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateSubtas
 function softDeleteSubtaskUnchecked(db: TaskBuddyDb, id: string): boolean {
   const subtaskId = idSchema.parse(id);
   return db.transaction((tx) => {
-    if (!findLiveSubtask(tx, subtaskId)) return false;
+    if (!findEditableSubtask(tx, subtaskId)) return false;
     const now = Date.now();
     tx.update(subtasks)
       .set({ deletedAt: now, updatedAt: now })
@@ -290,12 +329,40 @@ function softDeleteSubtaskUnchecked(db: TaskBuddyDb, id: string): boolean {
 }
 
 function listSubtasksUnchecked(db: TaskBuddyDb, taskId: string): Subtask[] {
-  return db
-    .select()
-    .from(subtasks)
-    .where(and(eq(subtasks.taskId, idSchema.parse(taskId)), isNull(subtasks.deletedAt)))
-    .orderBy(asc(subtasks.sortOrder), asc(subtasks.id))
-    .all();
+  return liveSubtasksOf(db, idSchema.parse(taskId));
+}
+
+/**
+ * Moves a live subtask one place up or down its checklist (TB-28) and returns the checklist in its
+ * new order. Positions are renumbered 0..n-1; only rows whose position changes are written (with
+ * `updated_at`). Moving the first row up or the last row down changes nothing.
+ */
+function moveSubtaskUnchecked(
+  db: TaskBuddyDb,
+  id: string,
+  direction: SubtaskMoveDirection,
+): Subtask[] {
+  const subtaskId = idSchema.parse(id);
+  const step = subtaskMoveDirectionSchema.parse(direction) === 'up' ? -1 : 1;
+  return db.transaction((tx) => {
+    const current = findEditableSubtask(tx, subtaskId);
+    if (!current) throw notFound('Subtask');
+    const ordered = liveSubtasksOf(tx, current.taskId);
+    const from = ordered.findIndex((s) => s.id === subtaskId);
+    const to = from + step;
+    if (to < 0 || to >= ordered.length) return ordered;
+    const next = [...ordered];
+    [next[from], next[to]] = [next[to] as Subtask, next[from] as Subtask];
+    const now = Date.now();
+    return next.map((row, index) => {
+      if (row.sortOrder === index) return row;
+      tx.update(subtasks)
+        .set({ sortOrder: index, updatedAt: now })
+        .where(eq(subtasks.id, row.id))
+        .run();
+      return { ...row, sortOrder: index, updatedAt: now };
+    });
+  });
 }
 
 // Public API: driver failures surface as RepoError('DB_FAILURE') without task data.
@@ -310,3 +377,4 @@ export const createSubtask = guardDb(createSubtaskUnchecked);
 export const updateSubtask = guardDb(updateSubtaskUnchecked);
 export const softDeleteSubtask = guardDb(softDeleteSubtaskUnchecked);
 export const listSubtasks = guardDb(listSubtasksUnchecked);
+export const moveSubtask = guardDb(moveSubtaskUnchecked);

@@ -31,7 +31,7 @@ function setup() {
   return { client, wrapper, board };
 }
 
-const FIELDS = { title: 'Pay rent', dueAt: 1_800_000_000_000, priority: 3 };
+const FIELDS = { title: 'Pay rent', dueAt: 1_800_000_000_000, priority: 3, notes: null };
 
 describe('task mutations (optimistic)', () => {
   it('create shows the task in the board before the SQLite write, then the stored row', async () => {
