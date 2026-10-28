@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
+import { AppearanceSync } from '@/features/settings/components/AppearanceSync';
 import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
 import { QueryProvider } from '@/lib/QueryProvider';
 
@@ -18,6 +19,8 @@ export default function RootLayout() {
       <DbGate>
         {/* TB-26: task data (local SQLite) through TanStack Query. */}
         <QueryProvider>
+          {/* TB-32: apply the stored light/dark/system theme app-wide. */}
+          <AppearanceSync />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="task/new" options={{ presentation: 'modal' }} />
