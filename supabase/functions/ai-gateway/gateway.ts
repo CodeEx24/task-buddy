@@ -1,6 +1,8 @@
 // AI gateway request handler (TB-22, https://stratyge.atlassian.net/browse/TB-22).
 // Runtime-agnostic (web-standard Request/Response only): index.ts wires it to Deno.serve, and the
 // Jest suite drives it directly with a fake provider and a fake auth verifier.
+import type { z } from 'zod';
+
 import {
   AI_ROUTES,
   type AiGatewaySuccess,
@@ -118,17 +120,25 @@ function withRequestId(response: Response, requestId: string): Response {
   }
 }
 
-/** Parsed JSON body, or undefined when it is missing, too large or not JSON. */
+/** Marks a body over MAX_BODY_BYTES (TB-25: answered with 413, not 400). */
+const BODY_TOO_LARGE = Symbol('body too large');
+
+/** Parsed JSON body, BODY_TOO_LARGE, or undefined when it is missing or not JSON. */
 async function readJson(request: Request): Promise<unknown> {
   const declared = Number(request.headers.get('Content-Length') ?? '0');
-  if (declared > MAX_BODY_BYTES) return undefined;
+  if (declared > MAX_BODY_BYTES) return BODY_TOO_LARGE;
   try {
     const text = await request.text();
-    if (text.length > MAX_BODY_BYTES) return undefined;
+    if (text.length > MAX_BODY_BYTES) return BODY_TOO_LARGE;
     return JSON.parse(text);
   } catch {
     return undefined;
   }
+}
+
+/** True when the only reason the body failed is an `input` over the schema's transport cap. */
+function isInputTooLong(error: z.ZodError): boolean {
+  return error.issues.some((issue) => issue.code === 'too_big' && issue.path[0] === 'input');
 }
 
 export function createGateway(deps: GatewayDeps): (request: Request) => Promise<Response> {
@@ -225,9 +235,17 @@ export function createGateway(deps: GatewayDeps): (request: Request) => Promise<
       });
     }
 
-    // Stage 3: body.
-    const parsed = aiGatewayRequestSchema.safeParse(await readJson(request));
-    if (!parsed.success) return errorResponse(requestId, 'BAD_REQUEST');
+    // Stage 3: body. Oversized text is 413 INPUT_TOO_LONG (TB-25); the 2,000-code-point limit
+    // itself is checked after sanitising, in middleware/input-hardening.ts.
+    const json = await readJson(request);
+    if (json === BODY_TOO_LARGE) return errorResponse(requestId, 'INPUT_TOO_LONG');
+    const parsed = aiGatewayRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return errorResponse(
+        requestId,
+        isInputTooLong(parsed.error) ? 'INPUT_TOO_LONG' : 'BAD_REQUEST',
+      );
+    }
 
     const provider = deps.provider;
     if (!provider) return errorResponse(requestId, 'AI_NOT_CONFIGURED');

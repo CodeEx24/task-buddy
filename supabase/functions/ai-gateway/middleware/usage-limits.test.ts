@@ -6,6 +6,7 @@ import type { AuthVerifier } from '../auth.ts';
 import { DEFAULT_MODELS, estimateCostUsd, loadGatewayConfig, ROUTES } from '../config.ts';
 import { createGateway } from '../gateway.ts';
 import type { GatewayMiddleware } from '../pipeline.ts';
+import { hardenSystemPrompt, newCanary } from '../prompt-guard.ts';
 import { type AiProvider, ProviderError, type ProviderResult } from '../providers/provider.ts';
 import { createMemoryUsageStore } from '../testing/memory-usage-store.ts';
 import { type UsageStore, UsageStoreError } from '../usage-store.ts';
@@ -200,9 +201,11 @@ describe('AC2: every AI call writes a ledger row', () => {
       const { handler, memory } = setup({ provider: impl });
       expect((await handler(post('plan'))).status).toBe(status);
       const plan = ROUTES.plan;
+      // TB-25: the prompt sent includes the hardening rules and a canary of fixed length.
+      const sentSystem = hardenSystemPrompt(plan.system, newCanary());
       const usage = {
         // whole prompt at 3 chars/token, plus the route's full max_tokens
-        inputTokens: Math.ceil((plan.system.length + 'buy milk tomorrow'.length) / 3),
+        inputTokens: Math.ceil((sentSystem.length + 'buy milk tomorrow'.length) / 3),
         outputTokens: plan.maxTokens,
       };
       expect(memory.ledger).toEqual([

@@ -10,6 +10,7 @@ import type { GatewayConfig } from '../config.ts';
 import type { GatewayMiddleware } from '../pipeline.ts';
 import type { UsageStore } from '../usage-store.ts';
 
+import { createInputHardening } from './input-hardening.ts';
 import { createUsageLimits, type UsageLogEntry } from './usage-limits.ts';
 
 export type MiddlewareDeps = {
@@ -20,9 +21,10 @@ export type MiddlewareDeps = {
 
 export function buildMiddleware(deps: MiddlewareDeps): readonly GatewayMiddleware[] {
   return [
-    // TB-23: per-user rate limit, daily token quota and usage ledger (request guard, first)
+    // TB-25: input hardening + system-prompt leak check (first: a 413 must not consume quota)
+    createInputHardening(),
+    // TB-23: per-user rate limit, daily token quota and usage ledger (request guard)
     createUsageLimits({ store: deps.usageStore, limits: deps.config.limits, log: deps.log }),
-    // TB-25: prompt-injection and input hardening (request guard, after TB-23)
     // TB-24: output schema validation and repair retry (wraps the provider result)
   ];
 }
