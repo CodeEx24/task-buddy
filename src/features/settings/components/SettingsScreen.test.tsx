@@ -2,6 +2,9 @@ import { fireEvent, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { Text } from 'react-native';
 
+import { SessionProvider } from '@/features/auth/session/SessionProvider';
+import { getFakeAuth } from '@/features/auth/testing/fake-auth';
+import { FAKE_EMAIL } from '@/features/auth/testing/fake-auth-client';
 import { renderWithQuery } from '@/features/tasks/testing/task-test-utils';
 
 import { SETTINGS_PAGES } from '../registry/pages';
@@ -17,23 +20,47 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const mockRouter = jest.mocked(router);
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  getFakeAuth().control.reset({ signedIn: true });
+});
+
+/** The Settings screen reads the account email from the TB-20 session. */
+async function renderSettings(sections?: readonly SettingsSectionDefinition[]) {
+  await renderWithQuery(
+    <SessionProvider>
+      <SettingsScreen sections={sections} />
+    </SessionProvider>,
+  );
+  await screen.findByText(FAKE_EMAIL);
+}
 
 describe('SettingsScreen (TB-32)', () => {
-  it('shows the Account section with the account email (AC1)', async () => {
-    await renderWithQuery(<SettingsScreen />);
+  it('shows the Account section with the account email and Sign out (AC1)', async () => {
+    await renderSettings();
 
     const account = screen.getByTestId('settings-section-account');
     expect(within(account).getByRole('header', { name: 'Account' })).toBeVisible();
     expect(within(account).getByText('Email')).toBeVisible();
-    // Nobody can sign in until TB-20 ships; then this shows the session's email.
     expect(within(account).getByTestId('settings-account-email-value')).toHaveTextContent(
-      SIGNED_OUT_EMAIL_LABEL,
+      FAKE_EMAIL,
     );
+    expect(within(account).getByTestId('sign-out')).toBeVisible();
+  });
+
+  it('shows a placeholder instead of an email when there is no session', async () => {
+    getFakeAuth().control.reset({ signedIn: false });
+    await renderWithQuery(
+      <SessionProvider>
+        <SettingsScreen />
+      </SessionProvider>,
+    );
+
+    expect(await screen.findByText(SIGNED_OUT_EMAIL_LABEL)).toBeVisible();
   });
 
   it('lists every registered preference page and opens it on tap (AC1)', async () => {
-    await renderWithQuery(<SettingsScreen />);
+    await renderSettings();
 
     const preferences = screen.getByTestId('settings-section-preferences');
     expect(SETTINGS_PAGES.length).toBeGreaterThan(0);
@@ -70,7 +97,7 @@ describe('SettingsScreen (TB-32)', () => {
       },
     ];
 
-    await renderWithQuery(<SettingsScreen sections={sections} />);
+    await renderSettings(sections);
 
     const titles = screen.getAllByRole('header').map((h) => h.props.children);
     expect(titles).toEqual(['Settings', 'Account', 'Preferences', 'Notifications']);

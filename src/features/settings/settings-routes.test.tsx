@@ -1,19 +1,21 @@
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
-import { Appearance, BackHandler } from 'react-native';
+import { Alert, Appearance, BackHandler, type AlertButton } from 'react-native';
 
 import { getDb } from '@/db/client';
-import { resetDbForTests } from '@/db/node-client';
+import { migrateDb, resetDbForTests } from '@/db/node-client';
+import { getFakeAuth } from '@/features/auth/testing/fake-auth';
+import { FAKE_EMAIL } from '@/features/auth/testing/fake-auth-client';
 import { cleanupTaskTests } from '@/features/tasks/testing/task-test-utils';
 
 import { appearanceThemePreference } from './preferences/appearance';
-import { readPreference } from './repo/preference-repo';
+import { readPreference, writePreference } from './repo/preference-repo';
 
 jest.mock('@expo/vector-icons/Ionicons', () =>
   jest.requireActual('@/features/navigation/testing/ionicons-mock'),
 );
 
-// Renders the real `src/app/` routes: root layout (DbGate, QueryProvider, AppearanceSync), tabs
-// and the Settings stack.
+// Renders the real `src/app/` routes: root layout (DbGate, QueryProvider, AppearanceSync,
+// SessionProvider and the TB-20 route guard), tabs and the Settings stack.
 const APP_DIR = './src/app';
 const ROUTE_TEST_TIMEOUT_MS = 30_000;
 
@@ -21,6 +23,7 @@ let setColorScheme: jest.SpyInstance;
 beforeEach(() => {
   cleanupTaskTests();
   resetDbForTests();
+  getFakeAuth().control.reset({ signedIn: true });
   setColorScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -86,6 +89,55 @@ describe('Settings routes (TB-32)', () => {
 
       await waitFor(() => expect(screen).toHavePathname('/settings'));
       expect(screen.getByTestId('settings-screen')).toBeVisible();
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'Account shows the signed-in email; Sign out asks first, then shows sign-in (AC1)',
+    async () => {
+      const fake = getFakeAuth();
+      const alert = jest.spyOn(Alert, 'alert');
+      await renderRouter(APP_DIR, { initialUrl: '/settings' });
+
+      expect(await screen.findByTestId('settings-account-email-value')).toHaveTextContent(
+        FAKE_EMAIL,
+      );
+      await fireEvent.press(screen.getByTestId('sign-out'));
+      expect(alert).toHaveBeenCalledTimes(1);
+      expect(fake.mocks.signOut).not.toHaveBeenCalled();
+
+      // Cancel keeps the user signed in on Settings.
+      const buttons = (alert.mock.calls[0]?.[2] ?? []) as AlertButton[];
+      await act(async () => {
+        buttons.find((b) => b.style === 'cancel')?.onPress?.();
+      });
+      expect(fake.mocks.signOut).not.toHaveBeenCalled();
+      expect(screen.getByTestId('settings-screen')).toBeVisible();
+
+      await act(async () => {
+        buttons.find((b) => b.style === 'destructive')?.onPress?.();
+      });
+      expect(fake.mocks.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(await screen.findByTestId('sign-in-screen')).toBeOnTheScreen();
+      expect(screen.queryByTestId('settings-screen')).toBeNull();
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'a stored Appearance preference is applied when the app launches',
+    async () => {
+      // A previous session stored Light in the same database the next launch opens.
+      await migrateDb(getDb());
+      writePreference(getDb(), appearanceThemePreference, 'light');
+      setColorScheme.mockClear();
+
+      await renderRouter(APP_DIR, { initialUrl: '/settings/appearance' });
+
+      expect(setColorScheme).toHaveBeenCalledWith('light');
+      await screen.findByTestId('settings-page-appearance');
+      await waitFor(() => expect(screen.getByRole('radio', { name: 'Light' })).toBeChecked());
     },
     ROUTE_TEST_TIMEOUT_MS,
   );
