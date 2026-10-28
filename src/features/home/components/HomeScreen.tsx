@@ -5,7 +5,7 @@ import { ScrollView, Text } from 'react-native';
 import { Button, Card, Checkbox, Input, Sheet } from '@/components/ui';
 import { APP_NAME } from '@/lib/app-info';
 
-/** Demo target for the task modal until real tasks exist (TB-26). */
+/** Demo link to the task modal (TB-18). Not a real task: the modal says it doesn't exist. */
 export const SAMPLE_TASK_HREF = '/task/sample-task';
 
 /**

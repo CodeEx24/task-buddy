@@ -3,7 +3,10 @@ import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testi
 import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
 import { BackHandler } from 'react-native';
 
-import { INVALID_TASK_LINK_MESSAGE } from './components/TaskDetailModal';
+import {
+  INVALID_TASK_LINK_MESSAGE,
+  TASK_NOT_FOUND_MESSAGE,
+} from '@/features/tasks/components/TaskDetailModal';
 import { APP_TABS, tabButtonTestId } from './tabs';
 
 jest.mock('@expo/vector-icons/Ionicons', () =>
@@ -146,7 +149,8 @@ describe('AC2: task deep link', () => {
 
     expect(screen).toHavePathname(`/task/${TASK_ID}`);
     expect(screen.getByTestId('task-detail-modal')).toBeVisible();
-    expect(screen.getByText(`ID: ${TASK_ID}`)).toBeVisible();
+    // TB-26: the modal now loads the task; this id has no task in the (empty) local DB.
+    expect(await screen.findByText(TASK_NOT_FOUND_MESSAGE)).toBeVisible();
   });
 
   it('loads the tabs underneath, so back from a deep-linked modal lands on Today', async () => {

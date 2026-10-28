@@ -13,7 +13,7 @@ export type PlaceholderScreenProps = {
 
 /**
  * Placeholder for a tab whose feature hasn't shipped yet (TB-18). The owning ticket replaces the
- * wrapper screen (`InboxScreen`, …) without touching the route file.
+ * wrapper screen (`BuddyScreen`, …) without touching the route file.
  */
 export function PlaceholderScreen({ title, note, testID }: PlaceholderScreenProps) {
   return (
