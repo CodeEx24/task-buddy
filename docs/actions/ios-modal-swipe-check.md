@@ -1,7 +1,7 @@
 # Check the task modal's swipe-down on an iPhone
 
 > Related: TB-18 (https://stratyge.atlassian.net/browse/TB-18) | Wave 1 | PR #11
-> Status: Open · Created by: Claude Code on 2026-10-28
+> Status: Done (2026-10-28, owner reported the swipe-down kept the text) · Created by: Claude Code on 2026-10-28
 
 ## Purpose
 TB-18's third acceptance criterion says the Android back gesture **and the iOS swipe-back** close the task modal without losing what you typed. Android passed on the emulator (screenshots in `docs/tickets/TB-18/`). There is no Mac here, and Expo's cloud iOS simulator isn't enabled on the account, so only you can check iOS.
