@@ -61,7 +61,18 @@ describe('NewTaskModal', () => {
       title: 'Dentist',
       dueAt: new Date(2031, 2, 9).getTime(),
       priority: 0,
+      notes: null,
     });
+  });
+
+  it('saves notes typed when adding a task (TB-28)', async () => {
+    await renderWithQuery(<NewTaskModal />);
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Dentist');
+    await fireEvent.changeText(screen.getByLabelText('Notes'), 'Bring the insurance card');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
+
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(openTasks()[0]?.notes).toBe('Bring the insurance card');
   });
 
   it('shows a field error and writes nothing for a blank title', async () => {

@@ -3,7 +3,7 @@ import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-li
 import { getDb } from '@/db/client';
 import { migrateDb, resetDbForTests } from '@/db/node-client';
 
-import { createTask, listOpenTasks } from './repo/task-repo';
+import { createTask, listOpenTasks, listSubtasks } from './repo/task-repo';
 import { cleanupTaskTests, storedTask } from './testing/task-test-utils';
 
 // The tab bar's icons load fonts through expo-asset, which Jest can't resolve (TB-18).
@@ -45,11 +45,16 @@ describe('task CRUD through the app routes (TB-26)', () => {
       const [task] = listOpenTasks(getDb()).items;
       if (!task) throw new Error('expected the saved task in SQLite');
 
-      // Edit: move it to today.
+      // Edit: move it to today and add notes and a step (TB-28: autosaved, no Save button).
       await fireEvent.press(screen.getByRole('button', { name: 'Edit Pay rent' }));
       expect(screen).toHavePathname(`/task/${task.id}`);
       await fireEvent.press(await screen.findByRole('radio', { name: 'Today' }));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      await fireEvent.changeText(screen.getByLabelText('Notes'), 'Landlord: Ana');
+      await fireEvent.changeText(await screen.findByLabelText('New step'), 'Find the bill');
+      await fireEvent.press(screen.getByRole('button', { name: 'Add step' }));
+      await waitFor(() => expect(storedTask(task.id)?.notes).toBe('Landlord: Ana'));
+      expect(listSubtasks(getDb(), task.id).map((s) => s.title)).toEqual(['Find the bill']);
+      await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
       await waitFor(() => expect(screen).toHavePathname('/inbox'));
       expect(await screen.findByTestId('task-section-today')).toBeVisible();
       expect(screen.queryByTestId('task-section-upcoming')).toBeNull();

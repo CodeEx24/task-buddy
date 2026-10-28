@@ -9,6 +9,8 @@ export const MAX_NOTES_LENGTH = 10_000;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_COLOR_LENGTH = 32;
 export const MAX_PAGE_SIZE = 500;
+/** Live subtasks one task can hold (TB-28): a checklist, not a project plan. */
+export const MAX_SUBTASKS_PER_TASK = 100;
 
 /** Row ids are UUIDv7 (see `newId`). */
 export const idSchema = z.uuidv7();
@@ -76,6 +78,9 @@ export const updateSubtaskInputSchema = z
   .object({ title: titleSchema, isDone: z.boolean(), sortOrder: sortOrderSchema })
   .partial();
 export type UpdateSubtaskInput = z.input<typeof updateSubtaskInputSchema>;
+
+export const subtaskMoveDirectionSchema = z.enum(['up', 'down']);
+export type SubtaskMoveDirection = z.infer<typeof subtaskMoveDirectionSchema>;
 
 export const createListInputSchema = z.object({
   name: nameSchema,
