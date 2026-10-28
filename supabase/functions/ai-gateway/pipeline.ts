@@ -14,11 +14,34 @@
 // It may call `next()` again after the previous call settled (TB-24 repair retry: replace
 // `ctx.body`, call `next()` once more). Each call is a fresh provider call with its own 20 s
 // timeout; token usage is summed across calls for logging and quotas. Overlapping calls fail.
-import type { AiGatewayRequest, AiRoute } from '../../../packages/schemas/src/ai-gateway.ts';
+import type {
+  AiGatewayRequest,
+  AiRoute,
+  AiUsage,
+} from '../../../packages/schemas/src/ai-gateway.ts';
 
 import type { AuthUser } from './auth.ts';
 import type { RouteConfig } from './config.ts';
 import type { ProviderResult } from './providers/provider.ts';
+
+/**
+ * How one provider call ended. `ok` carries the provider's reported usage. `timeout` and
+ * `bad_response` may have been billed without telling us the usage, so they carry an upper-bound
+ * estimate (`usageEstimated: true`); `upstream` (non-2xx / network) and `exception` record zero.
+ */
+export type ProviderCallOutcome = 'ok' | 'timeout' | 'upstream' | 'bad_response' | 'exception';
+
+/** One provider call made for this request (TB-23 ledger). Appended by the provider stage only. */
+export type ProviderCallRecord = {
+  /** Model the provider reported (success) or the model that was requested (failure). */
+  readonly model: string;
+  /** Model id the gateway asked for (from config). The cost estimate is priced by this id. */
+  readonly requestedModel: string;
+  readonly usage: AiUsage;
+  /** True when `usage` is the gateway's upper-bound estimate rather than the provider's count. */
+  readonly usageEstimated: boolean;
+  readonly outcome: ProviderCallOutcome;
+};
 
 export type GatewayContext = {
   readonly requestId: string;
@@ -33,6 +56,11 @@ export type GatewayContext = {
   body: AiGatewayRequest;
   /** Set by the provider stage; middleware may read or replace it after `next()` (TB-24). */
   result?: ProviderResult;
+  /**
+   * Every provider call of this request, in order, including failed ones (TB-23). The provider
+   * stage appends; middleware only reads it. A TB-24 repair retry adds a second entry.
+   */
+  readonly providerCalls: ProviderCallRecord[];
 };
 
 export type Next = () => Promise<Response>;
