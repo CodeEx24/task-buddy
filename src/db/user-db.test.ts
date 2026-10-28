@@ -2,7 +2,7 @@ import { ZodError } from 'zod';
 
 import { createTask, listOpenTasks } from '@/features/tasks/repo/task-repo';
 
-import { getDb, migrateDb, openUserDb, resetDbForTests } from './node-client';
+import { clearUserDb, getDb, migrateDb, openUserDb, resetDbForTests } from './node-client';
 import { readDbOwner, userDatabaseName } from './user-db';
 
 // TB-43 spec D5 (fixes TB-20 D7-A): one local database per account on a shared device.
@@ -43,5 +43,19 @@ describe('one local database per account', () => {
     await expect(openUserDb('../../etc/passwd')).rejects.toBeInstanceOf(ZodError);
     expect(() => userDatabaseName('a/b')).toThrow(ZodError);
     expect(userDatabaseName(USER_B.toUpperCase())).toBe(`taskbuddy-${USER_B}.db`);
+  });
+
+  it('a fast account switch never leaves the previous account selected', async () => {
+    const first = openUserDb(USER_A);
+    const second = openUserDb(USER_B);
+    const [a, b] = await Promise.all([first, second]);
+    expect(getDb()).toBe(b);
+    expect(getDb()).not.toBe(a);
+
+    const late = openUserDb(USER_A);
+    clearUserDb(); // signed out before it finished, then B signs in
+    const nextUser = await openUserDb(USER_B);
+    await late;
+    expect(getDb()).toBe(nextUser);
   });
 });

@@ -123,16 +123,18 @@ function countDirtyRowsUnchecked(db: TaskBuddyDb): number {
 /**
  * Adopts the server's copy of pushed rows (the LWW winner, with the clock-corrected updated_at)
  * and marks them clean, unless the row was edited again while the push was in flight: then it
- * stays dirty and goes out with the next push. Returns how many rows changed content locally.
+ * stays dirty and goes out with the next push. Returns how many rows were adopted (now clean)
+ * and how many of those changed content locally.
  */
 function applyPushResultUnchecked(
   db: TaskBuddyDb,
   table: SyncTableName,
   sent: PushRow[],
   returned: AnyServerRow[],
-): number {
+): { adopted: number; changed: number } {
   const sentVersion = new Map(sent.map((r) => [r.id as string, r.updated_at as number]));
   return db.transaction((tx) => {
+    let adopted = 0;
     let changed = 0;
     for (const row of returned) {
       const version = sentVersion.get(row.id);
@@ -143,9 +145,10 @@ function applyPushResultUnchecked(
       // the pull brings the parent and the next push hands the winner back again.
       if (missingParent(tx, table, row)) continue;
       tx.run(upsertSql(table, row, sql`${ident('updated_at')} = ${version}`));
+      adopted += 1;
       if (!sameContent(table, before, row)) changed += 1;
     }
-    return changed;
+    return { adopted, changed };
   });
 }
 
@@ -171,6 +174,10 @@ export type PullApplyResult = {
   last: SyncCursor | null;
   /** True when a row's parent is not on the device yet; rows from it on were not handled. */
   isBlocked: boolean;
+  /** The row that blocked, so the next cycle can recognise it (see `skipIfBlocked`). */
+  blockedId: string | null;
+  /** Ids of every row in `rows` that was handled (for a full resync). */
+  seenIds: string[];
 };
 
 /**
@@ -179,38 +186,113 @@ export type PullApplyResult = {
  * - clean on the device → overwritten (the server copy is the truth);
  * - dirty on the device → kept: the next push lets the server decide (LWW) and hands back the
  *   winner, so a local edit is never silently dropped here.
- * Stops at a row whose parent (list / task) isn't on the device yet, so the cursor never skips it.
+ * - a tombstone of a row the device doesn't have (never had it, or already purged it) → skipped:
+ *   there is nothing to delete, and re-inserting purged rows would churn every cycle.
+ * Stops at a row whose parent (list / task) isn't on the device, so the cursor never skips it
+ * while the parent may still be on its way (it was created after this cycle pulled parents).
+ * If the same row blocks again on the next cycle (`skipIfBlocked`), after a fresh pull of the
+ * parent table, the parent is gone for good (purged here, or deleted and never pulled): the row is
+ * skipped so sync never stalls on it.
  */
 function applyPulledRowsUnchecked(
   db: TaskBuddyDb,
   table: SyncTableName,
   rows: AnyServerRow[],
+  skipIfBlocked: string | null = null,
 ): PullApplyResult {
   return db.transaction((tx) => {
     let changed = 0;
     let last: SyncCursor | null = null;
+    const seenIds: string[] = [];
+    const blocked = (id: string): PullApplyResult => ({
+      changed,
+      last,
+      isBlocked: true,
+      blockedId: id,
+      seenIds,
+    });
     for (const row of rows) {
+      const position = { ts: row.server_updated_at, id: row.id };
+      seenIds.push(row.id);
       const before = readRaw(tx, table, row.id);
-      if (!before && missingParent(tx, table, row)) return { changed, last, isBlocked: true };
       const isDirty =
         before !== undefined &&
         (before[SYNCED_COLUMN] === null || before[SYNCED_COLUMN] !== before.updated_at);
       const isSameVersion =
         before !== undefined && !isDirty && before.updated_at === row.updated_at;
-      if (!isDirty && !isSameVersion) {
-        if (before && missingParent(tx, table, row)) return { changed, last, isBlocked: true };
-        tx.run(upsertSql(table, row, sql`1`));
-        changed += 1;
+      const isUnknownTombstone = before === undefined && row.deleted_at !== null;
+      if (!isDirty && !isSameVersion && !isUnknownTombstone) {
+        if (missingParent(tx, table, row)) {
+          if (row.id !== skipIfBlocked) {
+            seenIds.pop();
+            return blocked(row.id);
+          }
+        } else {
+          tx.run(upsertSql(table, row, sql`1`));
+          changed += 1;
+        }
       }
-      last = { ts: row.server_updated_at, id: row.id };
+      last = position;
     }
-    return { changed, last, isBlocked: false };
+    return { changed, last, isBlocked: false, blockedId: null, seenIds };
+  });
+}
+
+/**
+ * After a full re-pull (the device was away longer than the server keeps tombstones), rows the
+ * device still shows as live and synced but the server no longer has were deleted elsewhere and
+ * purged. They become local tombstones (kept clean, so they are never pushed back) and the local
+ * purge removes them later. Rows with unpushed changes are left alone. Returns how many changed.
+ */
+function markPurgedRowsDeletedUnchecked(
+  db: TaskBuddyDb,
+  table: SyncTableName,
+  serverIds: ReadonlySet<string>,
+  now: number,
+): number {
+  return db.transaction((tx) => {
+    const candidates = tx
+      .all<{ id: string }>(
+        sql`SELECT ${ident('id')} FROM ${SYNC_TABLES[table]} WHERE ${ident('deleted_at')} IS NULL AND NOT ${dirtyWhere}`,
+      )
+      .filter((r) => !serverIds.has(r.id));
+    for (const { id } of candidates) {
+      tx.run(
+        sql`UPDATE ${SYNC_TABLES[table]} SET ${ident('deleted_at')} = ${now} WHERE ${ident('id')} = ${id}`,
+      );
+    }
+    return candidates.length;
   });
 }
 
 // --- Cursors ----------------------------------------------------------------------------------
 
 const cursorKey = (table: SyncTableName) => `cursor:${table}`;
+const blockedKey = (table: SyncTableName) => `blocked:${table}`;
+
+/** The row that blocked this table's last pull, if any. */
+function readBlockedRowUnchecked(db: TaskBuddyDb, table: SyncTableName): string | null {
+  return (
+    db
+      .select()
+      .from(syncMeta)
+      .where(eq(syncMeta.id, blockedKey(table)))
+      .get()?.value ?? null
+  );
+}
+
+function writeBlockedRowUnchecked(db: TaskBuddyDb, table: SyncTableName, id: string | null): void {
+  if (id === null) {
+    db.delete(syncMeta)
+      .where(eq(syncMeta.id, blockedKey(table)))
+      .run();
+    return;
+  }
+  db.insert(syncMeta)
+    .values({ id: blockedKey(table), value: id })
+    .onConflictDoUpdate({ target: syncMeta.id, set: { value: id } })
+    .run();
+}
 
 function readCursorUnchecked(db: TaskBuddyDb, table: SyncTableName): SyncCursor | null {
   const row = db
@@ -288,6 +370,32 @@ export const listDirtyRows = guardDb(listDirtyRowsUnchecked);
 export const countDirtyRows = guardDb(countDirtyRowsUnchecked);
 export const applyPushResult = guardDb(applyPushResultUnchecked);
 export const applyPulledRows = guardDb(applyPulledRowsUnchecked);
+const pulledKey = (table: SyncTableName) => `pulled:${table}`;
+
+/** Device time of the last complete pull of `table`, or null if it never completed one. */
+function readLastPulledAtUnchecked(db: TaskBuddyDb, table: SyncTableName): number | null {
+  const value = db
+    .select()
+    .from(syncMeta)
+    .where(eq(syncMeta.id, pulledKey(table)))
+    .get()?.value;
+  const parsed = value === undefined ? NaN : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function writeLastPulledAtUnchecked(db: TaskBuddyDb, table: SyncTableName, at: number): void {
+  const value = String(at);
+  db.insert(syncMeta)
+    .values({ id: pulledKey(table), value })
+    .onConflictDoUpdate({ target: syncMeta.id, set: { value } })
+    .run();
+}
+
+export const readLastPulledAt = guardDb(readLastPulledAtUnchecked);
+export const writeLastPulledAt = guardDb(writeLastPulledAtUnchecked);
+export const markPurgedRowsDeleted = guardDb(markPurgedRowsDeletedUnchecked);
+export const readBlockedRow = guardDb(readBlockedRowUnchecked);
+export const writeBlockedRow = guardDb(writeBlockedRowUnchecked);
 export const readCursor = guardDb(readCursorUnchecked);
 export const advanceCursor = guardDb(advanceCursorUnchecked);
 export const purgeLocalTombstones = guardDb(purgeLocalTombstonesUnchecked);

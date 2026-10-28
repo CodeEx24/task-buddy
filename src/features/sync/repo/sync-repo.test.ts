@@ -94,6 +94,8 @@ describe('sync-repo: applying pulled rows', () => {
       changed: 1,
       last: { ts: TS, id: row.id },
       isBlocked: false,
+      blockedId: null,
+      seenIds: [row.id],
     });
     expect(countDirtyRows(handle.db)).toBe(0);
     const newer = { ...row, title: 'Newer', updated_at: 6_000 };
@@ -123,6 +125,8 @@ describe('sync-repo: applying pulled rows', () => {
       changed: 1,
       last: { ts: TS, id: first.id },
       isBlocked: true,
+      blockedId: orphan.id,
+      seenIds: [first.id],
     });
     expect(
       handle.db
@@ -131,6 +135,21 @@ describe('sync-repo: applying pulled rows', () => {
         .all()
         .map((t) => t.id),
     ).toEqual([first.id]);
+
+    // The same row blocking again on the next cycle means its parent is gone: skip it.
+    const retry = applyPulledRows(handle.db, 'tasks', [orphan, after], orphan.id);
+    expect(retry).toMatchObject({ changed: 1, isBlocked: false, last: { id: after.id } });
+    expect(handle.db.select().from(tasks).all()).toHaveLength(2);
+  });
+
+  it('skips tombstones of rows the device does not have (nothing to delete, no churn)', () => {
+    const tombstone = serverTask({ deleted_at: 4_000 });
+    expect(applyPulledRows(handle.db, 'tasks', [tombstone])).toMatchObject({
+      changed: 0,
+      isBlocked: false,
+      last: { id: tombstone.id },
+    });
+    expect(handle.db.select().from(tasks).all()).toEqual([]);
   });
 
   it('server rows are validated at the boundary', () => {
@@ -153,10 +172,10 @@ describe('sync-repo: push results', () => {
     const sent = listDirtyRows(handle.db, 'tasks', 10);
     clock.advance();
     updateTask(handle.db, task.id, { title: 'Typed meanwhile' });
-    const changed = applyPushResult(handle.db, 'tasks', sent, [
+    const result = applyPushResult(handle.db, 'tasks', sent, [
       serverTask({ id: task.id, title: 'Sent', updated_at: 9_999 }),
     ]);
-    expect(changed).toBe(0);
+    expect(result).toEqual({ adopted: 0, changed: 0 });
     expect(handle.db.select().from(tasks).where(eq(tasks.id, task.id)).get()).toMatchObject({
       title: 'Typed meanwhile',
       syncedUpdatedAt: null,
@@ -166,10 +185,10 @@ describe('sync-repo: push results', () => {
   it('adopts a newer server winner and its clock-corrected updated_at', () => {
     const task = createTask(handle.db, { title: 'Lost' });
     const sent = listDirtyRows(handle.db, 'tasks', 10);
-    const changed = applyPushResult(handle.db, 'tasks', sent, [
+    const result = applyPushResult(handle.db, 'tasks', sent, [
       serverTask({ id: task.id, title: 'Won', updated_at: 123_456 }),
     ]);
-    expect(changed).toBe(1);
+    expect(result).toEqual({ adopted: 1, changed: 1 });
     expect(handle.db.select().from(tasks).where(eq(tasks.id, task.id)).get()).toMatchObject({
       title: 'Won',
       updatedAt: 123_456,

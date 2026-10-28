@@ -55,7 +55,13 @@
 | Invalid user id (not a UUID) | Rejected before it becomes a file name; DbGate error screen |
 | Malformed row from the server | Cycle fails before applying; retried; no partial apply |
 | Slow transaction commits after a later-stamped one was pulled | Caught by the 10 s overlap re-read |
+| Device away > 29 days (no complete pull) | Full re-pull of that table; synced live rows the server no longer has (deleted elsewhere and purged) become local tombstones |
 | Device offline > 30 days with an unsynced edit to a task deleted elsewhere | The edit wins if later; if earlier and the server already purged the tombstone, the task comes back (known limitation) |
+| Tombstone of a row the device doesn't have (never had it, or purged it already) | Skipped: no insert, no churn, cursor moves on |
+| A row blocks on a missing parent twice in a row (parent purged here, or deleted and never pulled) | Skipped on the second cycle, so sync never stalls |
+| Fast sign-out / sign-in while a DB is still opening | Only the newest open selects its DB (generation token); sign-out deselects |
+| Task pushed into a deleted list | Stored in the Inbox |
+| Pushed row without an id or numeric `updated_at` | `22023`, nothing written |
 
 ## Security, privacy & AI cost
 - **Threats and mitigations**
@@ -66,7 +72,7 @@
   - *Path injection via user id in the DB file name*: user id must be a UUID (Zod) before use.
   - *Shared device* (TB-20 D7-A): one DB per account.
   - *Abuse / storage growth*: no per-user sync quota yet (push is capped at 500 rows per call). Follow-up below.
-- **Data leaving the device:** list names/colors, task titles, notes, status, priority, dates, subtask titles, to the user's own Supabase project rows. Tags stay local. Covered by the existing privacy policy wording on cloud backup (TB-54) — owner to confirm in the PR.
+- **Data leaving the device:** list names/colors, task titles, notes, status, priority, dates, subtask titles, to the user's own Supabase project rows. Tags stay local. The privacy policy (TB-54) still says tasks are not uploaded until a sync feature is described there: owner action [privacy-policy-sync.md](../../actions/privacy-policy-sync.md) must land before a build with sync reaches outside testers.
 - **Logging:** no row content; errors log kind/code/class only.
 - **AI cost:** none.
 
@@ -84,4 +90,5 @@
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
 | 2026-10-28 | Added a 5 s **fallback poll while Realtime is not connected** (60 s while connected) | First integration run: right after a fresh local Realtime server starts, its change feed took several seconds to start streaming after SUBSCRIBED, so one edit missed AC1's 10 s. The fallback poll keeps AC1 when Realtime is down or slow to start. Cost: three small GETs every 5 s only while the channel is down and the app is in the foreground | Pending human (PR review) |
+| 2026-10-28 | Review fixes (independent reviewer, I1–I4, N1/N2/N4): pull skips tombstones of unknown rows and skips a row that blocks twice; full re-pull after 29 days away marks purged rows deleted; push stops when a full batch adopts nothing; `openUserDb` generation token + `clearUserDb` on sign-out; Realtime listens to INSERT/UPDATE only; `sync_push` validates id/`updated_at` and maps deleted lists to the Inbox; rollback note corrected | Found by review before the PR; same behaviour the spec describes, closes gaps | Pending human (PR review) |
 | 2026-10-28 | Local Realtime for the integration test runs in an extra container (`tb43-realtime-dev`, image `realtime:v2.147.1`) on the shared stack's network | The shared local stack was started without Realtime; `supabase start`/`stop` from this worktree was off limits. Additive only; see verification.md | Pending orchestrator |

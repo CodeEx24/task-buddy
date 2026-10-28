@@ -4,7 +4,7 @@
 -- is rolled back, so it leaves no data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(48);
 
 insert into auth.users (id, email) values
   ('aaaaaaaa-4343-4000-8000-00000000000a', 'tb43-user-a@example.test'),
@@ -187,8 +187,8 @@ select lives_ok(
 );
 
 select results_eq(
-  $$ select count(*) from public.tasks $$, array[3::bigint],
-  'A sees exactly their three tasks (live and tombstone)'
+  $$ select count(*) from public.tasks where user_id = 'aaaaaaaa-4343-4000-8000-00000000000a' $$, array[3::bigint],
+  'A sees exactly their three tasks so far (live and tombstone)'
 );
 
 -- Input validation
@@ -204,6 +204,18 @@ select throws_ok(
 select throws_ok($$ select public.sync_push('tasks', '[]'::jsonb, null) $$, '22023', null,
   'sync_push rejects a missing client time');
 select throws_ok(
+  $$ select public.sync_push('tasks', '[{"id":"0190aaaa-0000-7000-8000-000000000005","title":"t"}]'::jsonb, 1000000) $$,
+  '22023', null, 'sync_push rejects a row without a numeric updated_at');
+select lives_ok(
+  $$ select public.sync_push('lists',
+       pg_temp.list('0190aaaa-0000-7000-8000-0000000000a2', 990000, 'Gone', 990000), 1000000) $$,
+  'A pushes a deleted list');
+select is(
+  public.sync_push('tasks',
+    pg_temp.task('0190aaaa-0000-7000-8000-000000000006', 990000, 'into a deleted list',
+                 null, '0190aaaa-0000-7000-8000-0000000000a2'), 1000000) -> 'rows' -> 0 -> 'list_id',
+  'null'::jsonb, 'a task pushed into a deleted list lands in the Inbox');
+select throws_ok(
   $$ select public.sync_push('tasks', pg_temp.task('0190aaaa-0000-7000-8000-000000000004', 1, ''), 1000000) $$,
   '23514', null, 'table checks still apply (empty title)');
 
@@ -212,9 +224,9 @@ select throws_ok(
 select set_config('request.jwt.claims',
   '{"sub":"bbbbbbbb-4343-4000-8000-00000000000b","role":"authenticated"}', true);
 
-select is_empty($$ select id from public.tasks $$, 'B sees none of A''s tasks');
-select is_empty($$ select id from public.subtasks $$, 'B sees none of A''s subtasks');
-select is_empty($$ select id from public.lists $$, 'B sees none of A''s lists');
+select is_empty($$ select id from public.tasks where user_id <> 'bbbbbbbb-4343-4000-8000-00000000000b' $$, 'B sees none of A''s tasks');
+select is_empty($$ select id from public.subtasks where user_id <> 'bbbbbbbb-4343-4000-8000-00000000000b' $$, 'B sees none of A''s subtasks');
+select is_empty($$ select id from public.lists where user_id <> 'bbbbbbbb-4343-4000-8000-00000000000b' $$, 'B sees none of A''s lists');
 
 select is(
   public.sync_push('tasks',
@@ -254,27 +266,34 @@ select is(
   'A''s task is untouched by B; user_id comes from the JWT, never from the payload'
 );
 select ok(
-  (select bool_and(server_updated_at = now()) from public.tasks),
+  (select bool_and(server_updated_at = now()) from public.tasks
+   where user_id in ('aaaaaaaa-4343-4000-8000-00000000000a', 'bbbbbbbb-4343-4000-8000-00000000000b')),
   'server_updated_at is stamped by the server on every write'
 );
 
 -- AC3: purge
 set local role service_role;
-select results_eq(
-  $$ select lists_purged, tasks_purged, subtasks_purged from public.sync_purge_tombstones() $$,
-  $$ values (0, 0, 0) $$,
-  'AC3: tombstones younger than 30 days are kept'
+select lives_ok($$ select public.sync_purge_tombstones() $$, 'the default purge runs');
+select is(
+  (select count(*) from public.tasks where id = '0190aaaa-0000-7000-8000-000000000002'),
+  1::bigint, 'AC3: tombstones younger than 30 days are kept'
 );
-select results_eq(
-  $$ select lists_purged, tasks_purged, subtasks_purged
-     from public.sync_purge_tombstones(now() + interval '1 second') $$,
-  $$ values (0, 1, 1) $$,
-  'AC3: past the cutoff, the task tombstone and its subtask tombstone are purged'
+select lives_ok(
+  $$ select public.sync_purge_tombstones(now() + interval '1 second') $$,
+  'purge with the cutoff moved past these writes (as if 30 days had passed)'
+);
+select is(
+  (select count(*) from public.tasks where id = '0190aaaa-0000-7000-8000-000000000002')
+  + (select count(*) from public.subtasks where id = '0190aaaa-0000-7000-8000-0000000000b2')
+  + (select count(*) from public.lists where id = '0190aaaa-0000-7000-8000-0000000000a2'),
+  0::bigint,
+  'AC3: past the cutoff, the task tombstone, its subtask tombstone and the unused deleted list are purged'
 );
 reset role;
 select results_eq(
   $$ select id::text from public.tasks where user_id = 'aaaaaaaa-4343-4000-8000-00000000000a' order by id $$,
-  $$ values ('0190aaaa-0000-7000-8000-000000000001'), ('0190aaaa-0000-7000-8000-000000000003') $$,
+  $$ values ('0190aaaa-0000-7000-8000-000000000001'), ('0190aaaa-0000-7000-8000-000000000003'),
+            ('0190aaaa-0000-7000-8000-000000000006') $$,
   'AC3: live tasks are never purged'
 );
 select is(

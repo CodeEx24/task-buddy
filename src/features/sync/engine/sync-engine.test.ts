@@ -433,4 +433,73 @@ describe('isolation and ordering', () => {
     expect(second.needsAnotherCycle).toBe(false);
     expect(allTaskRows(b.db).map((t) => t.title)).toEqual(['In a new list']);
   });
+
+  it('does not stall or churn when the device purged tombstones the server still keeps', async () => {
+    const a = world.device('A');
+    world.on(a, (db) => {
+      const task = createTask(db, { title: 'Gone soon' });
+      createSubtask(db, { taskId: task.id, title: 'step' });
+      softDeleteTask(db, task.id);
+    });
+    await world.sync(a);
+    world.advance(TOMBSTONE_RETENTION_MS + DAY);
+    await world.sync(a); // device purges; the in-memory server has no cron, so it still has them
+    expect(allTaskRows(a.db)).toEqual([]);
+    world.advance(1000);
+    expect(await world.sync(a)).toEqual({ pushed: 0, changed: 0, needsAnotherCycle: false });
+    // A fresh device skips tombstones of rows it never had.
+    const b = world.device('B');
+    expect(await world.sync(b)).toEqual({ pushed: 0, changed: 0, needsAnotherCycle: false });
+    expect(allTaskRows(b.db)).toEqual([]);
+  });
+
+  it('a live child whose parent the device purged is skipped on the next cycle, not retried forever', async () => {
+    const a = world.device('A');
+    const b = world.device('B');
+    const task = world.on(a, (db) => createTask(db, { title: 'Parent' }));
+    await world.sync(a);
+    await world.sync(b);
+    world.advance();
+    world.on(a, (db) => softDeleteTask(db, task.id));
+    await world.sync(a);
+    await world.sync(b);
+    world.advance(TOMBSTONE_RETENTION_MS + DAY);
+    await world.sync(b); // B purges the task locally
+    // A device that was offline pushes a live subtask under the deleted task.
+    world.server.tables.subtasks.set('0190f3b2-0000-7000-8000-0000000000c1', {
+      id: '0190f3b2-0000-7000-8000-0000000000c1',
+      created_at: 1,
+      updated_at: world.now(),
+      deleted_at: null,
+      task_id: task.id,
+      title: 'late step',
+      is_done: false,
+      sort_order: 0,
+      user_id: USER_A,
+      server_updated_at: `${new Date(world.now()).toISOString().slice(0, 23)}999+00:00`,
+    });
+    expect((await world.sync(b)).needsAnotherCycle).toBe(true);
+    expect((await world.sync(b)).needsAnotherCycle).toBe(false);
+    expect(await world.sync(b)).toEqual({ pushed: 0, changed: 0, needsAnotherCycle: false });
+  });
+
+  it('a device away longer than 30 days learns about deletions the server already purged', async () => {
+    const a = world.device('A');
+    const b = world.device('B');
+    const doomed = world.on(a, (db) => createTask(db, { title: 'Deleted while B was away' }));
+    const kept = world.on(a, (db) => createTask(db, { title: 'Kept' }));
+    await world.sync(a);
+    await world.sync(b);
+    world.advance();
+    world.on(a, (db) => softDeleteTask(db, doomed.id));
+    await world.sync(a);
+    world.advance(TOMBSTONE_RETENTION_MS + DAY);
+    world.server.purge(new Date(world.now() - TOMBSTONE_RETENTION_MS).toISOString());
+    expect(world.server.tables.tasks.has(doomed.id)).toBe(false);
+
+    await world.sync(b);
+    expect(getTaskById(b.db, doomed.id)).toBeUndefined();
+    expect(getTaskById(b.db, kept.id)?.title).toBe('Kept');
+    expect(countDirtyRows(b.db)).toBe(0); // marked deleted locally, never pushed back
+  });
 });

@@ -103,7 +103,7 @@ Independent reviewer subagent and the security pass (`senior-security`) for the 
 - **URL polyfill:** the app doesn't import `react-native-url-polyfill`; it relies on the URL support built into Expo/RN. TB-19's client already did, but no real network call has run on device yet. The device run (steps 3–7) proves it either way.
 - **Custom SMTP** (D6-A): the built-in sender has a very small hourly cap. Follow-up ticket before the Wave 3 beta.
 - **CAPTCHA** on OTP requests if abuse appears (threat T3): proposed follow-up, not built.
-- **TB-43 note** (D7-A): a second account on the same device sees the first account's local tasks. When sync lands, owner-tag local rows with the user id, then filter by the signed-in user or wipe on sign-out (D7-B).
+- **TB-43 note** (D7-A): a second account on the same device sees the first account's local tasks. When sync lands, owner-tag local rows with the user id, then filter by the signed-in user or wipe on sign-out (D7-B). **Resolved by [TB-43](https://stratyge.atlassian.net/browse/TB-43)** (spec D5): one local database per account; the pre-sync database is adopted by the first account to sign in.
 - **supabase-js patch** (finding 15): re-check on every supabase-js upgrade (`patches/README.md`); delete it once upstream no longer ships the literal.
 - Testers on dev build `fd23b5cf` sign in once more after this change (manifest v1 → v2 reads as "no session").
 - **CI `auth` job** must be pasted by the owner (protected file); optionally make `auth` a required check.

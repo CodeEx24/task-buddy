@@ -174,6 +174,12 @@ begin
   if p_client_now is null or p_client_now <= 0 then
     raise exception 'sync_push: invalid client time' using errcode = '22023';
   end if;
+  if exists (select 1 from jsonb_array_elements(p_rows) as e
+             where jsonb_typeof(e) is distinct from 'object'
+                or jsonb_typeof(e -> 'id') is distinct from 'string'
+                or jsonb_typeof(e -> 'updated_at') is distinct from 'number') then
+    raise exception 'sync_push: every row needs an id and a numeric updated_at' using errcode = '22023';
+  end if;
 
   v_offset := v_now - p_client_now;
   select coalesce(array_agg(distinct (e ->> 'id')::uuid), '{}') into v_ids
@@ -203,9 +209,10 @@ begin
        due_at, completed_at, sort_order)
     select distinct on (r.id)
       r.id, v_uid, r.created_at, least(r.updated_at + v_offset, v_now), r.deleted_at,
-      -- A list that is not on the server for this user (purged, or never synced) → Inbox,
-      -- the same thing deleting a list does on the device.
-      case when exists (select 1 from public.lists l where l.id = r.list_id and l.user_id = v_uid)
+      -- A list that is not live on the server for this user (deleted, purged, never synced) →
+      -- Inbox, the same thing deleting a list does on the device.
+      case when exists (select 1 from public.lists l
+                        where l.id = r.list_id and l.user_id = v_uid and l.deleted_at is null)
            then r.list_id end,
       r.title, r.notes, coalesce(r.status, 'open'), coalesce(r.priority, 0),
       r.due_at, r.completed_at, coalesce(r.sort_order, 0)

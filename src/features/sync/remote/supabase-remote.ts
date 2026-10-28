@@ -74,12 +74,16 @@ export function createSupabaseSyncRemote(
 
     subscribe: (onChange: () => void, onConnection: (state: RemoteConnection) => void) => {
       const channel = client.channel(`sync:${userId}`);
+      // INSERT / UPDATE only: soft deletes are updates. Hard DELETEs come only from the server's
+      // tombstone purge, and Realtime can't apply RLS to them (it would wake every user's device).
       for (const table of ['lists', 'tasks', 'subtasks'] as const) {
-        channel.on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
-          () => onChange(),
-        );
+        for (const event of ['INSERT', 'UPDATE'] as const) {
+          channel.on(
+            'postgres_changes',
+            { event, schema: 'public', table, filter: `user_id=eq.${userId}` },
+            () => onChange(),
+          );
+        }
       }
       channel.subscribe((status) => {
         onConnection(status === 'SUBSCRIBED' ? 'connected' : 'disconnected');

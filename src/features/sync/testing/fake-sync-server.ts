@@ -58,7 +58,7 @@ export function createFakeSyncServer(options: { now: () => number }) {
       };
       if (table === 'tasks' && incoming.list_id !== null) {
         const list = tables.lists.get(incoming.list_id as string);
-        if (!list || list.user_id !== userId) incoming.list_id = null;
+        if (!list || list.user_id !== userId || list.deleted_at !== null) incoming.list_id = null;
       }
       if (table === 'subtasks') {
         const parent = tables.tasks.get(incoming.task_id as string);

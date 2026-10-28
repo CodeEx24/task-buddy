@@ -25,6 +25,7 @@ function open(name: string): { db: ExpoDb; sqlite: SQLiteDatabase } {
 
 const openDbs = new Map<string, ExpoDb>();
 let userDb: TaskBuddyDb | undefined;
+let userDbGeneration = 0;
 
 function openNamed(name: string): ExpoDb {
   let db = openDbs.get(name);
@@ -45,9 +46,17 @@ export function getDb(): TaskBuddyDb {
 
 /** TB-43: opens, migrates and selects the database owned by `userId` (see `user-db.ts`). */
 export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
+  // A newer open (fast account switch) or a sign-out wins over this one finishing late.
+  const generation = ++userDbGeneration;
   const { db } = await resolveUserDb(userId, { open: openNamed, migrate: migrateDb });
-  userDb = db;
+  if (generation === userDbGeneration) userDb = db;
   return db;
+}
+
+/** TB-43: sign-out. Deselects the user's DB and cancels any open still in flight. */
+export function clearUserDb(): void {
+  userDbGeneration += 1;
+  userDb = undefined;
 }
 
 /** Applies pending migrations. Drizzle runs them in one transaction, so a failure leaves no partial schema. */

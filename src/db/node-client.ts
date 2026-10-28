@@ -82,6 +82,7 @@ export function migrateNodeDb(
 // Named in-memory databases stand in for the device's files (one per name, like the app).
 const openDbs = new Map<string, NodeDb>();
 let userDb: TaskBuddyDb | undefined;
+let userDbGeneration = 0;
 
 function openNamed(name: string): TaskBuddyDb {
   let handle = openDbs.get(name);
@@ -97,9 +98,17 @@ export function getDb(): TaskBuddyDb {
 }
 
 export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
+  // A newer open (fast account switch) or a sign-out wins over this one finishing late.
+  const generation = ++userDbGeneration;
   const { db } = await resolveUserDb(userId, { open: openNamed, migrate: migrateDb });
-  userDb = db;
+  if (generation === userDbGeneration) userDb = db;
   return db;
+}
+
+/** TB-43: sign-out. Deselects the user's DB and cancels any open still in flight. */
+export function clearUserDb(): void {
+  userDbGeneration += 1;
+  userDb = undefined;
 }
 
 export async function migrateDb(db: TaskBuddyDb): Promise<void> {

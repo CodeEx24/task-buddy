@@ -12,8 +12,13 @@ import {
   applyPulledRows,
   applyPushResult,
   listDirtyRows,
+  markPurgedRowsDeleted,
   purgeLocalTombstones,
+  readBlockedRow,
   readCursor,
+  readLastPulledAt,
+  writeBlockedRow,
+  writeLastPulledAt,
   TOMBSTONE_RETENTION_MS,
 } from '../repo/sync-repo';
 import type { PullFrom, SyncRemote } from '../remote/sync-remote';
@@ -37,6 +42,8 @@ export const PULL_PAGE_SIZE = 500;
 export const PULL_OVERLAP_MS = 10_000;
 /** Safety stops: a cycle never loops forever on a misbehaving server. */
 const MAX_PUSH_ROUNDS = 25;
+/** A device that hasn't pulled for this long re-reads everything (server purge is 30 days). */
+export const FULL_RESYNC_AFTER_MS = TOMBSTONE_RETENTION_MS - 24 * 60 * 60 * 1000;
 const MAX_PULL_PAGES = 50;
 
 export type SyncCycleResult = {
@@ -70,32 +77,54 @@ async function pushTable(
     const rows = listDirtyRows(db, table, PUSH_BATCH_SIZE);
     if (rows.length === 0) break;
     const response = await remote.push(table, rows, now());
-    changed += applyPushResult(db, table, rows, parseRows(table, response.rows));
+    const result = applyPushResult(db, table, rows, parseRows(table, response.rows));
+    changed += result.changed;
     pushed += rows.length;
-    // A short batch was the last one. Rows the server could not place stay dirty and are
-    // retried next cycle instead of looping here.
-    if (rows.length < PUSH_BATCH_SIZE) break;
+    // A short batch was the last one. If nothing in a full batch could be adopted, the same rows
+    // would come back next round: stop and retry them next cycle instead of looping here.
+    if (rows.length < PUSH_BATCH_SIZE || result.adopted === 0) break;
   }
   return { pushed, changed };
 }
 
 async function pullTable(
-  { db, remote }: Required<SyncEngineOptions>,
+  { db, remote, now }: Required<SyncEngineOptions>,
   table: SyncTableName,
 ): Promise<{ changed: number; isBlocked: boolean }> {
   const cursor = readCursor(db, table);
-  let from: PullFrom = cursor
-    ? { kind: 'since', ts: serverTimestampMinus(cursor.ts, PULL_OVERLAP_MS) }
-    : { kind: 'start' };
+  const startedAt = now();
+  const lastPulledAt = readLastPulledAt(db, table);
+  // Away longer than the server keeps tombstones: deletions may have been purged unseen.
+  const isFullResync =
+    cursor !== null && (lastPulledAt === null || startedAt - lastPulledAt > FULL_RESYNC_AFTER_MS);
+  let from: PullFrom =
+    cursor && !isFullResync
+      ? { kind: 'since', ts: serverTimestampMinus(cursor.ts, PULL_OVERLAP_MS) }
+      : { kind: 'start' };
+  const skipIfBlocked = readBlockedRow(db, table);
+  const serverIds = new Set<string>();
   let changed = 0;
+  let isComplete = false;
   for (let page = 0; page < MAX_PULL_PAGES; page++) {
     const rows = parseRows(table, await remote.pull(table, from, PULL_PAGE_SIZE));
-    const result = applyPulledRows(db, table, rows);
+    const result = applyPulledRows(db, table, rows, skipIfBlocked);
     changed += result.changed;
+    for (const id of result.seenIds) serverIds.add(id);
     if (result.last) advanceCursor(db, table, result.last);
-    if (result.isBlocked) return { changed, isBlocked: true };
-    if (rows.length < PULL_PAGE_SIZE || !result.last) break;
+    if (result.isBlocked) {
+      // Kept until another row blocks, so the overlap re-read skips it instead of blocking again.
+      if (result.blockedId) writeBlockedRow(db, table, result.blockedId);
+      return { changed, isBlocked: true };
+    }
+    if (rows.length < PULL_PAGE_SIZE || !result.last) {
+      isComplete = true;
+      break;
+    }
     from = { kind: 'after', cursor: result.last };
+  }
+  if (isComplete) {
+    if (isFullResync) changed += markPurgedRowsDeleted(db, table, serverIds, startedAt);
+    writeLastPulledAt(db, table, startedAt);
   }
   return { changed, isBlocked: false };
 }

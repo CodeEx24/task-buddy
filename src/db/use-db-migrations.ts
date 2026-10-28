@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { openUserDb } from '@/db/client';
+import { clearUserDb, openUserDb } from '@/db/client';
 
 import { logDbError } from './db-errors';
 
@@ -22,7 +22,10 @@ export function useDbMigrations(userId: string | null): {
   const [result, setResult] = useState<{ key: string; status: 'ready' | 'error' } | null>(null);
 
   useEffect(() => {
-    if (userId === null) return;
+    if (userId === null) {
+      clearUserDb();
+      return;
+    }
     let isCancelled = false;
     (async () => {
       try {
