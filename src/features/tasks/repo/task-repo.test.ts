@@ -1,20 +1,26 @@
 import { ZodError } from 'zod';
 
-import { openMigratedNodeDb, type NodeDb } from '@/db/node-client';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { migrateNodeDb, openMigratedNodeDb, openNodeDb, type NodeDb } from '@/db/node-client';
 import { newId } from '@/lib/ids';
 
 import { MAX_NOTES_LENGTH, MAX_TITLE_LENGTH } from '../schema';
 import { createList, softDeleteList } from './list-repo';
 import { RepoError } from './repo-utils';
-import { addTagToTask, createTag } from './tag-repo';
+import { addTagToTask, createTag, listTagsForTask, softDeleteTag } from './tag-repo';
 import {
   createSubtask,
   createTask,
   getTaskById,
+  listCompletedTasks,
   listOpenTasks,
   listSubtasks,
   softDeleteSubtask,
   softDeleteTask,
+  restoreTask,
   updateSubtask,
   updateTask,
 } from './task-repo';
@@ -290,5 +296,110 @@ describe('task-repo: subtasks', () => {
     expect(() => createSubtask(handle.db, { taskId: task.id, title: 's' })).toThrow(
       'Task not found',
     );
+  });
+});
+
+describe('task-repo: restoreTask (TB-26 undo)', () => {
+  it('restores the task with the subtasks and tag links deleted with it', () => {
+    const task = createTask(handle.db, { title: 'a', priority: 2 });
+    const kept = createSubtask(handle.db, { taskId: task.id, title: 'kept' });
+    const earlier = createSubtask(handle.db, { taskId: task.id, title: 'deleted earlier' });
+    clock.advance();
+    softDeleteSubtask(handle.db, earlier.id);
+    const tag = createTag(handle.db, { name: 'home' });
+    addTagToTask(handle.db, task.id, tag.id);
+    clock.advance();
+    softDeleteTask(handle.db, task.id);
+    const t2 = clock.advance();
+
+    const restored = restoreTask(handle.db, task.id);
+
+    expect(restored).toMatchObject({ id: task.id, deletedAt: null, updatedAt: t2, priority: 2 });
+    expect(getTaskById(handle.db, task.id)).toEqual(restored);
+    expect(listSubtasks(handle.db, task.id).map((s) => s.id)).toEqual([kept.id]);
+    expect(rawRow('subtasks', kept.id)).toMatchObject({ deleted_at: null, updated_at: t2 });
+    expect(listTagsForTask(handle.db, task.id).map((t) => t.id)).toEqual([tag.id]);
+  });
+
+  it('keeps links to a tag that was deleted meanwhile deleted', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const tag = createTag(handle.db, { name: 'home' });
+    addTagToTask(handle.db, task.id, tag.id);
+    clock.advance();
+    softDeleteTask(handle.db, task.id);
+    clock.advance();
+    softDeleteTag(handle.db, tag.id);
+
+    restoreTask(handle.db, task.id);
+
+    expect(listTagsForTask(handle.db, task.id)).toEqual([]);
+  });
+
+  it('brings a task back to the Inbox when its list was deleted meanwhile', () => {
+    const list = createList(handle.db, { name: 'Work' });
+    const task = createTask(handle.db, { title: 'a', listId: list.id });
+    softDeleteTask(handle.db, task.id);
+    clock.advance();
+    softDeleteList(handle.db, list.id);
+
+    expect(restoreTask(handle.db, task.id).listId).toBeNull();
+    expect(rawRow('tasks', task.id)).toMatchObject({ list_id: null, deleted_at: null });
+  });
+
+  it('keeps the list when it is still live', () => {
+    const list = createList(handle.db, { name: 'Work' });
+    const task = createTask(handle.db, { title: 'a', listId: list.id });
+    softDeleteTask(handle.db, task.id);
+    expect(restoreTask(handle.db, task.id).listId).toBe(list.id);
+  });
+
+  it('throws NOT_FOUND for an unknown or live task', () => {
+    expect(() => restoreTask(handle.db, newId())).toThrow('Task not found');
+    const task = createTask(handle.db, { title: 'a' });
+    expect(() => restoreTask(handle.db, task.id)).toThrow(RepoError);
+    expect(() => restoreTask(handle.db, 'not-an-id')).toThrow(ZodError);
+  });
+});
+
+describe('task-repo: listCompletedTasks (TB-26)', () => {
+  it('lists live done tasks, most recently completed first, bounded by limit', () => {
+    const a = createTask(handle.db, { title: 'a' });
+    const b = createTask(handle.db, { title: 'b' });
+    const c = createTask(handle.db, { title: 'c' });
+    createTask(handle.db, { title: 'open' });
+    updateTask(handle.db, a.id, { status: 'done' });
+    clock.advance();
+    updateTask(handle.db, b.id, { status: 'done' });
+    clock.advance();
+    updateTask(handle.db, c.id, { status: 'done' });
+    softDeleteTask(handle.db, c.id);
+
+    expect(listCompletedTasks(handle.db).map((t) => t.title)).toEqual(['b', 'a']);
+    expect(listCompletedTasks(handle.db, { limit: 1 }).map((t) => t.title)).toEqual(['b']);
+    expect(() => listCompletedTasks(handle.db, { limit: 0 })).toThrow(ZodError);
+  });
+});
+
+describe('task-repo: persistence across restarts (TB-26 AC1)', () => {
+  it('keeps a saved task with its due date and priority after the DB file is reopened', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tb26-restart-'));
+    try {
+      const file = join(dir, 'taskbuddy.db');
+      const first = openNodeDb(file);
+      migrateNodeDb(first.db);
+      const task = createTask(first.db, {
+        title: 'Pay rent',
+        dueAt: 1_800_000_000_000,
+        priority: 3,
+      });
+      first.close();
+
+      const second = openNodeDb(file);
+      migrateNodeDb(second.db);
+      expect(getTaskById(second.db, task.id)).toEqual(task);
+      second.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
