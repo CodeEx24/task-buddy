@@ -60,9 +60,10 @@ export function Stepper({
           {valueText}
         </Text>
       </View>
-      {/* Buttons size to their label and grow to share the row; on a narrow screen or a large
-          font they wrap as whole buttons onto a second row instead of breaking a label. */}
-      <View className="flex-row flex-wrap gap-sm">
+      {/* One row, equal widths (`flex-1`). Not `flex-wrap`: Yoga measured the wrapping row at a
+          narrow width (labels wrapped tall) and kept that height, leaving a ~300 px gap under the
+          buttons on device (TB-33 device check). Labels are ≤ 4 characters so they fit. */}
+      <View className="flex-row gap-sm">
         {steps.map((step) => {
           const next = Math.min(max, Math.max(min, value + step.amount));
           return (
@@ -73,7 +74,7 @@ export function Stepper({
               accessibilityLabel={`${label} ${step.accessibilityLabel}`}
               variant="secondary"
               size="sm"
-              className="grow"
+              className="flex-1"
               disabled={next === value}
               onPress={() => onChange(next)}
             />
