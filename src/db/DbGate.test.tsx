@@ -6,6 +6,7 @@ import * as client from '@/db/node-client';
 
 import { DbGate } from './DbGate';
 import { ALL_TABLES, listTables } from './introspect';
+import type { TaskBuddyDb } from './types';
 
 const USER_ID = '0190f3b2-0000-7000-8000-00000000a001';
 
@@ -78,5 +79,27 @@ describe('DbGate', () => {
     );
     expect(await screen.findByTestId('app')).toBeOnTheScreen();
     expect(client.getDb()).not.toBe(first);
+  });
+
+  it('calls onReady with the migrated DB before the children first render', async () => {
+    const events: string[] = [];
+    function App() {
+      events.push('app render');
+      return <Text testID="app">app</Text>;
+    }
+    const onReady = jest.fn((db: TaskBuddyDb) => {
+      events.push(`ready with ${listTables(db).length} tables`);
+    });
+
+    await render(
+      <DbGate userId={USER_ID} onReady={onReady}>
+        <App />
+      </DbGate>,
+    );
+
+    expect(await screen.findByTestId('app')).toBeOnTheScreen();
+    expect(onReady).toHaveBeenCalledTimes(1);
+    expect(events[0]).toBe(`ready with ${ALL_TABLES.length} tables`);
+    expect(events.slice(1).every((event) => event === 'app render')).toBe(true);
   });
 });

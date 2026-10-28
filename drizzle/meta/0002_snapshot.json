@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5eb20401-39b0-4c45-aa63-96d3084cece4",
+  "id": "38765261-dd97-4f9f-84c6-1af4b842d0fc",
   "prevId": "04944ff7-d1ed-4da9-b692-0d0f7ed4d063",
   "tables": {
     "lists": {
@@ -56,23 +56,68 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "preferences": {
+      "name": "preferences",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
         },
-        "synced_updated_at": {
-          "name": "synced_updated_at",
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
-        "lists_dirty_idx": {
-          "name": "lists_dirty_idx",
+        "preferences_key_live_unique": {
+          "name": "preferences_key_live_unique",
           "columns": [
-            "id"
+            "key"
           ],
-          "isUnique": false,
-          "where": "\"lists\".\"synced_updated_at\" IS NULL OR \"lists\".\"synced_updated_at\" <> \"lists\".\"updated_at\""
+          "isUnique": true,
+          "where": "\"preferences\".\"deleted_at\" IS NULL"
         }
       },
       "foreignKeys": {},
@@ -140,13 +185,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "synced_updated_at": {
-          "name": "synced_updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -156,14 +194,6 @@
             "task_id"
           ],
           "isUnique": false
-        },
-        "subtasks_dirty_idx": {
-          "name": "subtasks_dirty_idx",
-          "columns": [
-            "id"
-          ],
-          "isUnique": false,
-          "where": "\"subtasks\".\"synced_updated_at\" IS NULL OR \"subtasks\".\"synced_updated_at\" <> \"subtasks\".\"updated_at\""
         }
       },
       "foreignKeys": {
@@ -181,30 +211,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "sync_meta": {
-      "name": "sync_meta",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -455,13 +461,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "synced_updated_at": {
-          "name": "synced_updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -481,14 +480,6 @@
             "list_id"
           ],
           "isUnique": false
-        },
-        "tasks_dirty_idx": {
-          "name": "tasks_dirty_idx",
-          "columns": [
-            "id"
-          ],
-          "isUnique": false,
-          "where": "\"tasks\".\"synced_updated_at\" IS NULL OR \"tasks\".\"synced_updated_at\" <> \"tasks\".\"updated_at\""
         }
       },
       "foreignKeys": {

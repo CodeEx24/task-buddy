@@ -21,7 +21,7 @@ describe('local schema (first launch)', () => {
     close();
   });
 
-  it('applies every migration to an empty DB and creates the 5 app tables with sync columns (+ sync_meta)', () => {
+  it('applies every migration to an empty DB and creates every app table with sync columns (+ sync_meta)', () => {
     const { db, close } = openNodeDb();
     expect(listTables(db)).toEqual([]);
 

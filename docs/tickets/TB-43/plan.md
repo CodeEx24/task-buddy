@@ -6,9 +6,9 @@
 ## Branch & worktree
 `feat/tb-43/offline-sync` (Orca worktree `tb-43-offline-sync`, from `main` @ `09ab8c8`).
 Owns: `supabase/migrations/20261028181639_*`, `supabase/rollback/20261028181639_*`, `supabase/tests/database/sync_tables.test.sql`, `src/lib/database.types.ts` (regenerated), `src/db/**`, `drizzle/**`, `src/features/sync/**`, `src/features/tasks/repo/**` (one field), `docs/tickets/TB-43/**`, `docs/actions/supabase-sync-deploy.md`, `docs/actions/privacy-policy-sync.md`.
-Shared files touched (coordinator to note): `src/app/_layout.tsx` (DbGate moved inside SessionProvider, SyncProvider mounted), `jest.config.js` (one setup file), `src/features/navigation/components/SettingsScreen.tsx` (one status line; TB-32 replaces this screen, so whichever merges second re-adds `<SyncStatus />`).
+Shared files touched (coordinator to note): `src/app/_layout.tsx` (DbGate moved inside SessionProvider, SyncProvider mounted), `jest.config.js` (one setup file), `src/features/settings/registry/sections.ts` (one `sync-status` row in the Account section, TB-32's registry).
 Must not edit: `.github/workflows/*.yml` (guard hook), `legal-site/**` (TB-54; owner action instead).
-Drizzle: `0002_offline_sync` is generated. TB-32 (PR #19) also generates a `0002`: whichever merges second rebases and runs `pnpm db:generate` again (wave-plan rule).
+Drizzle: generated. TB-32 (PR #19) merged first with `0002_preferences`, so after merging `origin/main` this branch regenerated its migration as `0003_offline_sync` (wave-plan rule; no hand renumbering).
 
 ## Dependencies
 Blocked by TB-21, TB-20, TB-26: all Done in Jira (checked 2026-10-28). Unblocks TB-53, TB-68, TB-71.

@@ -2,7 +2,14 @@ import { sql } from 'drizzle-orm';
 
 import type { TaskBuddyDb } from './types';
 
-export const APP_TABLES = ['lists', 'tasks', 'subtasks', 'tags', 'task_tags'] as const;
+export const APP_TABLES = [
+  'lists',
+  'tasks',
+  'subtasks',
+  'tags',
+  'task_tags',
+  'preferences',
+] as const;
 /** Device-only tables without sync columns (TB-43: owner and pull cursors). */
 export const LOCAL_ONLY_TABLES = ['sync_meta'] as const;
 /** Every table the migrations create, sorted like `listTables`. */

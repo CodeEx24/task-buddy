@@ -136,6 +136,27 @@ export const taskTags = sqliteTable(
 );
 
 /**
+ * User preferences (TB-32): one row per key, the value stored as JSON text. Every key is declared
+ * with a Zod schema and a default in `src/features/settings/preferences`; the repository validates
+ * on read and write, so a missing or corrupt value falls back to its default. Carries the sync
+ * columns so preferences can follow the user to other devices once sync (TB-43) decides which do.
+ */
+export const preferences = sqliteTable(
+  'preferences',
+  {
+    ...syncColumns(),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+  },
+  (t) => [
+    // One live row per key; a soft-deleted row (reset to default) can be written again.
+    uniqueIndex('preferences_key_live_unique')
+      .on(t.key)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
+);
+
+/**
  * TB-43: local-only key/value state, never synced: the account that owns this database file
  * (`owner_user_id`) and the pull cursor per synced table (`cursor:<table>`).
  */
@@ -149,3 +170,4 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type SubtaskRow = typeof subtasks.$inferSelect;
 export type TagRow = typeof tags.$inferSelect;
 export type TaskTagRow = typeof taskTags.$inferSelect;
+export type PreferenceRow = typeof preferences.$inferSelect;

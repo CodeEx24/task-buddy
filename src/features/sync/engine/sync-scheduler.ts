@@ -13,6 +13,11 @@ export const SYNC_RETRY_MS = 5_000;
 export const SYNC_POLL_MS = 60_000;
 /** Poll interval while the Realtime channel is not connected. */
 export const SYNC_FALLBACK_POLL_MS = 5_000;
+/**
+ * Keep the fast poll this long after the live channel connects: a just-started Realtime server
+ * can report SUBSCRIBED a while before its change feed delivers anything.
+ */
+export const SYNC_LIVE_GRACE_MS = 30_000;
 
 export type SyncTrigger =
   | 'start'
@@ -34,6 +39,8 @@ export type SyncSchedulerOptions = {
   retryMs?: number;
   pollMs?: number;
   fallbackPollMs?: number;
+  liveGraceMs?: number;
+  now?: () => number;
   setTimer?: (callback: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
 };
@@ -52,6 +59,8 @@ export function createSyncScheduler(options: SyncSchedulerOptions): SyncSchedule
   const retryMs = options.retryMs ?? SYNC_RETRY_MS;
   const pollMs = options.pollMs ?? SYNC_POLL_MS;
   const fallbackPollMs = options.fallbackPollMs ?? SYNC_FALLBACK_POLL_MS;
+  const liveGraceMs = options.liveGraceMs ?? SYNC_LIVE_GRACE_MS;
+  const now = options.now ?? Date.now;
   const setTimer = options.setTimer ?? ((cb, ms) => setTimeout(cb, ms));
   const clearTimer =
     options.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
@@ -61,6 +70,8 @@ export function createSyncScheduler(options: SyncSchedulerOptions): SyncSchedule
   let isRunning = false;
   let hasPending = false;
   let isLive = false;
+  let liveSince = 0;
+  const pollInterval = () => (isLive && now() - liveSince >= liveGraceMs ? pollMs : fallbackPollMs);
   let timer: unknown;
   let timerTrigger: SyncTrigger | undefined;
 
@@ -97,7 +108,7 @@ export function createSyncScheduler(options: SyncSchedulerOptions): SyncSchedule
       next =
         hasPending || result.needsAnotherCycle
           ? { ms: debounceMs, trigger: 'follow-up' }
-          : { ms: isLive ? pollMs : fallbackPollMs, trigger: 'poll' };
+          : { ms: pollInterval(), trigger: 'poll' };
     } catch (error) {
       if (isStopped) return;
       options.onPhase?.('offline', error);
@@ -129,6 +140,7 @@ export function createSyncScheduler(options: SyncSchedulerOptions): SyncSchedule
     setLive: (live) => {
       if (isStopped || live === isLive) return;
       isLive = live;
+      if (live) liveSince = now();
       // Lost the live channel while waiting a minute: poll soon instead.
       if (!live && isActive && timerTrigger === 'poll') schedule(fallbackPollMs, 'poll');
     },

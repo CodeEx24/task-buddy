@@ -13,6 +13,7 @@ function setup(run: () => Promise<{ needsAnotherCycle: boolean }>) {
     retryMs: 5000,
     pollMs: 60_000,
     fallbackPollMs: 5000,
+    liveGraceMs: 0,
   });
   return { scheduler, phases };
 }
@@ -126,6 +127,26 @@ describe('sync scheduler', () => {
     scheduler.setLive(false);
     await jest.advanceTimersByTimeAsync(5000);
     expect(run).toHaveBeenCalledTimes(4); // dropped: poll soon
+    scheduler.stop();
+  });
+
+  it('keeps the fast poll for a grace period after the live channel connects', async () => {
+    const run = jest.fn(ok);
+    const scheduler = createSyncScheduler({
+      run,
+      debounceMs: 300,
+      pollMs: 60_000,
+      fallbackPollMs: 5000,
+      liveGraceMs: 30_000,
+    });
+    scheduler.setLive(true);
+    scheduler.request('start');
+    await jest.advanceTimersByTimeAsync(300);
+    await jest.advanceTimersByTimeAsync(25_000);
+    expect(run).toHaveBeenCalledTimes(6); // start + a poll every 5 s during the grace period
+    await jest.advanceTimersByTimeAsync(5000); // grace over: this poll schedules the next in 60 s
+    await jest.advanceTimersByTimeAsync(59_000);
+    expect(run).toHaveBeenCalledTimes(7);
     scheduler.stop();
   });
 });

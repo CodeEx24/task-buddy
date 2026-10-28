@@ -8,31 +8,35 @@
 |---|---|---|
 | `pnpm lint` | pass | 0 problems |
 | `pnpm typecheck` | pass | `tsc --noEmit` clean |
-| `pnpm test --ci --maxWorkers=1` | pass | 72 suites, 611 tests (after review fixes; 605 before) |
+| `pnpm test --ci --maxWorkers=1` | pass | after merging `origin/main` (TB-32): 80 suites, 661 tests (611 before the merge, 605 before the review fixes) |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine" |
-| `pnpm db:generate --name offline_sync` | pass | generated `drizzle/0002_offline_sync.sql` + snapshot + `migrations.js` |
+| `pnpm db:generate --name offline_sync` | pass | after merging `origin/main` (TB-32 `0002_preferences`): regenerated as `drizzle/0003_offline_sync.sql` + snapshot + `migrations.js` |
 | `npx supabase@2.122.0 migration up --local` | pass | applied `20261028181639_offline_sync_tables.sql` to the shared local stack (no reset) |
-| `npx supabase@2.122.0 test db` | pass | Files=4, Tests=91, Result: PASS (`sync_tables.test.sql`: 48; after the review fixes the changed `sync_push` was re-applied with `create or replace`) |
+| `npx supabase@2.122.0 test db` (after the stack moved: `--db-url …127.0.0.1:55322…?sslmode=disable`) | pass | Files=4, Tests=91, Result: PASS (`sync_tables.test.sql`: 48; after the review fixes the changed `sync_push` was re-applied with `create or replace`) |
 | rollback in a rolled-back transaction (`begin; \i …down.sql; check; rollback;`) | pass | `rollback_clean = t`: tables, functions and cron job gone; TB-19's `set_updated_at` untouched |
 | `supabase gen types typescript --local --schema public` | pass | `src/lib/database.types.ts`: only the 3 tables + 2 functions added |
-| `pnpm exec jest -c jest.integration.config.js --maxWorkers=1 sync.integration` | pass | 5/5 on 3 runs after the review fixes and 10 runs before them; one earlier run (before the fallback poll / warm-up) failed, see below. Needs `--forceExit` (supabase-js timers) |
+| `pnpm exec jest -c jest.integration.config.js --maxWorkers=1 sync.integration` | pass | After the merge, on the moved stack (API 55321) with a new Realtime container: 5/5 on the last 6 runs, including a run right after restarting Realtime (warm-up 4.4 s via the fallback poll). Before the merge: 5/5 on 13 runs. Two runs that failed on a cold Realtime server are explained below. Needs `--forceExit` (supabase-js timers) |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-43/offline-sync --pr` | pass | "workflow check: ok" |
 
 Failures met during the build, and fixes:
 - First `src/db` run: 4 suites failed on the new `sync_meta` table and `synced_updated_at` column (hard-coded table list, migration count, a fixture rebuild without the column). Fixed the expectations (`ALL_TABLES`, `readJournal().length`, fixture column).
 - First integration run: AC1 failed once ("condition not met within 10000 ms") right after the local Realtime server started; later runs passed. Cause: a cold Realtime change feed. Fix: fallback poll every 5 s while Realtime isn't connected (spec Deviation), and a reported (not asserted) warm-up edit in the test.
 - Integration test couldn't load `expo-crypto` in Node: mocked to Node's `webcrypto`.
+- After merging `origin/main` (TB-32), the first integration run on a freshly started Realtime container failed again in the warm-up: Realtime reported SUBSCRIBED but delivered nothing for more than 30 s, and the app had already switched to the 60 s poll. Fix: keep the 5 s poll for 30 s after the channel connects (`SYNC_LIVE_GRACE_MS`, scheduler test added). A run right after restarting Realtime then passed (warm-up 4.4 s).
+- Merge conflicts with TB-32: `DbGate` takes both `userId` and `onReady`; `AppearanceSync` sits inside the user's DbGate; the sync row moved into TB-32's Settings registry (Account section); the local migration was regenerated as `0003_offline_sync`.
 - After the review fixes, pgTAP test 39 failed on the shared DB because rows from integration runs were counted; the assertions now filter by the test users (and a new test caught that `jsonb_typeof(...) <> 'number'` is NULL for a missing key: fixed with `is distinct from`).
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given two devices on one account, when I edit on device A, then device B shows the change within 10 seconds of being online | met | Real local Supabase (Auth + PostgREST + Postgres + Realtime), two device DBs on one real account, app's engine/remote/scheduler: `sync.integration.test.ts` "AC1 …". Final three runs: warm-up 743/529/774 ms; edit→visible on B 496–850 ms (max 850 ms over 15 edits); B offline while A edits, then back online → visible after 4301/4285/4317 ms. Scheduler timing unit-tested (`sync-scheduler.test.ts`), UI refetch on remote change (`SyncProvider.test.tsx`). Two physical phones not run by the agent: device steps below |
+| Given two devices on one account, when I edit on device A, then device B shows the change within 10 seconds of being online | met | Real local Supabase (Auth + PostgREST + Postgres + Realtime), two device DBs on one real account, app's engine/remote/scheduler: `sync.integration.test.ts` "AC1 …". After the TB-32 merge, three runs (the first right after a Realtime restart): warm-up 4369/746/713 ms; edit→visible on B 518–872 ms (max 872 ms over 15 edits); B offline while A edits, then back online → visible after 4284/4300/4272 ms. Scheduler timing unit-tested (`sync-scheduler.test.ts`), UI refetch on remote change (`SyncProvider.test.tsx`). Two physical phones not run by the agent: device steps below |
 | Given the same task edited offline on both devices, then the later updated_at wins and no task is duplicated or lost (automated test) | met | Automated: `sync-engine.test.ts` "AC2 …" (both push orders, whole-row LWW, slow/fast clocks, tie, edit during push, lost reply, 3 devices); `sync.integration.test.ts` "AC2 …" ×2 against the real RPC (one server row per id, both devices equal, nothing dirty); `sync_tables.test.sql` (later wins, older-later ignored, same id twice in a batch) |
 | Soft-deleted tasks sync as tombstones and purge after 30 days | met | Tombstones: `sync-engine.test.ts` "AC3 …" (delete reaches B with `deleted_at`, undo, delete vs edit), integration "AC3 …" (tombstone row on server and on B). Purge: pg_cron job `tb43-purge-sync-tombstones` daily (pgTAP asserts schedule/command), `sync_purge_tombstones()` keeps < 30 days and purges older incl. subtasks (pgTAP + integration with a future cutoff); device purge of synced tombstones > 30 days with subtasks and tag links (`sync-engine.test.ts`, `sync-repo.test.ts`) |
 | Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | Gates above; independent reviewer + security pass below; `docs/tickets/TB-43/*`, TB-20 limitation marked resolved, owner actions added. Human PR approval is the merge gate |
 
 ## Manual / E2E
+Settings: the "Sync" row sits in the **Account** section, under the email, and reads "All changes backed up." / "Syncing…" / "Offline…".
+
 Not run on devices by this agent (no Metro/emulator allowed: low memory). Orchestrator steps (local stack, two emulator profiles or one device + the integration test as "device B"):
 1. Local stack running with Realtime (`tb43-realtime-dev` container on `supabase_network_task-buddy`, see Environment) and this migration applied.
 2. Dev build pointed at the local stack (`EXPO_PUBLIC_SUPABASE_URL=http://10.0.2.2:54321` or `adb reverse tcp:54321 tcp:54321`), signed in as user U on emulator A.
@@ -45,7 +49,8 @@ Not run on devices by this agent (no Metro/emulator allowed: low memory). Orches
 Negative: step 8, plus as V `select` via REST returns none of U's rows (also in the integration test).
 
 ### Environment
-The shared local stack (`task-buddy`, started from another worktree) ran without Realtime. For the integration test the agent started one extra container, `tb43-realtime-dev` (`public.ecr.aws/supabase/realtime:v2.147.1`, network alias `realtime-dev` so Kong's `/realtime/v1` route reaches it, env file outside the repo with the stack's JWT secret/JWKS; never printed). A first attempt, `tb43-realtime`, exited at start (Git Bash path conversion); it was left stopped. Stop the running one with `docker stop tb43-realtime-dev` when done. Test users `tb43-it-*@example.com` were created via the Auth admin API in the local stack and left in place.
+The local stack later moved to API `127.0.0.1:55321` / DB `55322` (workdir `scratchpad/sb-local`). The network was recreated, so `tb43-realtime-dev` exited. The agent started `tb43-realtime-dev2` (same image and alias, env regenerated from the moved stack), and that container is now the one in use. Stop it with `docker stop tb43-realtime-dev2`. The older `tb43-realtime-dev` and `tb43-realtime` are stopped and left in place.
+Originally: the shared local stack (`task-buddy`, started from another worktree) ran without Realtime. For the integration test the agent started one extra container, `tb43-realtime-dev` (`public.ecr.aws/supabase/realtime:v2.147.1`, network alias `realtime-dev` so Kong's `/realtime/v1` route reaches it, env file outside the repo with the stack's JWT secret/JWKS; never printed). A first attempt, `tb43-realtime`, exited at start (Git Bash path conversion); it was left stopped. Stop the running one with `docker stop tb43-realtime-dev` when done. Test users `tb43-it-*@example.com` were created via the Auth admin API in the local stack and left in place.
 
 ## Review findings
 | # | Severity | Finding (file:line) | Source (self / reviewer agent / human) | Resolution |
@@ -71,7 +76,7 @@ Security pass: the independent reviewer's brief included the security lens (owne
 - **Tags and task tags stay on the device** (D1) until TB-44 defines a merge rule for duplicate names.
 - **No per-user sync quota** on `sync_push` (500 rows per call cap only). Follow-up: rate-limit like TB-23 if abuse appears.
 - **Shared device:** the previous account's database stays on the phone after sign-out (not visible to others). Deletion on request/account deletion: TB-53.
-- **Settings line** is replaced by TB-32's Settings screen: whichever merges second re-adds `<SyncStatus />`. Local migration number `0002` collides with TB-32 (PR #19): the second to merge regenerates.
+- **Preferences are per account** now (one DB per account, D5): after sign-out the previous account's theme stays applied until another account signs in and its own theme loads; preferences don't sync (D1).
 - **Rollback recovery:** after a server rollback, devices don't re-push already-synced rows on their own; re-enabling sync needs an app release that resets device sync state (or a server "sync epoch" follow-up).
 - **One bad row** (fails a server CHECK) still fails its batch; per-row error isolation is a follow-up.
 - **CI:** the integration test runs locally only (like TB-20's auth test, which waits for an owner-pasted CI job); the TB-43 rollback CI step is in `docs/actions/supabase-sync-deploy.md` for the owner to paste.

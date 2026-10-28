@@ -18,7 +18,7 @@ describe('dev DB benchmark route', () => {
     await renderRouter(APP_DIR, { initialUrl: '/dev/db-benchmark' });
 
     expect(
-      await screen.findByText('lists, subtasks, sync_meta, tags, task_tags, tasks'),
+      await screen.findByText('lists, preferences, subtasks, sync_meta, tags, task_tags, tasks'),
     ).toBeOnTheScreen();
     expect(screen.getByTestId('db-migrations')).toHaveTextContent(
       `Migrations applied: ${readJournal().length}`,

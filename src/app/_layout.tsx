@@ -8,9 +8,12 @@ import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
 import { QueryCacheReset } from '@/features/auth/components/QueryCacheReset';
 import { SessionProvider, useSession } from '@/features/auth/session/SessionProvider';
+import { applyStoredAppearance } from '@/features/settings/apply-stored-appearance';
+import { AppearanceSync } from '@/features/settings/components/AppearanceSync';
 import { SyncProvider } from '@/features/sync/components/SyncProvider';
 import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { useTheme } from '@/theme';
 
 // A deep link straight to a modal (`taskbuddy://task/<id>`) still loads the tabs underneath (TB-18).
 export const unstable_settings = { anchor: '(tabs)' };
@@ -29,7 +32,10 @@ function RootNavigator() {
   const userId = session?.user.id ?? null;
   return (
     // TB-21 + TB-43: open and migrate the signed-in user's own local DB before any screen reads it.
-    <DbGate userId={userId}>
+    // TB-32: then apply that user's stored theme before the first screen renders.
+    <DbGate userId={userId} onReady={applyStoredAppearance}>
+      {/* TB-32: keep the app theme in step with the Appearance preference (needs the user's DB). */}
+      {userId ? <AppearanceSync /> : null}
       <Stack screenOptions={{ headerShown: false }}>
         {/* Guarded URLs redirect instead of falling through to not-found. */}
         <Stack.Protected guard={isSignedIn} redirectTo="/sign-in">
@@ -52,6 +58,8 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // TB-32: status-bar icons follow the app theme (an in-app Dark on a light device included).
+  const { scheme } = useTheme();
   return (
     <UiProvider>
       {/* TB-26: task data (local SQLite) through TanStack Query. */}
@@ -60,7 +68,7 @@ export default function RootLayout() {
           <RootNavigator />
         </SessionProvider>
       </QueryProvider>
-      <StatusBar style="auto" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </UiProvider>
   );
 }
