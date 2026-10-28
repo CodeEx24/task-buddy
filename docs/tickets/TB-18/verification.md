@@ -44,7 +44,7 @@ On `main` @ `4d42e5e` (TB-18 + TB-21). Emulator `Medium_Phone_API_37.0` (gesture
 |---|---|---|
 | Given the app is open, when I tap each tab, then the matching screen renders in under 300 ms | met | **Emulator: p95 49.8–51.0 ms per tab** (≥ 20 samples each, production-mode bundle), budget 300 ms. `src/features/navigation/app-shell-routes.test.tsx` → "AC1: tab navigation": the four tabs in order; "tapping Inbox/Buddy/Settings shows its screen" (target hidden before the press, visible and selected after, Today hidden); "tapping Today from another tab"; "mounts every tab up front" (`lazy: false`); "logs the dev-only tab-switch time"; "re-tapping the active tab starts no measurement". Timer unit tests in `tab-switch-timing.test.ts`. **The < 300 ms p95 has to come from the emulator run below (owner decision D2)** |
 | Given the deep link `taskbuddy://task/<id>`, when opened, then the task detail modal is shown | met | **Emulator:** cold and warm `taskbuddy://task/<id>` open the modal; back lands on Today (cold) or keeps Settings (warm); malformed id shows the error (`deeplink-*.png`). "AC2: task deep link": the `taskbuddy://` URL goes through expo-router's native URL-to-path step (`extractExpoPathFromURL` → `task/<id>`) and renders the modal; `/task/<id>` opens the modal with the id; back from a cold deep-linked modal lands on Today (`anchor: '(tabs)'`); a malformed id shows "This link doesn't point to a task". `TaskDetailModal.test.tsx` covers the valid and invalid states and both Close paths. `task-id.test.ts`: 15 accept/reject cases |
-| The Android back gesture and iOS swipe-back close the modal without losing state | partial — Android met on the emulator (back key and back gesture keep "Buy milk", `back-keeps-state.png`, `gesture-keeps-state.png`); iOS swipe-down pending the owner's device | "AC3": type "Buy milk" on Today → Open sample task → the hardware back key (React Navigation's `hardwareBackPress` listener) closes the modal, the pathname is `/` and the input still shows "Buy milk". The same holds through Close. iOS "swipe-back" means the sheet's swipe-down dismiss (owner decision D3); it can't be simulated in Jest |
+| The Android back gesture and iOS swipe-back close the modal without losing state | met | **Android (emulator, 2026-10-28):** back key and back gesture keep "Buy milk" (`back-keeps-state.png`, `gesture-keeps-state.png`). **iOS (owner, physical iPhone, 2026-10-28):** the owner reports the swipe-down closed the sheet and the typed text was still there (`docs/actions/ios-modal-swipe-check.md`; owner-reported, not observed by the agent). "AC3": type "Buy milk" on Today → Open sample task → the hardware back key (React Navigation's `hardwareBackPress` listener) closes the modal, the pathname is `/` and the input still shows "Buy milk". The same holds through Close. iOS "swipe-back" means the sheet's swipe-down dismiss (owner decision D3); it can't be simulated in Jest |
 | Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | PR #10 merged by the owner with CI green (`8974964`). After TB-21 merged on top: 27 suites / 181 tests pass on `main`, CI green. Independent reviewer agent run; findings below. `docs/tickets/TB-18/` updated with device evidence |
 
 ## Manual / E2E
@@ -119,14 +119,14 @@ adb exec-out screencap -p > docs/tickets/TB-18/gesture-keeps-state.png
 | 7 | Important | expo-doctor: `expo-font` missing as a direct peer of `@expo/vector-icons` | self (gate) | Fixed in `a3b7b0a`. The `app.json` plugin entry `expo install` added was reverted (not an owned path; a no-op without options) |
 
 ## Known limitations & follow-ups
-- **Android device evidence done (2026-10-28).** Only the iOS swipe-down for AC3 is left: owner, physical device (EAS Simulator is not enabled on the account).
+- **Device evidence done (2026-10-28).** Android on the emulator; iOS swipe-down checked by the owner on a physical iPhone. EAS Simulator is not enabled on the account.
 - The JS tab bar isn't the platform-native bar. Proposed follow-up: switch to `NativeTabs` (`expo-router/native-tabs`) together with `expo-symbols` at the next native build, TB-38 (owner D1, option C).
 - `lazy: false` mounts all four tabs at start. That's cheap with placeholders. Revisit in TB-63 (performance budgets) once TB-27/TB-32/TB-55 put real content in the tabs.
 - `src/app/_layout.tsx` will conflict with TB-21's `<DbGate>` wrap, but only trivially. Whichever ticket merges second rebases (keep both: `DbGate` around the `Stack`, the TB-18 `Stack.Screen` children and the `unstable_settings` export).
 - Tab labels are English literals in `src/features/navigation/tabs.ts`, for TB-66 (localization) to pick up.
 
 ## Completion
-- [ ] All AC met with evidence (Android done; iOS swipe-down for AC3 pending the owner)
+- [x] All AC met with evidence (Android on the emulator; iOS swipe-down reported by the owner on 2026-10-28)
 - [x] Gates green locally and in CI
 - [x] No open Blocking findings
 - [ ] Jira updated (In Review → Done): coordinator
