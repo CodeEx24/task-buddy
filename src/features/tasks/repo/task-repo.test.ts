@@ -364,6 +364,33 @@ describe('task-repo: subtask checklist order and limit (TB-28)', () => {
     expect(() => moveSubtask(handle.db, one.id, 'sideways' as 'up')).toThrow(ZodError);
   });
 
+  it('refuses to change, move or delete a live subtask whose task is deleted', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const one = createSubtask(handle.db, { taskId: task.id, title: 'one' });
+    createSubtask(handle.db, { taskId: task.id, title: 'two' });
+    // softDeleteTask deletes the subtasks too; only the task row is deleted here (e.g. a sync
+    // that deleted the task first), leaving its subtasks live.
+    handle.sqlite.prepare('UPDATE tasks SET deleted_at = ? WHERE id = ?').run(clock.now(), task.id);
+    const before = rawRow('subtasks', one.id);
+    clock.advance();
+
+    for (const write of [
+      () => updateSubtask(handle.db, one.id, { isDone: true }),
+      () => moveSubtask(handle.db, one.id, 'down'),
+      () => softDeleteSubtask(handle.db, one.id),
+    ]) {
+      let error: unknown;
+      try {
+        write();
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(RepoError);
+      expect(error).toMatchObject({ code: 'NOT_FOUND', message: 'Task not found' });
+    }
+    expect(rawRow('subtasks', one.id)).toEqual(before);
+  });
+
   it(`caps a task at ${MAX_SUBTASKS_PER_TASK} live subtasks`, () => {
     const task = createTask(handle.db, { title: 'a' });
     const rows = Array.from({ length: MAX_SUBTASKS_PER_TASK }, (_, i) =>

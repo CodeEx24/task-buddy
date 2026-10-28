@@ -234,6 +234,17 @@ function listOpenTasksUnchecked(db: TaskBuddyDb, input: ListOpenTasksInput = {})
 
 // --- Subtasks ---
 
+/**
+ * A live subtask whose task is live too (TB-28): a subtask of a deleted task can't be changed,
+ * since undoing the task's delete must bring back the checklist exactly as it was.
+ * Throws NOT_FOUND('Task') when the subtask is live but its task is not.
+ */
+function findEditableSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
+  const subtask = findLiveSubtask(db, id);
+  if (subtask && !findLiveTask(db, subtask.taskId)) throw notFound('Task');
+  return subtask;
+}
+
 function findLiveSubtask(db: TaskBuddyDb, id: string): Subtask | undefined {
   return db
     .select()
@@ -291,7 +302,7 @@ function updateSubtaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateSubtas
   const subtaskId = idSchema.parse(id);
   const data = definedOnly(updateSubtaskInputSchema.parse(patch));
   return db.transaction((tx) => {
-    const current = findLiveSubtask(tx, subtaskId);
+    const current = findEditableSubtask(tx, subtaskId);
     if (!current) throw notFound('Subtask');
     // Nothing to change: no write, so updated_at (and a later sync push) is untouched.
     if (Object.keys(data).length === 0) return current;
@@ -307,7 +318,7 @@ function updateSubtaskUnchecked(db: TaskBuddyDb, id: string, patch: UpdateSubtas
 function softDeleteSubtaskUnchecked(db: TaskBuddyDb, id: string): boolean {
   const subtaskId = idSchema.parse(id);
   return db.transaction((tx) => {
-    if (!findLiveSubtask(tx, subtaskId)) return false;
+    if (!findEditableSubtask(tx, subtaskId)) return false;
     const now = Date.now();
     tx.update(subtasks)
       .set({ deletedAt: now, updatedAt: now })
@@ -334,7 +345,7 @@ function moveSubtaskUnchecked(
   const subtaskId = idSchema.parse(id);
   const step = subtaskMoveDirectionSchema.parse(direction) === 'up' ? -1 : 1;
   return db.transaction((tx) => {
-    const current = findLiveSubtask(tx, subtaskId);
+    const current = findEditableSubtask(tx, subtaskId);
     if (!current) throw notFound('Subtask');
     const ordered = liveSubtasksOf(tx, current.taskId);
     const from = ordered.findIndex((s) => s.id === subtaskId);
