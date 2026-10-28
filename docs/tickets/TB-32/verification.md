@@ -4,7 +4,7 @@
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
-Windows 11, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-32-settings-shell`, round 2: after merging `origin/main` twice (TB-20 sign-in at 522445f, then TB-22 AI gateway at 01fccc8) and adding the Account sign-out row. No Metro, emulator or EAS build was started (worker brief).
+Windows 11, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-32-settings-shell`, round 2: after merging `origin/main` three times (TB-20 sign-in at 522445f, TB-22 AI gateway at 01fccc8, TB-54 legal links at 8d9cd11), adding the Account sign-out row and the Legal section. No Metro, emulator or EAS build was started (worker brief).
 
 | Command | Result | Notes |
 |---|---|---|
@@ -12,7 +12,7 @@ Windows 11, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-32-settings-shell`, roun
 | `pnpm rebuild better-sqlite3` | pass | For the DB tests |
 | `pnpm lint` | pass | 0 problems |
 | `pnpm typecheck` | pass | `tsc --noEmit` |
-| `pnpm test --ci --maxWorkers=2` | pass | 65 suites, 495 tests on the merged tree (main's TB-20/TB-22 tests included) |
+| `pnpm test --ci --maxWorkers=2` | pass | 69 suites, 519 tests on the tree merged with 8d9cd11 (main's TB-20/TB-22/TB-54 tests included, among them TB-54's `settings-legal-links-route.test.tsx` against this shell) |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine". Main gained no local SQLite migration after 0001, so `0002_preferences` was kept as generated (not renumbered, not regenerated) |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-32/settings-shell --pr` | pass | `workflow check: ok` |
 
@@ -36,12 +36,13 @@ Status is from Jest (unit + real-route tests through `src/app/`, root layout, DB
 ## Manual / E2E
 For the coordinator. Needs **no new dev build** (no new dependency, no native code; `Appearance` is React Native core). Existing development build + Metro on this branch. Android emulator, `adb reverse tcp:8081 tcp:8081`, `pnpm start`. The DB migrates to version 3 on first launch (new `preferences` table); existing tasks must still be there.
 
-1. **Settings list (AC1).** Tap the Settings tab (`tab-settings`). Expect (`settings-screen`): title "Settings"; section **Account** (`settings-section-account`) signed in, with "Email" / your account email (`settings-account-email-value`) and a **Sign out** button (`sign-out`); section **Preferences** (`settings-section-preferences`) with a row "Appearance — Light, dark or match your device" and a chevron (`settings-row-appearance`).
+1. **Settings list (AC1).** Tap the Settings tab (`tab-settings`). Expect (`settings-screen`): title "Settings"; section **Account** (`settings-section-account`) signed in, with "Email" / your account email (`settings-account-email-value`) and a **Sign out** button (`sign-out`); section **Preferences** (`settings-section-preferences`) with a row "Appearance — Light, dark or match your device" and a chevron (`settings-row-appearance`); section **Legal** (`settings-section-legal`).
 2. **Open a section (AC1).** Tap `settings-row-appearance` → page `settings-page-appearance` slides in with a native header "Appearance" and Back; the tab bar stays visible with Settings selected. Android Back (or the header Back) → Settings list.
 2b. **Tab re-press pops to the list.** On `/settings/appearance` (step 2), tap the Settings tab (`tab-settings`) again → the stack pops back to the Settings list (`settings-screen`); tapping it once more does nothing. Jest: `settings-routes.test.tsx` "tapping the Settings tab on a preference page pops back to the list".
 3. **Apply immediately (AC2).** On Appearance, tap **Dark** (`appearance-theme-dark`) → the chip is selected and the whole app turns dark in the same moment (page, header, tab bar); switch tabs → Today/Inbox are dark too. The app must **not** restart/reload (watch Metro: no new bundle load). Tap **Light** (`appearance-theme-light`) → light even if the device is in dark mode (`adb shell cmd uimode night yes`). Tap **System** (`appearance-theme-system`) → follows the device again (toggle `cmd uimode night yes/no` and watch it follow).
 4. **Persist, no flash (AC2).** With the device in light mode (`adb shell cmd uimode night no`), choose **Dark**, then `adb shell am force-stop <package>` and relaunch → the first app screen after the splash is already dark, with no light frame (record with `adb shell screenrecord /sdcard/start.mp4` if unsure); Settings → Appearance shows Dark selected. Set back to System.
 4b. **Sign out (AC1).** On Settings tap **Sign out** → a confirm dialog. **Cancel** → still on Settings, signed in. Tap again → confirm → the sign-in screen; relaunch → still on sign-in. Sign back in → Today; your tasks are still there; Settings shows your email again.
+4c. **Legal (TB-54 in the shell).** On Settings, a **Legal** section below Preferences shows Privacy Policy, Terms of Use and How AI uses your data (`settings-legal-links`); each opens in the system browser.
 5. **Unknown page.** `adb shell am start -a android.intent.action.VIEW -d "taskbuddy://settings/nope"` → "This settings page doesn't exist." with Back.
 6. **Regression.** Today/Inbox tasks still listed after the migration; task modal (`taskbuddy://task/<id>`) still opens. TalkBack on the Settings list: "Appearance, button" with the description as hint; theme chips read as radio buttons with checked state.
 
@@ -49,7 +50,7 @@ For the coordinator. Needs **no new dev build** (no new dependency, no native co
 Done in round 2 (merge commit 706ec3f, feature commit 5a7cbd6) as planned: old placeholder kept deleted, `SignOutButton` row in the Account section, `useAccountEmail` reads `useSession()`, root layout keeps both TB-20's guard and `AppearanceSync`.
 
 ## TB-54 (legal links)
-PR #21 adds `LegalLinks` to the old placeholder Settings screen. When it lands on main, the merge keeps the placeholder deleted and adds a Legal section to `registry/sections.ts` with a custom row rendering `<LegalLinks testID="settings-legal-links" />`, so TB-54's `settings-legal-links-route.test.tsx` passes against this shell.
+Done in merge commit 9fd6c78: PR #21 had added `LegalLinks` to the old placeholder Settings screen. The placeholder stays deleted; `registry/sections.ts` has a **Legal** section (after Preferences) with a custom row `SettingsLegalLinksRow` rendering `<LegalLinks testID="settings-legal-links" />`. TB-54's `settings-legal-links-route.test.tsx` passes unchanged against the registry shell.
 
 ## Review findings
 | # | Severity | Finding (file:line) | Source (self / reviewer agent / human) | Resolution |
