@@ -9,7 +9,8 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 2. **[Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md)** (TB-20). About 15 minutes, plus pasting one CI job and a new dev build. Decisions made (D1–D9 option A). Do it after step 1.
 3. **[Add the Deno type check for Edge Functions to CI](ci-deno-check.md)** (TB-22, after its PR merges). About 5 minutes: paste one job into `ci.yml`.
 4. **[Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md)** (TB-22, TB-23). About 15 minutes, once you have an Anthropic API key and before AI features are tried on a device. TB-23 adds step 0 (push the usage-limits migration **before** deploying the function) and optional limit overrides and a CI rollback check (steps 5–6).
-5. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
+5. **[Run the prompt-injection corpus against the real AI model](ai-injection-corpus-real-model.md)** (TB-25). About 10 minutes, right after step 4. Confirms with the real Claude model that none of 20 attack prompts gets the system prompt out; it closes TB-25's AC1.
+6. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
 
 Everything else is done.
 
@@ -20,6 +21,7 @@ Everything else is done.
 | [Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md) | TB-20 | Open (decisions made) |
 | [Add the Deno type check for Edge Functions to CI](ci-deno-check.md) | TB-22 | Open |
 | [Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md) | TB-22, TB-23 | Open |
+| [Run the prompt-injection corpus against the real AI model](ai-injection-corpus-real-model.md) | TB-25 | Open |
 | [Confirm the operator facts on the legal pages](legal-owner-facts.md) | TB-54 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |

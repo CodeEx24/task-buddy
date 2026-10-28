@@ -248,7 +248,6 @@ describe('error mapping', () => {
     ['missing input', {}],
     ['empty input', { input: '   ' }],
     ['unknown field', { input: 'x', model: 'claude-opus' }],
-    ['oversized input', { input: 'a'.repeat(8001) }],
   ])('%s → 400 BAD_REQUEST, provider not called', async (_label, body) => {
     const { handler, calls } = setup();
     const request = new Request(`${BASE}/parse`, {
@@ -400,8 +399,16 @@ describe('failure causes in the log line', () => {
   });
 });
 
-describe('body size', () => {
-  it('rejects a declared body above MAX_BODY_BYTES with 400 before parsing', async () => {
+describe('body size (TB-25: oversized text is 413 INPUT_TOO_LONG)', () => {
+  it('rejects an input over the schema cap with 413, provider not called', async () => {
+    const { handler, calls } = setup();
+    const response = await handler(post('parse', { body: { input: 'a'.repeat(8001) } }));
+    expect(response.status).toBe(413);
+    expect(await errorCode(response)).toBe('INPUT_TOO_LONG');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects a declared body above MAX_BODY_BYTES with 413 before parsing', async () => {
     const { handler, calls } = setup();
     const request = new Request(`${BASE}/parse`, {
       method: 'POST',
@@ -412,18 +419,19 @@ describe('body size', () => {
       body: JSON.stringify({ input: 'x' }),
     });
     const response = await handler(request);
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(413);
+    expect(await errorCode(response)).toBe('INPUT_TOO_LONG');
     expect(calls).toHaveLength(0);
   });
 
-  it('rejects an undeclared oversized body with 400', async () => {
+  it('rejects an undeclared oversized body with 413', async () => {
     const { handler, calls } = setup();
     const request = new Request(`${BASE}/parse`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${VALID_TOKEN}` },
       body: JSON.stringify({ input: 'x', pad: 'p'.repeat(MAX_BODY_BYTES) }),
     });
-    expect((await handler(request)).status).toBe(400);
+    expect((await handler(request)).status).toBe(413);
     expect(calls).toHaveLength(0);
   });
 });

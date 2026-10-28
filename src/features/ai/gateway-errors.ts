@@ -11,6 +11,7 @@ export type GatewayErrorKind =
   | 'timeout'
   | 'unavailable'
   | 'bad_request'
+  | 'input_too_long'
   | 'unknown';
 
 export type GatewayError = {
@@ -47,8 +48,10 @@ const KIND_BY_CODE: Readonly<Record<string, GatewayErrorKind>> = {
   AI_PROVIDER_ERROR: 'unavailable',
   AI_NOT_CONFIGURED: 'unavailable',
   AI_BAD_OUTPUT: 'unavailable',
+  AI_UNSAFE_OUTPUT: 'unavailable',
   INTERNAL: 'unavailable',
   BAD_REQUEST: 'bad_request',
+  INPUT_TOO_LONG: 'input_too_long',
 };
 
 function kindFromStatus(status: number): GatewayErrorKind {
@@ -56,6 +59,7 @@ function kindFromStatus(status: number): GatewayErrorKind {
   if (status === 401) return 'unauthenticated';
   if (status === 504) return 'timeout';
   if (status === 400) return 'bad_request';
+  if (status === 413) return 'input_too_long';
   if (status >= 500) return 'unavailable';
   return 'unknown';
 }
