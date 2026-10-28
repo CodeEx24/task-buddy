@@ -3,7 +3,10 @@ import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testi
 import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
 import { BackHandler } from 'react-native';
 
-import { INVALID_TASK_LINK_MESSAGE } from './components/TaskDetailModal';
+import {
+  INVALID_TASK_LINK_MESSAGE,
+  TASK_NOT_FOUND_MESSAGE,
+} from '@/features/tasks/components/TaskDetailModal';
 import { APP_TABS, tabButtonTestId } from './tabs';
 
 jest.mock('@expo/vector-icons/Ionicons', () =>
@@ -102,7 +105,7 @@ describe('AC1: tab navigation', () => {
 
     await fireEvent.press(screen.getByTestId(tabButtonTestId('index')));
     // Today regains focus when the modal closes; a stale press would be reported then.
-    await fireEvent.press(screen.getByRole('button', { name: 'Open sample task' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Add a task' }));
     await pressBack();
     expect(screen).toHavePathname('/');
     // Let Today's refocus frame run (renderRouter uses fake timers); a stale press would log here.
@@ -146,7 +149,8 @@ describe('AC2: task deep link', () => {
 
     expect(screen).toHavePathname(`/task/${TASK_ID}`);
     expect(screen.getByTestId('task-detail-modal')).toBeVisible();
-    expect(screen.getByText(`ID: ${TASK_ID}`)).toBeVisible();
+    // TB-26: the modal now loads the task; this id has no task in the (empty) local DB.
+    expect(await screen.findByText(TASK_NOT_FOUND_MESSAGE)).toBeVisible();
   });
 
   it('loads the tabs underneath, so back from a deep-linked modal lands on Today', async () => {
@@ -170,30 +174,31 @@ describe('AC2: task deep link', () => {
 });
 
 describe('AC3: closing the modal keeps the screen underneath', () => {
-  async function typeOnTodayThenOpenSampleTask() {
+  // TB-26: the Today demo opens the real add-task modal.
+  async function typeOnTodayThenOpenAddTask() {
     await fireEvent.changeText(screen.getByLabelText('Task name'), 'Buy milk');
-    await fireEvent.press(screen.getByRole('button', { name: 'Open sample task' }));
-    expect(screen).toHavePathname('/task/sample-task');
-    expect(screen.getByTestId('task-detail-modal')).toBeVisible();
+    await fireEvent.press(screen.getByTestId('home-add-task-button'));
+    expect(screen).toHavePathname('/task/new');
+    expect(await screen.findByTestId('new-task-modal')).toBeVisible();
   }
 
   it('the Android back key closes the modal and keeps typed text on Today', async () => {
     const pressBack = captureHardwareBack();
     await renderRouter(APP_DIR, { initialUrl: '/' });
-    await typeOnTodayThenOpenSampleTask();
+    await typeOnTodayThenOpenAddTask();
 
     await pressBack();
 
     expect(screen).toHavePathname('/');
-    expect(screen.queryByTestId('task-detail-modal')).toBeNull();
+    expect(screen.queryByTestId('new-task-modal')).toBeNull();
     expect(screen.getByLabelText('Task name')).toHaveDisplayValue('Buy milk');
   });
 
-  it('the Close button closes the modal and keeps typed text on Today', async () => {
+  it('the Cancel button closes the modal and keeps typed text on Today', async () => {
     await renderRouter(APP_DIR, { initialUrl: '/' });
-    await typeOnTodayThenOpenSampleTask();
+    await typeOnTodayThenOpenAddTask();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen).toHavePathname('/');
     expect(screen.getByLabelText('Task name')).toHaveDisplayValue('Buy milk');

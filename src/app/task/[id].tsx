@@ -1,1 +1,1 @@
-export { TaskDetailModal as default } from '@/features/navigation/components/TaskDetailModal';
+export { TaskDetailModal as default } from '@/features/tasks/components/TaskDetailModal';

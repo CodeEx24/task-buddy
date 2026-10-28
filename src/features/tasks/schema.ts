@@ -60,6 +60,11 @@ export const listOpenTasksInputSchema = z.object({
 });
 export type ListOpenTasksInput = z.input<typeof listOpenTasksInputSchema>;
 
+export const listCompletedTasksInputSchema = z.object({
+  limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(100),
+});
+export type ListCompletedTasksInput = z.input<typeof listCompletedTasksInputSchema>;
+
 export const createSubtaskInputSchema = z.object({
   taskId: idSchema,
   title: titleSchema,

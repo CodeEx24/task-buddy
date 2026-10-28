@@ -1,7 +1,7 @@
 // Local task + subtask repository (TB-21). Every write sets `updated_at`; deletes are soft.
-import { and, asc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 
-import { lists, subtasks, tasks, taskTags, type SubtaskRow, type TaskRow } from '@/db/schema';
+import { lists, subtasks, tags, tasks, taskTags, type SubtaskRow, type TaskRow } from '@/db/schema';
 import type { TaskBuddyDb } from '@/db/types';
 import { newId } from '@/lib/ids';
 
@@ -9,11 +9,13 @@ import {
   createSubtaskInputSchema,
   createTaskInputSchema,
   idSchema,
+  listCompletedTasksInputSchema,
   listOpenTasksInputSchema,
   updateSubtaskInputSchema,
   updateTaskInputSchema,
   type CreateSubtaskInput,
   type CreateTaskInput,
+  type ListCompletedTasksInput,
   type ListOpenTasksInput,
   type TaskCursor,
   type UpdateSubtaskInput,
@@ -114,6 +116,62 @@ function softDeleteTaskUnchecked(db: TaskBuddyDb, id: string): boolean {
       .run();
     return true;
   });
+}
+
+/**
+ * Undoes `softDeleteTask` (TB-26): un-deletes the task and the subtasks and tag links that were
+ * deleted with it (same `deleted_at`). Tag links whose tag is no longer live stay deleted, and a
+ * task whose list was deleted meanwhile comes back in the Inbox (`list_id = NULL`).
+ * Throws NOT_FOUND when the id is unknown or the task is not deleted.
+ */
+function restoreTaskUnchecked(db: TaskBuddyDb, id: string): Task {
+  const taskId = idSchema.parse(id);
+  return db.transaction((tx) => {
+    const current = tx.select().from(tasks).where(eq(tasks.id, taskId)).get();
+    if (!current || current.deletedAt === null) throw notFound('Task');
+    const deletedAt = current.deletedAt;
+    const listIsLive =
+      current.listId === null ||
+      tx
+        .select({ id: lists.id })
+        .from(lists)
+        .where(and(eq(lists.id, current.listId), isNull(lists.deletedAt)))
+        .get() !== undefined;
+    const now = Date.now();
+    const restored = { deletedAt: null, updatedAt: now };
+    const listId = listIsLive ? current.listId : null;
+    tx.update(tasks)
+      .set({ ...restored, listId })
+      .where(eq(tasks.id, taskId))
+      .run();
+    tx.update(subtasks)
+      .set(restored)
+      .where(and(eq(subtasks.taskId, taskId), eq(subtasks.deletedAt, deletedAt)))
+      .run();
+    tx.update(taskTags)
+      .set(restored)
+      .where(
+        and(
+          eq(taskTags.taskId, taskId),
+          eq(taskTags.deletedAt, deletedAt),
+          sql`${taskTags.tagId} IN (SELECT ${tags.id} FROM ${tags} WHERE ${tags.deletedAt} IS NULL)`,
+        ),
+      )
+      .run();
+    return { ...current, ...restored, listId };
+  });
+}
+
+/** Live completed tasks, most recently completed first (TB-26). Bounded by `limit`. */
+function listCompletedTasksUnchecked(db: TaskBuddyDb, input: ListCompletedTasksInput = {}): Task[] {
+  const { limit } = listCompletedTasksInputSchema.parse(input);
+  return db
+    .select()
+    .from(tasks)
+    .where(and(isNull(tasks.deletedAt), eq(tasks.status, 'done')))
+    .orderBy(desc(tasks.completedAt), desc(tasks.id))
+    .limit(limit)
+    .all();
 }
 
 /**
@@ -245,7 +303,9 @@ export const getTaskById = guardDb(getTaskByIdUnchecked);
 export const createTask = guardDb(createTaskUnchecked);
 export const updateTask = guardDb(updateTaskUnchecked);
 export const softDeleteTask = guardDb(softDeleteTaskUnchecked);
+export const restoreTask = guardDb(restoreTaskUnchecked);
 export const listOpenTasks = guardDb(listOpenTasksUnchecked);
+export const listCompletedTasks = guardDb(listCompletedTasksUnchecked);
 export const createSubtask = guardDb(createSubtaskUnchecked);
 export const updateSubtask = guardDb(updateSubtaskUnchecked);
 export const softDeleteSubtask = guardDb(softDeleteSubtaskUnchecked);
