@@ -1,7 +1,7 @@
 # Make the Supabase and bundle checks required on main
 
 > Related: TB-19 (https://stratyge.atlassian.net/browse/TB-19) | Wave 1 | PR #12
-> Status: Open (do after PR #12 merges) · Created by: Claude Code on 2026-10-28
+> Status: Done (2026-10-28, Claude set ci + supabase + bundle as required checks via gh api at the owner's request) · Created by: Claude Code on 2026-10-28
 
 ## Purpose
 TB-19 adds two CI jobs next to `ci`:

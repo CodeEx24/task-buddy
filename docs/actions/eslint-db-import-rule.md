@@ -1,7 +1,7 @@
 # Add the ESLint rule that keeps database access inside src/db
 
 > Related: TB-21 (https://stratyge.atlassian.net/browse/TB-21) | Wave 1
-> Status: Open · Created by: Claude Code on 2026-10-28
+> Status: Done (2026-10-28, added by Claude at the owner's request in PR for chore/tb-21/eslint-db-import-rule) · Created by: Claude Code on 2026-10-28
 
 ## Purpose
 CLAUDE.md says components never open the database directly; everything goes through a repository. TB-21 planned a lint rule to enforce that. The rule has been written and tested, but a local Claude Code hook (`config-protection`, from the ecc plugin) blocks agents from editing `eslint.config.js`, so it was never committed. Agents must not work around that hook.
