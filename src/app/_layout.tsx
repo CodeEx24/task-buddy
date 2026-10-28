@@ -8,8 +8,11 @@ import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
 import { QueryCacheReset } from '@/features/auth/components/QueryCacheReset';
 import { SessionProvider, useSession } from '@/features/auth/session/SessionProvider';
+import { applyStoredAppearance } from '@/features/settings/apply-stored-appearance';
+import { AppearanceSync } from '@/features/settings/components/AppearanceSync';
 import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { useTheme } from '@/theme';
 
 // A deep link straight to a modal (`taskbuddy://task/<id>`) still loads the tabs underneath (TB-18).
 export const unstable_settings = { anchor: '(tabs)' };
@@ -47,18 +50,23 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // TB-32: status-bar icons follow the app theme (an in-app Dark on a light device included).
+  const { scheme } = useTheme();
   return (
     <UiProvider>
-      {/* TB-21: run local DB migrations before any screen reads data. */}
-      <DbGate>
+      {/* TB-21: run local DB migrations before any screen reads data.
+          TB-32: then apply the stored theme before the first screen renders. */}
+      <DbGate onReady={applyStoredAppearance}>
         {/* TB-26: task data (local SQLite) through TanStack Query. */}
         <QueryProvider>
+          {/* TB-32: keep the app theme in step with the Appearance preference. */}
+          <AppearanceSync />
           <SessionProvider>
             <RootNavigator />
           </SessionProvider>
         </QueryProvider>
       </DbGate>
-      <StatusBar style="auto" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </UiProvider>
   );
 }

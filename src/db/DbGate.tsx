@@ -3,15 +3,23 @@ import { Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
 
+import type { TaskBuddyDb } from './types';
 import { useDbMigrations } from './use-db-migrations';
 
 /**
  * Renders children only once the local DB is migrated (TB-21 AC1). Blank while migrating;
  * a retryable error screen if the DB can't be opened or migrated.
  * Must sit inside `UiProvider` (the error screen uses the design-system theme).
+ * `onReady` runs once the DB is migrated, before children first render (must not throw).
  */
-export function DbGate({ children }: { children: ReactNode }) {
-  const { status, retry } = useDbMigrations();
+export function DbGate({
+  children,
+  onReady,
+}: {
+  children: ReactNode;
+  onReady?: (db: TaskBuddyDb) => void;
+}) {
+  const { status, retry } = useDbMigrations(onReady);
 
   if (status === 'pending') {
     return <View className="flex-1 bg-background" testID="db-gate-pending" />;

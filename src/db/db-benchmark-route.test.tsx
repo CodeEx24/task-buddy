@@ -17,8 +17,10 @@ describe('dev DB benchmark route', () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => {});
     await renderRouter(APP_DIR, { initialUrl: '/dev/db-benchmark' });
 
-    expect(await screen.findByText('lists, subtasks, tags, task_tags, tasks')).toBeOnTheScreen();
-    expect(screen.getByTestId('db-migrations')).toHaveTextContent('Migrations applied: 2');
+    expect(
+      await screen.findByText('lists, preferences, subtasks, tags, task_tags, tasks'),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('db-migrations')).toHaveTextContent('Migrations applied: 3');
 
     fireEvent.press(screen.getByTestId('db-benchmark-run'));
 
