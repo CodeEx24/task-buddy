@@ -1,6 +1,7 @@
 // Bundle secret scanner (TB-19, https://stratyge.atlassian.net/browse/TB-19).
 // Scans an `expo export` output folder for anything that must never ship in the app:
 // a Supabase secret key, a legacy service_role JWT, or the names of server-only key variables.
+// TB-22 adds the LLM provider key: an `sk-ant-` key value or the ANTHROPIC_API_KEY name.
 // Run with Node 24 (native type stripping): `node scripts/check-bundle-secrets.ts <export-dir>`.
 // Exit 1 on any finding or an empty/missing folder. Prints file + rule + redacted preview only.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -10,10 +11,12 @@ export type Finding = { file: string; rule: string; preview: string };
 
 // Built from parts so this source file never matches its own rules.
 const SECRET_KEY = new RegExp(`${['sb', 'secret', ''].join('_')}[A-Za-z0-9_-]{16,}`, 'g');
+const PROVIDER_KEY = new RegExp(`${['sk', 'ant', ''].join('-')}[A-Za-z0-9_-]{16,}`, 'g');
 const JWT = /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g;
 const SERVER_KEY_NAMES = [
   ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_'),
   ['SUPABASE', 'SECRET', 'KEY'].join('_'),
+  ['ANTHROPIC', 'API', 'KEY'].join('_'),
 ];
 
 /** First 8 characters then a mask: enough to locate a hit, never enough to reuse it. */
@@ -39,6 +42,9 @@ export function scanText(file: string, text: string): Finding[] {
   const findings: Finding[] = [];
   for (const match of text.matchAll(SECRET_KEY)) {
     findings.push({ file, rule: 'supabase secret key', preview: redact(match[0]) });
+  }
+  for (const match of text.matchAll(PROVIDER_KEY)) {
+    findings.push({ file, rule: 'LLM provider key', preview: redact(match[0]) });
   }
   for (const match of text.matchAll(JWT)) {
     if (jwtRole(match[0]) === 'service_role') {
