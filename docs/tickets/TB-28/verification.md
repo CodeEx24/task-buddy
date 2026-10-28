@@ -1,6 +1,6 @@
 # TB-28 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-28 · PR: (opened by the coordinator) · Branch: `feat/tb-28/task-detail-notes-subtasks`
+> Jira: https://stratyge.atlassian.net/browse/TB-28 · PR: https://github.com/CodeEx24/task-buddy/pull/16 · Branch: `feat/tb-28/task-detail-notes-subtasks`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
@@ -21,13 +21,28 @@ Failures hit during the build, and their fixes:
 2. Files first written from a Windows script had CRLF line endings in the working copy (the committed blobs were LF via `.gitattributes`) → normalised to LF.
 3. A test string with a literal newline broke parsing → `\n` escape.
 
+## Commands run: Android emulator, 2026-10-28
+Emulator `Medium_Phone_API_37.0`, EAS dev build `e98f091e` (no new native modules), Metro `expo start --dev-client` on `d9a230a` (after the review fixes). Screenshots `android-*.png` in this folder.
+
+| Command | Result | Notes |
+|---|---|---|
+| Edit title: append " at 3pm", wait (AC3) | pass | `task-detail-save-status` read "All changes saved" ~1.5 s after typing (`android-01-title-autosaved.png`) |
+| Type notes, press Back at once (flush on close) | pass | Reopened: notes "Ask about the cleaning" kept |
+| `am force-stop` (no pid) → relaunch → reopen (AC1) | pass | Title "Call the dentist at 3pm" and notes still there (`android-02-notes-after-restart.png`) |
+| Clear the title | pass | "Not saved yet: fix the field marked in red." (`android-03-empty-title-warning.png`); retyping saved it |
+| Add 2 steps via `subtask-add-input` + Enter, move first down, (AC1) | pass | Order flipped to "Book the appointment", "Find insurance card" (`android-04-two-steps.png`, `android-05-reordered.png`) |
+| Check both steps (AC2) | pass | `subtasks-complete-offer`: "All steps are done. Complete the task too?" (`android-06-complete-offer.png`); "Not now" hid it |
+| Add a 3rd step, check it (review fix 2) | pass | Offer shown again after "Not now"; deleting that step via `subtask-delete-<id>` removed it |
+| "Complete task" | pass | Task completed: "Completed Oct 28, 5:44 AM", "2 of 2 done" (`android-07-task-completed.png`) |
+| Delete task → Undo → reopen | pass | Notes and both steps (still checked) restored (`android-08-after-undo-detail.png`) |
+
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given a task, when I open it, then I can edit title, notes, due date, priority and manage a subtask checklist | partial — Jest met; device pending coordinator | `TaskDetailModal.test.tsx` "pre-fills the form and autosaves edits without a Save button (TB-28 AC1, AC3)" (title, notes, Tomorrow, High → SQLite row); `SubtaskChecklist.test.tsx` "adds steps to the end…", "rejects a blank step", "checks and unchecks a step", "reorders steps with move up / move down", "deletes a step (soft delete)" (row kept with `deleted_at`), "rolls a failed write back and says so", "hides the add field at 100 steps"; `task-repo.test.ts` "subtask checklist order and limit (TB-28)" (append, move with `updated_at` only on moved rows, ends, legacy equal sort orders, deleted rows, `LIMIT_REACHED`); `task-crud-routes.test.tsx` real routes: Inbox → Edit → Today chip + Notes + "Find the bill" step autosaved → Close; `NewTaskModal.test.tsx` "saves notes typed when adding a task". Device: steps 1–4 |
-| Given all subtasks are checked, then I am offered to complete the parent task | partial — Jest met; device pending coordinator | `SubtaskChecklist.test.tsx` "offers to complete the task once the last step is checked, and completes it on accept" (offer shown, task still `open` until accepted, then `done`), "\"Not now\" hides the offer until a step is unchecked and checked again", "\"Not now\" is forgotten when a step is added or deleted", "offers it when a task opens with every step already checked", "does not offer it for a completed task or a task without steps". Device: step 5 |
-| Edits autosave within 500 ms of the last keystroke | partial — Jest met; device pending coordinator | `TaskDetailModal.test.tsx` "autosaves 500 ms after the last keystroke, not before (TB-28 AC3)" (fake timers: nothing stored 499 ms after the last keystroke, status "Saving…"; stored at 500 ms), "saves a change still waiting for autosave when the modal closes", "shows field errors for invalid input and saves nothing until it is valid", "shows an error and keeps the typed text when autosave fails" (one attempt, no retry loop); `use-autosave.test.ts` (9 tests, incl. exactly one attempt per distinct failing value: debounce, same-content no restart, unmount save, flush, no retry, re-save after change back). Device: steps 2–3 |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — Jest met; device pending coordinator | 44 suites / 299 tests green (baseline 42 / 265), lint, typecheck, drizzle check, workflow check green; `docs/tickets/TB-28/*` written; self-review done (below). PR review, CI and device proof: coordinator |
+| Given a task, when I open it, then I can edit title, notes, due date, priority and manage a subtask checklist | met | **Emulator:** title, notes, due date and priority edits kept across restart; steps added, reordered, checked and deleted (`android-02-…`, `android-05-reordered.png`). | `TaskDetailModal.test.tsx` "pre-fills the form and autosaves edits without a Save button (TB-28 AC1, AC3)" (title, notes, Tomorrow, High → SQLite row); `SubtaskChecklist.test.tsx` "adds steps to the end…", "rejects a blank step", "checks and unchecks a step", "reorders steps with move up / move down", "deletes a step (soft delete)" (row kept with `deleted_at`), "rolls a failed write back and says so", "hides the add field at 100 steps"; `task-repo.test.ts` "subtask checklist order and limit (TB-28)" (append, move with `updated_at` only on moved rows, ends, legacy equal sort orders, deleted rows, `LIMIT_REACHED`); `task-crud-routes.test.tsx` real routes: Inbox → Edit → Today chip + Notes + "Find the bill" step autosaved → Close; `NewTaskModal.test.tsx` "saves notes typed when adding a task". Device: steps 1–4 |
+| Given all subtasks are checked, then I am offered to complete the parent task | met | **Emulator:** offer shown when all steps checked, "Not now" hides it, it returns after a new step is checked, "Complete task" completes the task (`android-06-complete-offer.png`, `android-07-task-completed.png`). | `SubtaskChecklist.test.tsx` "offers to complete the task once the last step is checked, and completes it on accept" (offer shown, task still `open` until accepted, then `done`), "\"Not now\" hides the offer until a step is unchecked and checked again", "\"Not now\" is forgotten when a step is added or deleted", "offers it when a task opens with every step already checked", "does not offer it for a completed task or a task without steps". Device: step 5 |
+| Edits autosave within 500 ms of the last keystroke | met | **Emulator:** "All changes saved" shown after typing with no Save button; notes typed right before closing were saved (`android-01-title-autosaved.png`). The 500 ms bound itself is proven with fake timers (nothing at 499 ms, saved at 500 ms). | `TaskDetailModal.test.tsx` "autosaves 500 ms after the last keystroke, not before (TB-28 AC3)" (fake timers: nothing stored 499 ms after the last keystroke, status "Saving…"; stored at 500 ms), "saves a change still waiting for autosave when the modal closes", "shows field errors for invalid input and saves nothing until it is valid", "shows an error and keeps the typed text when autosave fails" (one attempt, no retry loop); `use-autosave.test.ts` (9 tests, incl. exactly one attempt per distinct failing value: debounce, same-content no restart, unmount save, flush, no retry, re-save after change back). Device: steps 2–3 |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | Reviewer pass: nothing blocking; 1 Important + 5 nits fixed (`45dbcbf`, `6820514`, `9dcc162`, `d9a230a`). 44 suites / 299 tests, lint, typecheck, drizzle check green; CI on PR #16. | 44 suites / 299 tests green (baseline 42 / 265), lint, typecheck, drizzle check, workflow check green; `docs/tickets/TB-28/*` written; self-review done (below). PR review, CI and device proof: coordinator |
 
 ## Manual / E2E
 For the coordinator. Needs **no new dev build**: no new dependencies and no native code; the existing development build (`e98f091e`) plus Metro on this branch is enough. Android emulator `Medium_Phone_API_37.0`, `adb reverse tcp:8081 tcp:8081`, `pnpm start`.
@@ -65,7 +80,7 @@ Self-review of the full diff vs `origin/main` done; independent reviewer pass: c
 - `pnpm install` on Windows without Visual Studio needs `--ignore-scripts` (better-sqlite3 build script); chore proposed in TB-26.
 
 ## Completion
-- [ ] All AC met with evidence (device pending coordinator)
+- [x] All AC met with evidence (emulator, 2026-10-28)
 - [x] Gates green locally
 - [ ] Gates green in CI
 - [x] No open Blocking findings
