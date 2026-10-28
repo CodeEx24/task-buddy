@@ -9,12 +9,13 @@ Windows 11, Node 24.21.0, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-26-task-cr
 | Command | Result | Notes |
 |---|---|---|
 | `pnpm add --ignore-scripts @tanstack/react-query@5.104.2 zustand@5.0.15 react-hook-form@7.90.0 @hookform/resolvers@5.9.1` | pass | 4 JS-only deps, exact-pinned, each ≥ 2 weeks old. `--ignore-scripts`: see note 1 |
-| `pnpm install --frozen-lockfile --ignore-scripts` | pass | Lockfile consistent ("Done"). Plain `pnpm install --frozen-lockfile` fails on this machine already on the untouched base 4d42e5e (note 1) |
-| `pnpm lint` | pass | 0 problems (after fixing 2 `react-hooks/purity` errors and 1 `incompatible-library` warning, see failures) |
-| `pnpm typecheck` | pass | `tsc --noEmit` (stale git-ignored `.expo/types/router.d.ts` removed first) |
-| `pnpm test --ci` | pass | 38 suites, 235 tests, ~20 s; no "worker failed to exit" warning (see failures) |
-| `pnpm exec drizzle-kit check` | pass | "Everything's fine". No schema change, no new migration |
-| `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-26/task-crud` | pass | `workflow check: ok` |
+| `pnpm install --frozen-lockfile --ignore-scripts` | pass | Lockfile consistent ("Done"; re-run on `d4a748b`). Plain `pnpm install --frozen-lockfile` fails on this machine already on the untouched base 4d42e5e (note 1) |
+| `pnpm lint` | pass | 0 problems (re-run on `d4a748b`) (after fixing 2 `react-hooks/purity` errors and 1 `incompatible-library` warning, see failures) |
+| `pnpm typecheck` | pass | `tsc --noEmit`, re-run on `d4a748b` against the typed routes Metro regenerated (`taskHref` returns a `/task/${string}` href) |
+| `pnpm test --ci` | pass | 38 suites, 239 tests, ~19 s (re-run on `d4a748b` after the review fixes); no "worker failed to exit" warning (see failures) |
+| `pnpm exec drizzle-kit check` | pass | "Everything's fine" (re-run on `d4a748b`). No schema change, no new migration |
+| `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-26/task-crud` | pass | `workflow check: ok` (re-run after this docs update) |
+| CI on draft PR #14 (before the review fixes) | pass | Reported green by the coordinator |
 
 Notes:
 1. On this machine pnpm runs `node-gyp rebuild` for `better-sqlite3` (listed in `pnpm.onlyBuiltDependencies`) and fails with "Could not find any Visual Studio installation". It fails identically on the base commit, before any TB-26 change. The package ships N-API prebuilds (`prebuilds/win32-x64.node`) that `lib/binding.js` loads, so skipping the script changes nothing: `better-sqlite3` opens and runs SQLite 3.53.4 in Node, and all DB tests pass. CI (Ubuntu) is unaffected. Not fixed here (`package.json` build config is a shared file; worth a chore).
@@ -26,14 +27,15 @@ Failures hit during the build, and their fixes:
 4. `SectionList` rendered only 10 items initially (section headers count), hiding the Completed section → `initialNumToRender={30}`.
 5. "A worker process has failed to exit gracefully": TanStack mutation garbage-collection timers (5 min) outlived tests → test clients use `gcTime: Infinity` and are cleared after each test; `QueryProvider` also clears its cache on unmount.
 6. The TB-18 route test expected `ID: <id>` in the modal → now expects "This task doesn't exist anymore." (spec Deviations).
+7. After moving `UndoSnackbar` to the root layout it reads `useSafeAreaInsets()`: component tests now render inside a `SafeAreaProvider` (`task-test-utils.tsx`), as the app root does.
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given the add-task form, when I save a title with due date and priority, then the task appears in the right list instantly (optimistic) and persists after restart | partial — Jest met; device pending coordinator | `NewTaskModal.test.tsx` "saves a title with due date and priority, then closes (AC1)"; `use-task-mutations.test.tsx` "create shows the task in the board before the SQLite write" (the cache holds the row when `createTask` is called) and "rolls back … when the write fails"; `task-sections.test.ts` (section rules); `task-routes.test.tsx` (real routes: `/inbox` → `/task/new` → saved task under **Upcoming** with "Tomorrow · High priority"); restart: `TaskListScreen.test.tsx` "shows saved tasks after a restart (new query client, same DB)" and `task-repo.test.ts` "keeps a saved task … after the DB file is reopened" (file DB closed and reopened). Device: steps 1–3 below |
-| Given a task, when I complete it, then it moves to Completed with a timestamp and can be un-completed | partial — Jest met; device pending coordinator | `TaskListScreen.test.tsx` "completing moves a task to Completed with a timestamp; un-completing moves it back (AC2)" (meta matches `Completed Mon D, h:mm AM/PM`; SQLite `status`/`completed_at` checked); `TaskDetailModal.test.tsx` "completes with a timestamp and un-completes (AC2)"; `board-cache.test.ts`; `task-routes.test.tsx`. Device: step 4 |
-| Deleting a task is a soft delete (deleted_at) with a 5-second undo | partial — Jest met; device pending coordinator | `TaskDetailModal.test.tsx` "soft-deletes, closes and offers undo (AC3)" (row kept with `deleted_at` set); `TaskListScreen.test.tsx` "Undo restores a deleted task" and "the undo snackbar disappears after 5 seconds and the task stays deleted" (fake timers: visible at 4999 ms, gone at 5000 ms); `undo-store.test.ts` (expiry, replacement); `task-repo.test.ts` "restoreTask" suite (children restored, deleted tag/list cases); `task-routes.test.tsx`. Device: steps 5–6 |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — tests + docs met; PR review pending coordinator | 38 suites / 235 tests green (was 27 / 181 on `main` after TB-21+TB-18), lint/typecheck green, `docs/tickets/TB-26/*` written. PR review and CI: coordinator |
+| Given the add-task form, when I save a title with due date and priority, then the task appears in the right list instantly (optimistic) and persists after restart | partial — Jest met; device pending coordinator | `NewTaskModal.test.tsx` "saves a title with due date and priority, then closes (AC1)"; `use-task-mutations.test.tsx` "create shows the task in the board before the SQLite write" (the cache holds the row when `createTask` is called) and "rolls back … when the write fails"; `task-sections.test.ts` (section rules); `task-crud-routes.test.tsx` (real routes: `/inbox` → `/task/new` → saved task under **Upcoming** with "Tomorrow · High priority"); restart: `TaskListScreen.test.tsx` "shows saved tasks after a restart (new query client, same DB)" and `task-repo.test.ts` "keeps a saved task … after the DB file is reopened" (file DB closed and reopened). Device: steps 1–3 below |
+| Given a task, when I complete it, then it moves to Completed with a timestamp and can be un-completed | partial — Jest met; device pending coordinator | `TaskListScreen.test.tsx` "completing moves a task to Completed with a timestamp; un-completing moves it back (AC2)" (meta matches `Completed Mon D, h:mm AM/PM`; SQLite `status`/`completed_at` checked); `TaskDetailModal.test.tsx` "completes with a timestamp and un-completes (AC2)"; `board-cache.test.ts`; `task-crud-routes.test.tsx`. Device: step 4 |
+| Deleting a task is a soft delete (deleted_at) with a 5-second undo | partial — Jest met; device pending coordinator | `TaskDetailModal.test.tsx` "soft-deletes, closes and offers undo (AC3)" (row kept with `deleted_at` set); `TaskListScreen.test.tsx` "Undo restores a deleted task" and "the undo snackbar disappears after 5 seconds and the task stays deleted" (fake timers: visible at 4999 ms, gone at 5000 ms); `undo-store.test.ts` (expiry, replacement); `task-crud-routes.test.tsx` "undo shows after deleting from a task modal deep-linked over Today" (snackbar over Today, Undo restores); `use-task-mutations.test.tsx` "keeps a newer offer made while the restore was running"; `TaskDetailModal.test.tsx` "never shows not found while a delete closes the modal"; `task-repo.test.ts` "restoreTask" suite (children restored, deleted tag/list cases); `task-crud-routes.test.tsx`. Device: steps 5–6 |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — tests + docs met; PR review pending coordinator | 38 suites / 239 tests green (was 27 / 181 on `main` after TB-21+TB-18), lint/typecheck green, `docs/tickets/TB-26/*` written. PR review and CI: coordinator |
 
 ## Manual / E2E
 For the coordinator. Needs **no new dev build**: all new deps are JS-only, so the existing TB-21 development build (`e98f091e`, includes expo-sqlite + expo-crypto) plus Metro on this branch is enough. Android emulator `Medium_Phone_API_37.0`, `adb reverse tcp:8081 tcp:8081`, `pnpm start`.
@@ -43,8 +45,9 @@ For the coordinator. Needs **no new dev build**: all new deps are JS-only, so th
 3. **Restart (AC1).** `adb shell am force-stop <app id>` (or swipe the app away) and relaunch → Inbox still shows "Pay rent" under Upcoming with the same label.
 4. **Complete / un-complete (AC2).** Tap the checkbox "Pay rent" (`task-checkbox-<id>`) → the row moves to **Completed** (`task-section-completed`), checked, with "Completed <Mon D>, <h:mm AM/PM>" (current time). Tap it again → back under Upcoming, the timestamp is gone. Also: tap **Edit** → **Mark complete** (`task-detail-toggle-done`) shows the completed time in the modal; **Mark as not done** reverts.
 5. **Edit.** Tap **Edit** on "Pay rent" → modal pre-filled (title, Tomorrow + High selected). Tap **Today**, change the title, **Save changes** → row now under **Today** with the new title.
-6. **Delete + undo (AC3).** Tap **Edit** → **Delete task** (`task-detail-delete`) → modal closes, the row is gone, snackbar "Task deleted · Undo" (`undo-snackbar`) at the bottom of Inbox. Tap **Undo** (`undo-button`) within 5 s → the row comes back in the same section. Repeat the delete and wait: the snackbar disappears after ~5 s and the task stays gone (also after a restart).
-7. **Negative / regression.** Today tab → "Open sample task" → modal says "This task doesn't exist anymore." and Close returns to Today with typed text kept (TB-18). `adb shell am start -a android.intent.action.VIEW -d "taskbuddy://task/not%20a%20task"` → "This link doesn't point to a task."
+6. **Delete + undo (AC3).** Tap **Edit** → **Delete task** (`task-detail-delete`) → the modal closes straight away (no "This task doesn't exist anymore" flash), the row is gone, and the snackbar "Task deleted · Undo" (`undo-snackbar`) sits just above the tab bar. Tap **Undo** (`undo-button`) within 5 s → the row comes back in the same section. Repeat the delete and wait: the snackbar disappears after ~5 s and the task stays gone (also after a restart).
+   - **Outside Inbox:** take a task id (DB, or the `/task/<id>` path when its Edit modal is open), run `adb shell am start -a android.intent.action.VIEW -d "taskbuddy://task/<id>"`, tap **Delete task** → the modal closes onto Today and the same snackbar shows there; **Undo** restores the task (check Inbox).
+7. **Negative / regression.** Today tab → type in "Task name" → tap **Add a task** (`home-add-task-button`, was "Open sample task") → the New task modal (`new-task-modal`) opens; Android back or **Cancel** returns to Today with the typed text kept (TB-18). `adb shell am start -a android.intent.action.VIEW -d "taskbuddy://task/not%20a%20task"` → "This link doesn't point to a task."
 8. Dark mode (`adb shell cmd uimode night yes`): chips, snackbar and form follow the theme.
 
 Optional DB proof: `adb shell run-as <app id> sqlite3 databases/taskbuddy.db "select title, priority, due_at, status, completed_at, deleted_at from tasks"` (if `sqlite3` is on the image) — the deleted task keeps its row with `deleted_at` set.
@@ -54,16 +57,20 @@ Optional DB proof: `adb shell run-as <app id> sqlite3 databases/taskbuddy.db "se
 |---|---|---|---|---|
 | 1 | Medium | `Date.now()` read during render (impure; lint error) in list, form and detail | self (lint) | `useNow()` hook |
 | 2 | Medium | Mutation GC timers kept Jest workers alive | self | Test clients `gcTime: Infinity` + cleared per test; provider clears on unmount |
-| 3 | Low | Delete from a modal deep-linked over Today: the undo snackbar lives on the Inbox screen, so it is only seen if the user switches to Inbox within 5 s | self | Known limitation (below); TB-27 can host it app-wide |
-| 4 | Low | The Today tab's "Open sample task" demo now opens a not-found modal | self | Comment updated; TB-27 replaces the Today demo screen |
+| 3 | Low | Delete from a modal deep-linked over Today: the undo snackbar lived on the Inbox screen only | self + coordinator review | Fixed in `d4a748b`: `UndoSnackbar` rendered once in `src/app/_layout.tsx`; route test added |
+| 4 | Low | The Today tab's "Open sample task" demo opened a not-found modal | self + coordinator review | Fixed in `d4a748b`: "Add a task" (`home-add-task-button`) opens `/task/new`; TB-18 AC3 route tests use it |
+| 5 | Medium | `useRestoreTask.onSettled` dismissed any offer, including a newer delete's | coordinator review | Fixed in `d4a748b`: dismiss only while the offer is still for the restored task; test added |
+| 6 | Low | After Delete the modal briefly showed "This task doesn't exist anymore" (detail query refetched before close) | coordinator review | Fixed in `d4a748b`: delete marks that detail query stale (`refetchType: 'none'`) and refetches the rest; test asserts the query never holds `null` |
+| 7 | Nit | Title length message wording | coordinator review | "Use at most 500 characters" |
 
-Independent reviewer pass (medium risk): pending, run by the coordinator at PR time.
+Independent reviewer pass (medium risk): run by the coordinator on draft PR #14, nothing blocking; findings 5–7 and the fixes for 3–4 came from that round.
 
 ## Known limitations & follow-ups
-- The board loads the first 500 open and 100 most recent completed tasks (no pagination yet) — TB-63.
+- The board loads the first `BOARD_OPEN_LIMIT` = 500 open tasks and the 100 most recent completed ones; anything beyond is not shown (no pagination yet) — TB-63.
+- Optimistic rollback restores a snapshot of the whole board taken before the mutation, so a rollback can briefly undo another mutation that landed in between; the invalidation after every mutation refetches from SQLite and heals it.
+- iOS: native modals are presented above the root view, so the snackbar becomes visible once the modal has closed (delete always closes it). Android draws it above the stack.
 - Due dates are date-only (local midnight); no time of day — TB-40 reminders.
 - No native date picker (JS chips + `YYYY-MM-DD` field) to avoid a new dev build; revisit with a design pass.
-- Undo snackbar is shown on the Inbox screen only (finding 3).
 - `pnpm install` on Windows without Visual Studio fails on the `better-sqlite3` build script (note 1) — propose a chore.
 - Inbox temporarily shows every task (Today / Upcoming / No date / Completed); TB-27 splits Today and Inbox and adds swipe actions.
 
