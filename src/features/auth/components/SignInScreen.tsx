@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Input } from '@/components/ui';
+import { LegalLinks } from '@/features/legal/components/LegalLinks';
 
 import { requestCode, verifyCode, type AuthFailure } from '../api/auth-api';
 import { SIGN_IN_COPY, SIGN_IN_ERRORS } from '../copy';
@@ -165,6 +166,7 @@ export function SignInScreen() {
                   if (parsedEmail.success) void sendCode(parsedEmail.data, false);
                 }}
               />
+              <LegalLinks context="sign-in" testID="sign-in-legal-links" />
             </View>
           ) : (
             <View className="gap-lg" testID="sign-in-code-step">
