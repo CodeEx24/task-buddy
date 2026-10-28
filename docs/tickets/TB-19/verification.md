@@ -24,13 +24,22 @@ Not run locally (by instruction: no Docker, no Metro/export on this machine), so
 - `expo export --platform android --platform ios` + `check-bundle-secrets.ts` with the per-run canary — job `bundle`.
 - The committed `src/lib/database.types.ts` is hand-written to match CLI 2.122.0 output. If the first `supabase` run reports drift, download its `database-types` artifact, commit it, and re-run.
 
+## Commands run: CI on PR #12, 2026-10-28
+https://github.com/CodeEx24/task-buddy/pull/12 (ubuntu-latest, Supabase CLI via `supabase/setup-cli@v1`).
+
+| Command | Result | Notes |
+|---|---|---|
+| Run 40654487757 (`edf33cb..a597e7f`) | pass (expected red) | `ci` ✅, `bundle` ✅, `supabase`: `db start` ✅, pgTAP ✅, **type drift ✗**. The hand-written `database.types.ts` differed from `gen types` output, so the drift check failed the build (AC3 negative case). The artifact was committed as `fd84229` |
+| Run 40654929325 (`fd84229`) | pass | All jobs green: `ci`, `bundle` (Android + iOS export, canary not found, no secret), `supabase` (db start, pgTAP 13 tests, gen types, no drift, rollback applies cleanly) |
+| Run 40655290930 (`9fd74fc`, temporary `using (true)` select policy) | pass (expected red) | pgTAP failed tests 3–4: "AC2: user A querying user B's profile row gets zero rows" → unexpected record `22222222-…` (user B). Reverted in `9246599`, which is identical to `fd84229` |
+
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given three Supabase projects, then URLs and anon keys are injected through EAS env and no service-role key exists in the client bundle | partial — pending owner project creation + CI | **Built:** `eas.json` sets `environment` per profile; `src/lib/env.ts` reads `EXPO_PUBLIC_APP_ENV`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` by static dot access and Zod-validates them (`env.test.ts`: 14 tests incl. secret key and service_role JWT rejected, no values in errors). Static guard `no-secrets.test.ts` passes. Scanner fixture tests pass. D1: two projects (dev, staging), prod at TB-38 (accepted deviation); D3: publishable key replaces "anon key". **Pending:** owner creates projects + EAS variables (`docs/actions/supabase-projects.md`), read back with `eas env:list` (names only); CI `bundle` job green |
-| Given users A and B, when A queries B's profile row, then RLS returns zero rows (automated test) | partial — pending CI | `supabase/tests/database/profiles_rls.test.sql` "AC2: user A querying user B's profile row gets zero rows" (+ own row visible, cross-user update no-op, insert/delete/id/deleted_at writes → 42501, anon denied). `rls_enabled.test.sql` guards every `public` table. Proven when the `supabase` job's `supabase test db` step is green |
-| TypeScript types are generated from the schema in CI and the build fails on drift | partial — pending CI | `supabase` job: `supabase gen types typescript --local --schema public` → `git diff --exit-code src/lib/database.types.ts` (fails + uploads artifact on drift). `getSupabaseClient()` is `SupabaseClient<Database>`, so `pnpm typecheck` also breaks on schema/type mismatch. Proven by a green run, plus the planned negative run (add a column without regenerating → red) |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — pending CI + review | Local lint/typecheck/test green (table above); docs updated (spec decisions, plan, action guide, `supabase/*/README.md`, this file). Pending: CI green on all three jobs, PR review |
+| Given three Supabase projects, then URLs and anon keys are injected through EAS env and no service-role key exists in the client bundle | partial — pending owner project creation (CI `bundle` job green: no service-role/secret key in the Android or iOS bundle, canary not found) | **Built:** `eas.json` sets `environment` per profile; `src/lib/env.ts` reads `EXPO_PUBLIC_APP_ENV`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` by static dot access and Zod-validates them (`env.test.ts`: 14 tests incl. secret key and service_role JWT rejected, no values in errors). Static guard `no-secrets.test.ts` passes. Scanner fixture tests pass. D1: two projects (dev, staging), prod at TB-38 (accepted deviation); D3: publishable key replaces "anon key". **Pending:** owner creates projects + EAS variables (`docs/actions/supabase-projects.md`), read back with `eas env:list` (names only); CI `bundle` job green |
+| Given users A and B, when A queries B's profile row, then RLS returns zero rows (automated test) | met | **CI run 40654929325: pgTAP 13/13 pass; run 40655290930 with an open policy fails tests 3–4, so the test catches a leak.** `supabase/tests/database/profiles_rls.test.sql` "AC2: user A querying user B's profile row gets zero rows" (+ own row visible, cross-user update no-op, insert/delete/id/deleted_at writes → 42501, anon denied). `rls_enabled.test.sql` guards every `public` table. Proven when the `supabase` job's `supabase test db` step is green |
+| TypeScript types are generated from the schema in CI and the build fails on drift | met | **CI: run 40654487757 failed on drift (hand-written types), run 40654929325 passed after committing the generated file.** `supabase` job: `supabase gen types typescript --local --schema public` → `git diff --exit-code src/lib/database.types.ts` (fails + uploads artifact on drift). `getSupabaseClient()` is `SupabaseClient<Database>`, so `pnpm typecheck` also breaks on schema/type mismatch. Proven by a green run, plus the planned negative run (add a column without regenerating → red) |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — pending AC1 (owner) | Local lint/typecheck/test green; CI green on all three jobs (run 40654929325); docs updated (spec decisions, plan, action guide, `supabase/*/README.md`, this file). Pending: AC1 owner steps |
 
 ## Manual / E2E
 None yet. After the owner action: `npx eas-cli env:list --environment development|preview` (names only) and `supabase db push` to dev then staging (plan Task 7). Negative CI runs (plan Tasks 3, 4, 6) are to be recorded here after the first push.
@@ -52,6 +61,6 @@ None yet. After the owner action: `npx eas-cli env:list --environment developmen
 
 ## Completion
 - [ ] All AC met with evidence
-- [ ] Gates green locally and in CI
-- [ ] No open Blocking findings
+- [x] Gates green locally and in CI
+- [x] No open Blocking findings
 - [ ] Jira updated (In Review → Done)
