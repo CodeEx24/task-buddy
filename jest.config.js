@@ -11,8 +11,19 @@ module.exports = {
     '\\.css$': '<rootDir>/src/components/ui/testing/css-stub.ts',
   },
   // Gesture-handler and bottom-sheet mocks for the design system primitives (TB-17).
+  // TB-20: the in-memory auth fake (starts signed in) in place of supabase-js auth.
   // Jest appends these to the jest-expo preset's own setupFiles.
-  setupFiles: ['<rootDir>/src/components/ui/testing/jest-setup.ts'],
+  setupFiles: [
+    '<rootDir>/src/components/ui/testing/jest-setup.ts',
+    '<rootDir>/src/features/auth/testing/jest-setup.ts',
+  ],
   // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase CLI.
-  testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/.claude/', '/supabase/'],
+  // TB-20: *.integration.test.ts need a local Supabase stack; they run with jest.integration.config.js.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.expo/',
+    '/.claude/',
+    '/supabase/',
+    '\.integration\.test\.ts$',
+  ],
 };
