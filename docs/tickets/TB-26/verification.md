@@ -1,6 +1,6 @@
 # TB-26 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-26 · PR: (opened by the coordinator) · Branch: `feat/tb-26/task-crud`
+> Jira: https://stratyge.atlassian.net/browse/TB-26 · PR: https://github.com/CodeEx24/task-buddy/pull/14 · Branch: `feat/tb-26/task-crud`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
@@ -29,13 +29,31 @@ Failures hit during the build, and their fixes:
 6. The TB-18 route test expected `ID: <id>` in the modal → now expects "This task doesn't exist anymore." (spec Deviations).
 7. After moving `UndoSnackbar` to the root layout it reads `useSafeAreaInsets()`: component tests now render inside a `SafeAreaProvider` (`task-test-utils.tsx`), as the app root does.
 
+## Commands run: Android emulator and merge of `main`, 2026-10-28
+Emulator `Medium_Phone_API_37.0`, EAS dev build `e98f091e` (no new native modules in TB-26), Metro `expo start --dev-client` on `f3eb97f` (after the review fixes). Screenshots `android-*.png` in this folder.
+
+| Command | Result | Notes |
+|---|---|---|
+| Inbox → Add task → title "Pay electricity bill", Tomorrow, High → Save (AC1) | pass | Row appears at once under **Upcoming** with "Tomorrow · High priority" (`android-02-new-task-form.png`, `android-03-task-added.png`) |
+| `am force-stop` (process gone: `pidof` empty) → relaunch → Inbox (AC1 restart) | pass | Task still there under Upcoming (`android-04-after-restart.png`) |
+| Tap the row checkbox, then tap again (AC2) | pass | Moves to **Completed** with "Completed Oct 28, 4:56 AM" (emulator clock is UTC), then back to Upcoming (`android-05-completed.png`, `android-06-uncompleted.png`) |
+| Edit → Delete, wait > 5 s (AC3) | pass | "Task deleted · Undo" snackbar, then gone; the task stays deleted (list empty) |
+| Edit → Delete → Undo within the window (AC3) | pass | Snackbar shown (`android-08-undo-snackbar.png`); Undo tapped about 4 s after delete restored "Call the dentist" (`android-09-after-undo.png`) |
+| Deep link `taskbuddy://task/<id>` over Today → Delete → Undo (review fix 1) | pass | Undo snackbar shown over Today (`android-10-undo-over-today.png`); Undo restored the task |
+| `git merge origin/main` (TB-18 #11, TB-19 #12, TB-21 lint rule #15) | pass after conflicts | `package.json`: kept both sides' deps (`@hookform/resolvers`, `@supabase/supabase-js`, `@tanstack/react-query`); `pnpm-lock.yaml` taken from `main` and regenerated (never hand-merged) |
+| `pnpm lint` / `pnpm typecheck` (after merge) | pass | Includes the new `no-restricted-imports` DB rule: no TB-26 file imports SQLite outside `src/db` |
+| `pnpm test --ci` (after merge) | pass | 42 suites, 265 tests |
+| `pnpm exec drizzle-kit check` (after merge) | pass | "Everything's fine" |
+
+Dev-build-only observations (not product bugs): the dev client's floating gear button overlaps the right half of the Inbox "Add task" button (taps there open the dev menu), and a LogBox warning ("ImageBackground is deprecated", from a dependency) can cover the tab bar until dismissed. Neither exists in release builds.
+
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given the add-task form, when I save a title with due date and priority, then the task appears in the right list instantly (optimistic) and persists after restart | partial — Jest met; device pending coordinator | `NewTaskModal.test.tsx` "saves a title with due date and priority, then closes (AC1)"; `use-task-mutations.test.tsx` "create shows the task in the board before the SQLite write" (the cache holds the row when `createTask` is called) and "rolls back … when the write fails"; `task-sections.test.ts` (section rules); `task-crud-routes.test.tsx` (real routes: `/inbox` → `/task/new` → saved task under **Upcoming** with "Tomorrow · High priority"); restart: `TaskListScreen.test.tsx` "shows saved tasks after a restart (new query client, same DB)" and `task-repo.test.ts` "keeps a saved task … after the DB file is reopened" (file DB closed and reopened). Device: steps 1–3 below |
-| Given a task, when I complete it, then it moves to Completed with a timestamp and can be un-completed | partial — Jest met; device pending coordinator | `TaskListScreen.test.tsx` "completing moves a task to Completed with a timestamp; un-completing moves it back (AC2)" (meta matches `Completed Mon D, h:mm AM/PM`; SQLite `status`/`completed_at` checked); `TaskDetailModal.test.tsx` "completes with a timestamp and un-completes (AC2)"; `board-cache.test.ts`; `task-crud-routes.test.tsx`. Device: step 4 |
-| Deleting a task is a soft delete (deleted_at) with a 5-second undo | partial — Jest met; device pending coordinator | `TaskDetailModal.test.tsx` "soft-deletes, closes and offers undo (AC3)" (row kept with `deleted_at` set); `TaskListScreen.test.tsx` "Undo restores a deleted task" and "the undo snackbar disappears after 5 seconds and the task stays deleted" (fake timers: visible at 4999 ms, gone at 5000 ms); `undo-store.test.ts` (expiry, replacement); `task-crud-routes.test.tsx` "undo shows after deleting from a task modal deep-linked over Today" (snackbar over Today, Undo restores); `use-task-mutations.test.tsx` "keeps a newer offer made while the restore was running"; `TaskDetailModal.test.tsx` "never shows not found while a delete closes the modal"; `task-repo.test.ts` "restoreTask" suite (children restored, deleted tag/list cases); `task-crud-routes.test.tsx`. Device: steps 5–6 |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — tests + docs met; PR review pending coordinator | 38 suites / 239 tests green (was 27 / 181 on `main` after TB-21+TB-18), lint/typecheck green, `docs/tickets/TB-26/*` written. PR review and CI: coordinator |
+| Given the add-task form, when I save a title with due date and priority, then the task appears in the right list instantly (optimistic) and persists after restart | met | **Emulator:** saved task appears instantly under Upcoming as "Tomorrow · High priority" and survives a force-stop + relaunch (`android-03-task-added.png`, `android-04-after-restart.png`). `NewTaskModal.test.tsx` "saves a title with due date and priority, then closes (AC1)"; `use-task-mutations.test.tsx` "create shows the task in the board before the SQLite write" (the cache holds the row when `createTask` is called) and "rolls back … when the write fails"; `task-sections.test.ts` (section rules); `task-crud-routes.test.tsx` (real routes: `/inbox` → `/task/new` → saved task under **Upcoming** with "Tomorrow · High priority"); restart: `TaskListScreen.test.tsx` "shows saved tasks after a restart (new query client, same DB)" and `task-repo.test.ts` "keeps a saved task … after the DB file is reopened" (file DB closed and reopened). Device: steps 1–3 below |
+| Given a task, when I complete it, then it moves to Completed with a timestamp and can be un-completed | met | **Emulator:** checkbox moves it to Completed with "Completed Oct 28, 4:56 AM"; tapping again moves it back (`android-05-completed.png`, `android-06-uncompleted.png`). `TaskListScreen.test.tsx` "completing moves a task to Completed with a timestamp; un-completing moves it back (AC2)" (meta matches `Completed Mon D, h:mm AM/PM`; SQLite `status`/`completed_at` checked); `TaskDetailModal.test.tsx` "completes with a timestamp and un-completes (AC2)"; `board-cache.test.ts`; `task-crud-routes.test.tsx`. Device: step 4 |
+| Deleting a task is a soft delete (deleted_at) with a 5-second undo | met | **Emulator:** Delete shows "Task deleted · Undo"; Undo restores the task, including from a modal deep-linked over Today; waiting past 5 s leaves it deleted (`android-08-undo-snackbar.png`, `android-09-after-undo.png`, `android-10-undo-over-today.png`). `TaskDetailModal.test.tsx` "soft-deletes, closes and offers undo (AC3)" (row kept with `deleted_at` set); `TaskListScreen.test.tsx` "Undo restores a deleted task" and "the undo snackbar disappears after 5 seconds and the task stays deleted" (fake timers: visible at 4999 ms, gone at 5000 ms); `undo-store.test.ts` (expiry, replacement); `task-crud-routes.test.tsx` "undo shows after deleting from a task modal deep-linked over Today" (snackbar over Today, Undo restores); `use-task-mutations.test.tsx` "keeps a newer offer made while the restore was running"; `TaskDetailModal.test.tsx` "never shows not found while a delete closes the modal"; `task-repo.test.ts` "restoreTask" suite (children restored, deleted tag/list cases); `task-crud-routes.test.tsx`. Device: steps 5–6 |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | Independent reviewer pass: nothing blocking; its 4 Important findings + 1 nit fixed in `d4a748b`. After merging `main`: 42 suites / 265 tests, lint (incl. the DB-import rule), typecheck, drizzle check green; CI on PR #14. Before merge: 38 suites / 239 tests green (was 27 / 181 on `main` after TB-21+TB-18), lint/typecheck green, `docs/tickets/TB-26/*` written. PR review and CI: coordinator |
 
 ## Manual / E2E
 For the coordinator. Needs **no new dev build**: all new deps are JS-only, so the existing TB-21 development build (`e98f091e`, includes expo-sqlite + expo-crypto) plus Metro on this branch is enough. Android emulator `Medium_Phone_API_37.0`, `adb reverse tcp:8081 tcp:8081`, `pnpm start`.
@@ -75,7 +93,7 @@ Independent reviewer pass (medium risk): run by the coordinator on draft PR #14,
 - Inbox temporarily shows every task (Today / Upcoming / No date / Completed); TB-27 splits Today and Inbox and adds swipe actions.
 
 ## Completion
-- [ ] All AC met with evidence (device steps pending coordinator)
+- [x] All AC met with evidence (emulator, 2026-10-28)
 - [x] Gates green locally
 - [ ] Gates green in CI
 - [x] No open Blocking findings
