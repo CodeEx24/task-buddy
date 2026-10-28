@@ -10,7 +10,9 @@ import type { TaskBoard } from '../task-sections';
 import { cleanupTaskTests, createTestQueryClient, resetTaskData } from '../testing/task-test-utils';
 import { taskQueryKeys } from './task-query-keys';
 import { readTaskBoard, useTaskBoard } from './use-task-board';
-import { useCreateTask, useDeleteTask, useUpdateTask } from './use-task-mutations';
+import { useUndoStore } from '@/stores/undo-store';
+
+import { useCreateTask, useDeleteTask, useRestoreTask, useUpdateTask } from './use-task-mutations';
 
 beforeEach(async () => {
   jest.restoreAllMocks();
@@ -110,5 +112,44 @@ describe('task mutations (optimistic)', () => {
     });
 
     await waitFor(() => expect(board()?.open.map((t) => t.id)).toEqual([task.id]));
+  });
+});
+
+describe('useRestoreTask (undo)', () => {
+  it('hides the snackbar for the restored task', async () => {
+    const task = taskRepo.createTask(getDb(), { title: 'a' });
+    taskRepo.softDeleteTask(getDb(), task.id);
+    useUndoStore.getState().offerUndo(task.id);
+    const { wrapper } = setup();
+    const { result } = await renderHook(() => useRestoreTask(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(task.id);
+    });
+
+    expect(useUndoStore.getState().offer).toBeNull();
+    expect(taskRepo.getTaskById(getDb(), task.id)?.deletedAt).toBeNull();
+  });
+
+  it('keeps a newer offer made while the restore was running', async () => {
+    const a = taskRepo.createTask(getDb(), { title: 'a' });
+    const b = taskRepo.createTask(getDb(), { title: 'b' });
+    taskRepo.softDeleteTask(getDb(), a.id);
+    useUndoStore.getState().offerUndo(a.id);
+    const realRestore = taskRepo.restoreTask;
+    jest.spyOn(taskRepo, 'restoreTask').mockImplementation((db, id) => {
+      // B is deleted (and offered) before A's restore settles.
+      taskRepo.softDeleteTask(db, b.id);
+      useUndoStore.getState().offerUndo(b.id);
+      return realRestore(db, id);
+    });
+    const { wrapper } = setup();
+    const { result } = await renderHook(() => useRestoreTask(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync(a.id);
+    });
+
+    expect(useUndoStore.getState().offer?.taskId).toBe(b.id);
   });
 });

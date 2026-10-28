@@ -3,14 +3,12 @@ import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
 import { Button, Card, Checkbox, Input, Sheet } from '@/components/ui';
+import { NEW_TASK_HREF } from '@/features/tasks/task-routes';
 import { APP_NAME } from '@/lib/app-info';
-
-/** Demo link to the task modal (TB-18). Not a real task: the modal says it doesn't exist. */
-export const SAMPLE_TASK_HREF = '/task/sample-task';
 
 /**
  * Today tab placeholder (TB-15, TB-18). It showcases the design-system primitives (TB-17) and
- * opens a sample task modal (TB-18) until Today/Inbox (TB-27) replaces it.
+ * opens the add-task modal (TB-26) until Today/Inbox (TB-27) replaces it.
  */
 export function HomeScreen() {
   const [taskName, setTaskName] = useState('');
@@ -45,9 +43,10 @@ export function HomeScreen() {
         <Button label="Open sheet" onPress={() => setIsSheetOpen(true)} />
         <Button label="Clear" variant="ghost" onPress={clearForm} />
         <Button
-          label="Open sample task"
+          testID="home-add-task-button"
+          label="Add a task"
           variant="secondary"
-          onPress={() => router.push(SAMPLE_TASK_HREF)}
+          onPress={() => router.push(NEW_TASK_HREF)}
         />
       </Card>
 

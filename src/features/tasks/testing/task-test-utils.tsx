@@ -4,6 +4,7 @@ import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
 import { eq } from 'drizzle-orm';
 import type { ReactElement } from 'react';
+import { SafeAreaProvider, type Metrics } from 'react-native-safe-area-context';
 
 import { getDb, migrateDb, resetDbForTests } from '@/db/node-client';
 import { tasks, type TaskRow } from '@/db/schema';
@@ -11,6 +12,12 @@ import { createQueryClient } from '@/lib/query-client';
 import { useUndoStore } from '@/stores/undo-store';
 
 const clients: QueryClient[] = [];
+
+/** A phone-sized frame with no insets, as the app root provides on device. */
+const TEST_SAFE_AREA: Metrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 0, left: 0, right: 0, bottom: 0 },
+};
 
 /** A QueryClient that `resetTaskData` clears, so no cache timers outlive the test. */
 export function createTestQueryClient(): QueryClient {
@@ -42,7 +49,11 @@ export async function renderWithQuery(
   ui: ReactElement,
   client: QueryClient = createTestQueryClient(),
 ) {
-  const result = await render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  const result = await render(
+    <SafeAreaProvider initialMetrics={TEST_SAFE_AREA}>
+      <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+    </SafeAreaProvider>,
+  );
   return { ...result, client };
 }
 

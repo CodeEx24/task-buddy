@@ -9,14 +9,12 @@ import { useTaskBoard } from '../hooks/use-task-board';
 import { useUpdateTask } from '../hooks/use-task-mutations';
 import type { Task } from '../repo/task-repo';
 import { groupTaskBoard } from '../task-sections';
+import { NEW_TASK_HREF, taskHref } from '../task-routes';
 import { TaskRow } from './TaskRow';
-import { UndoSnackbar } from './UndoSnackbar';
-
-export const NEW_TASK_HREF = '/task/new';
 
 /**
  * Inbox tab (TB-26): every task in sections Today (incl. overdue), Upcoming, No date and
- * Completed, plus Add task and the delete undo snackbar. TB-27 splits it into Today and Inbox.
+ * Completed, plus Add task. TB-27 splits it into Today and Inbox.
  */
 export function TaskListScreen() {
   const board = useTaskBoard();
@@ -26,7 +24,7 @@ export function TaskListScreen() {
 
   const toggleDone = (task: Task, isDone: boolean) =>
     update.mutate({ id: task.id, patch: { status: isDone ? 'done' : 'open' } });
-  const openTask = (task: Task) => router.push(`/task/${task.id}`);
+  const openTask = (task: Task) => router.push(taskHref(task.id));
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-background">
@@ -81,8 +79,6 @@ export function TaskListScreen() {
             }
           />
         )}
-
-        <UndoSnackbar />
       </View>
     </SafeAreaView>
   );

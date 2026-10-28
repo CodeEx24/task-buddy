@@ -12,7 +12,9 @@ import {
   resetTaskData,
   storedTask,
 } from '../testing/task-test-utils';
-import { NEW_TASK_HREF, TaskListScreen } from './TaskListScreen';
+import { NEW_TASK_HREF } from '../task-routes';
+import { TaskListScreen } from './TaskListScreen';
+import { UndoSnackbar } from './UndoSnackbar';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(), replace: jest.fn() },
@@ -20,6 +22,16 @@ jest.mock('expo-router', () => ({
 
 const mockRouter = jest.mocked(router);
 const today = () => startOfLocalDay(Date.now());
+
+/** The list with the snackbar the root layout renders above every screen. */
+function WithUndo() {
+  return (
+    <>
+      <TaskListScreen />
+      <UndoSnackbar />
+    </>
+  );
+}
 
 beforeEach(async () => {
   jest.clearAllMocks();
@@ -106,7 +118,7 @@ describe('TaskListScreen', () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
     softDeleteTask(getDb(), task.id);
     await act(async () => useUndoStore.getState().offerUndo(task.id));
-    await renderWithQuery(<TaskListScreen />);
+    await renderWithQuery(<WithUndo />);
 
     expect(await screen.findByTestId('undo-snackbar')).toHaveTextContent(/Task deleted/);
     expect(screen.queryByRole('checkbox', { name: 'Pay rent' })).toBeNull();
@@ -121,7 +133,7 @@ describe('TaskListScreen', () => {
   it('the undo snackbar disappears after 5 seconds and the task stays deleted (AC3)', async () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
     softDeleteTask(getDb(), task.id);
-    await renderWithQuery(<TaskListScreen />);
+    await renderWithQuery(<WithUndo />);
     expect(await screen.findByTestId('task-list-empty')).toBeOnTheScreen();
 
     jest.useFakeTimers();

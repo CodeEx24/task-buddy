@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
+import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
 import { QueryProvider } from '@/lib/QueryProvider';
 
 // A deep link straight to a modal (`taskbuddy://task/<id>`) still loads the tabs underneath (TB-18).
@@ -22,6 +23,8 @@ export default function RootLayout() {
             <Stack.Screen name="task/new" options={{ presentation: 'modal' }} />
             <Stack.Screen name="task/[id]" options={{ presentation: 'modal' }} />
           </Stack>
+          {/* Above every screen, so a delete from any modal can be undone (TB-26 AC3). */}
+          <UndoSnackbar />
         </QueryProvider>
       </DbGate>
       <StatusBar style="auto" />

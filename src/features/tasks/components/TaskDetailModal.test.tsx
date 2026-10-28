@@ -5,9 +5,11 @@ import { getDb } from '@/db/client';
 import { addLocalDays, startOfLocalDay } from '@/lib/dates';
 import { useUndoStore } from '@/stores/undo-store';
 
+import { taskQueryKeys } from '../hooks/task-query-keys';
 import { createTask, updateTask } from '../repo/task-repo';
 import {
   cleanupTaskTests,
+  createTestQueryClient,
   renderWithQuery,
   resetTaskData,
   storedTask,
@@ -116,6 +118,30 @@ describe('TaskDetailModal', () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalledTimes(1));
     expect(storedTask(task.id)?.deletedAt).toEqual(expect.any(Number));
     expect(useUndoStore.getState().offer?.taskId).toBe(task.id);
+  });
+
+  it('never shows "not found" while a delete closes the modal', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent' });
+    const client = createTestQueryClient();
+    // Records every value the modal's task query takes; the not-found card renders on `null`.
+    const detailValues: unknown[] = [];
+    const unsubscribe = client.getQueryCache().subscribe((event) => {
+      const key = event.query.queryKey;
+      if (key[1] === 'detail' && key[2] === task.id && event.type === 'updated') {
+        detailValues.push(event.query.state.data);
+      }
+    });
+    mockParams.mockReturnValue({ id: task.id });
+    await renderWithQuery(<TaskDetailModal />, client);
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete task' }));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalledTimes(1));
+    unsubscribe();
+
+    expect(detailValues).not.toContain(null);
+    expect(screen.queryByTestId('task-detail-not-found')).toBeNull();
+    // Marked stale, so reopening the deleted task's link refetches it (and then shows not found).
+    expect(client.getQueryState(taskQueryKeys.detail(task.id))?.isInvalidated).toBe(true);
   });
 
   it('shows the completion time of an already completed task', async () => {

@@ -9,7 +9,7 @@ import type { Task } from './repo/task-repo';
 import { MAX_TITLE_LENGTH, taskPrioritySchema } from './schema';
 
 export const TITLE_REQUIRED_MESSAGE = 'Add a title';
-export const TITLE_TOO_LONG_MESSAGE = `Keep the title under ${MAX_TITLE_LENGTH} characters`;
+export const TITLE_TOO_LONG_MESSAGE = `Use at most ${MAX_TITLE_LENGTH} characters`;
 export const INVALID_DATE_MESSAGE = 'Use a real date as YYYY-MM-DD';
 
 export const taskFormSchema = z.object({

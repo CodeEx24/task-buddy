@@ -34,6 +34,11 @@ function rollback(client: QueryClient, snapshot: Snapshot | undefined) {
   }
 }
 
+function isDetailQueryFor(queryKey: readonly unknown[], id: string): boolean {
+  const detailKey = taskQueryKeys.detail(id);
+  return queryKey.length === detailKey.length && detailKey.every((part, i) => queryKey[i] === part);
+}
+
 function refetchTasks(client: QueryClient) {
   return client.invalidateQueries({ queryKey: taskQueryKeys.all });
 }
@@ -98,18 +103,28 @@ export function useDeleteTask() {
       if (deleted) offerUndo(id);
     },
     onError: (_error, _id, snapshot) => rollback(client, snapshot),
-    onSettled: () => refetchTasks(client),
+    onSettled: (_deleted, _error, id) =>
+      Promise.all([
+        // The open detail modal still shows the task while it closes, so its query is only
+        // marked stale (refetched next time it is opened), never refetched into "not found".
+        client.invalidateQueries({ queryKey: taskQueryKeys.detail(id), refetchType: 'none' }),
+        client.invalidateQueries({
+          queryKey: taskQueryKeys.all,
+          predicate: (query) => !isDetailQueryFor(query.queryKey, id),
+        }),
+      ]),
   });
 }
 
-/** Undo of `useDeleteTask`: restores the task and hides the snackbar. */
+/** Undo of `useDeleteTask`: restores the task and hides its snackbar. */
 export function useRestoreTask() {
   const client = useQueryClient();
-  const dismissUndo = useUndoStore((state) => state.dismissUndo);
   return useMutation<Task, Error, string>({
     mutationFn: async (id) => restoreTask(getDb(), id),
-    onSettled: () => {
-      dismissUndo();
+    onSettled: (_task, _error, id) => {
+      // A newer delete may have replaced the offer meanwhile; only hide the one for this task.
+      const { offer, dismissUndo } = useUndoStore.getState();
+      if (offer?.taskId === id) dismissUndo();
       return refetchTasks(client);
     },
   });

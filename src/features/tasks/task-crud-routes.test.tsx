@@ -1,9 +1,9 @@
 import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
 import { getDb } from '@/db/client';
-import { resetDbForTests } from '@/db/node-client';
+import { migrateDb, resetDbForTests } from '@/db/node-client';
 
-import { listOpenTasks } from './repo/task-repo';
+import { createTask, listOpenTasks } from './repo/task-repo';
 import { cleanupTaskTests, storedTask } from './testing/task-test-utils';
 
 // The tab bar's icons load fonts through expo-asset, which Jest can't resolve (TB-18).
@@ -74,6 +74,27 @@ describe('task CRUD through the app routes (TB-26)', () => {
       expect(await screen.findByRole('checkbox', { name: 'Pay rent' })).toBeVisible();
       expect(screen.queryByTestId('undo-snackbar')).toBeNull();
       expect(storedTask(task.id)?.deletedAt).toBeNull();
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'undo shows after deleting from a task modal deep-linked over Today',
+    async () => {
+      await migrateDb(getDb());
+      const task = createTask(getDb(), { title: 'Call mom' });
+      await renderRouter(APP_DIR, { initialUrl: `/task/${task.id}` });
+
+      await fireEvent.press(await screen.findByRole('button', { name: 'Delete task' }));
+
+      await waitFor(() => expect(screen).toHavePathname('/'));
+      expect(await screen.findByTestId('home-screen')).toBeVisible();
+      expect(screen.getByTestId('undo-snackbar')).toBeVisible();
+      expect(storedTask(task.id)?.deletedAt).toEqual(expect.any(Number));
+
+      await fireEvent.press(screen.getByTestId('undo-button'));
+      await waitFor(() => expect(storedTask(task.id)?.deletedAt).toBeNull());
+      expect(screen.queryByTestId('undo-snackbar')).toBeNull();
     },
     ROUTE_TEST_TIMEOUT_MS,
   );
