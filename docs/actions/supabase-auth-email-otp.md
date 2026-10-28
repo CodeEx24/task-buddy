@@ -1,7 +1,7 @@
 # Set up email-code sign-in in the Supabase dashboard
 
 > Related: TB-20 (https://stratyge.atlassian.net/browse/TB-20) | Wave 1 | spec D3, D5, D6, D9
-> Status: Open — **pending your answers to TB-20 decisions D1–D9** (values below assume the recommended options) · Created by: Claude Code on 2026-10-28
+> Status: Open (decisions made: D1–D9 option A, 2026-10-28) · Created by: Claude Code on 2026-10-28
 
 ## Purpose
 TB-20 lets people sign in by typing a 6-digit code sent to their email. Some of the settings that make this work live only in the Supabase dashboard, and only you can change them: the email template, the code length and expiry, and the resend interval. Without them, Supabase emails a magic link instead of a code, and the "resend after 30 seconds" button would be refused for another 30 seconds.
@@ -14,7 +14,7 @@ This unblocks the TB-20 device check (sign in on a phone with a real inbox). The
 - No secrets are needed, unless you choose custom SMTP (D6 option B). Then you'll need your email provider's SMTP host, port, username and password. Type them into the dashboard only, never into chat or the repo.
 
 ## Steps
-Do steps 1–5 on **dev**, then repeat them on **staging**.
+Do steps 1–5 on **dev**, then repeat them on **staging**. Steps 6–8 are once.
 
 1. **Turn email sign-in on.** Go to *Authentication → Sign In / Providers → Email*. Check that **Email** is enabled. Leave **Confirm email** as it is, but note whether it's on (step 2 depends on it). Set **Email OTP Length** to `6` and **Email OTP Expiration** to `600` seconds (10 minutes). Save.
 2. **Make the email send a code, not a link.** Go to *Authentication → Emails → Templates* and open **Magic Link**. Set the subject to `Your Task Buddy code` and replace the body with:
@@ -29,13 +29,14 @@ Do steps 1–5 on **dev**, then repeat them on **staging**.
 5. **Email sender (D6).**
    - Option A (recommended): change nothing. The built-in sender works for testing, but it only sends a handful of emails per hour. Space out your test sign-ins.
    - Option B: go to *Authentication → Emails → SMTP Settings*, enable custom SMTP, and enter your provider's details. Your provider will first ask you to verify a sending domain with DNS records. Afterwards, raise the email-per-hour limit under *Rate Limits* if you need to.
-6. **New dev build.** TB-20 adds a native module (`expo-secure-store`), so the dev client on your phone or emulator can't run it. Once the TB-20 code is on its branch, Claude will ask you to run:
+6. **Add the CI `auth` job.** Agents can't edit workflow files in this repo. Paste the job from [`docs/tickets/TB-20/ci-auth-job.yml`](../tickets/TB-20/ci-auth-job.yml) under `jobs:` in `.github/workflows/ci.yml` on the TB-20 branch, or tell Claude to do it and approve the edit. Optionally make `auth` a required check afterwards.
+7. **New dev build.** TB-20 adds a native module (`expo-secure-store`), so the dev client on your phone or emulator can't run it. Once the TB-20 code is on its branch, Claude will ask you to run:
    ```bash
    eas build --profile development --platform android
    eas build --profile development --platform ios
    ```
    Then install the new builds.
-7. Tell Claude "auth dashboard done" and list the values you set.
+8. Tell Claude "auth dashboard done" and list the values you set.
 
 ## Expected result
 On dev and staging, a sign-in request sends an email with a 6-digit code and no link. A second request is accepted 30 seconds after the first. A code stops working after 10 minutes.
@@ -53,6 +54,7 @@ On dev and staging, a sign-in request sends an email with a 6-digit code and no 
 - [ ] dev: Site URL `taskbuddy://`
 - [ ] staging: the same five settings
 - [ ] Sender decided (D6) and, for option B, SMTP configured
+- [ ] CI `auth` job pasted into `.github/workflows/ci.yml`
 - [ ] New Android and iOS dev builds installed (once Claude asks)
 - [ ] Claude told; status above set to Done
 

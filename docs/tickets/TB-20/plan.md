@@ -1,7 +1,7 @@
 # TB-20 — Implementation plan
 
 > Jira: https://stratyge.atlassian.net/browse/TB-20 · Spec: [spec.md](spec.md) · Intent: [intent.md](intent.md)
-> Status: **Draft — awaiting owner decisions** (spec D1–D9). Written for the recommended options; tasks marked *(D#)* change if the owner picks differently.
+> Status: **Accepted** by the owner on 2026-10-28 (spec D1–D9 all option A). Tasks 1–6 and 8 built on this branch; Task 6's CI job awaits the owner (protected workflow file); Task 7 is the device run. Deviations: [spec.md § Deviations](spec.md#deviations-added-during-build).
 > Bar: an engineer who has never seen the conversation could implement the change from this plan alone.
 
 ## Branch & worktree

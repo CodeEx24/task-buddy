@@ -1,7 +1,7 @@
 # TB-20 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-20 · Blueprint: US-006 · Epic TB-2 (Auth & Accounts) · Wave 1 · Risk: **High** (auth, session secrets)
-> Status: Draft — awaiting owner decisions (see [spec.md § Open decisions](spec.md#open-decisions))
+> Status: **Accepted** by the owner on 2026-10-28 (D1–D9 option A, see [spec.md § Decisions](spec.md#decisions))
 
 ## Problem
 Task Buddy has a Supabase backend (TB-19) but nobody can sign in. The client in `src/lib/supabase.ts` deliberately runs with `persistSession: false, autoRefreshToken: false`, so there is no user, no JWT and no `profiles` row. Everything server-side that comes next needs a signed-in user: the AI gateway checks a JWT (TB-22), sync (TB-43), push tokens (TB-46), shared spaces (TB-68), billing (TB-77), and account deletion/export (TB-53). Apple/Google sign-in (TB-50) builds on the same session layer.
@@ -41,6 +41,6 @@ Task Buddy has a Supabase backend (TB-19) but nobody can sign in. The client in 
 ## Open questions
 | # | Question | Why it matters | Answer (who, date) |
 |---|---|---|---|
-| 1 | D1–D8 in [spec.md](spec.md#open-decisions) | They change security posture, UX, native modules, cost and CI | Owner, pending |
+| 1 | D1–D9 in [spec.md](spec.md#open-decisions) | They change security posture, UX, native modules, cost and CI | Owner, 2026-10-28: all option A |
 | 2 | Has `supabase db push` run on dev and staging? | Without it, sign-in works but no `profiles` row is created | Owner, pending |
-| 3 | AC says "resend after 30 seconds"; Supabase's default per-user OTP send interval is **60 s** | Either the dashboard setting changes or the AC does (D5) | Owner, pending |
+| 3 | AC says "resend after 30 seconds"; Supabase's default per-user OTP send interval is **60 s** | Either the dashboard setting changes or the AC does (D5) | Owner, 2026-10-28: dashboard set to 30 s (D5-A) |

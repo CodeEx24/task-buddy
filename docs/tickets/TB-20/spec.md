@@ -1,7 +1,7 @@
 # TB-20 — Spec
 
 > Jira: https://stratyge.atlassian.net/browse/TB-20 · Intent: [intent.md](intent.md) · Plan: [plan.md](plan.md)
-> Status: **Draft — awaiting owner decisions** (D1–D9 below). High risk: implementation starts only after the owner answers the decisions and accepts this spec.
+> Status: **Accepted** by the owner on 2026-10-28 (D1–D9 all option A, relayed by the coordinator session). High risk.
 > Facts checked 2026-10-28 against Supabase docs (`search_docs`: passwordless email, email templates, rate limits, production checklist, `startAutoRefresh`), supabase-js `2.118.0` (Context7 + the installed `@supabase/auth-js` 2.118.0 type definitions), Expo SecureStore docs (Context7, unversioned) and the installed `expo-router` 58 (`Protected` component).
 
 ## Acceptance criteria (verbatim from Jira)
@@ -195,16 +195,23 @@ The owner's machine can't run Docker, so anything needing the local Supabase sta
 ## Decisions
 | Decision | Options considered | Choice | Decided by / date |
 |---|---|---|---|
-| D1 Session storage | A chunked SecureStore · B AES + kv-store · C SecureStore + `userStorage` · D AsyncStorage | pending | |
-| D2 Sign-in required? | A guard · B optional · C welcome + skip | pending | |
-| D3 Code vs link | A code · B code + link · C link | pending | |
-| D4 Profile row | A trigger · B client upsert · C trigger + check | pending | |
-| D5 Expiry / resend | A 30 s + 600 s · B 60 s + AC edit · C mismatch | pending | |
-| D6 SMTP | A built-in now, custom later · B custom now · C custom on prod only | pending | |
-| D7 Sign-out local data | A keep · B wipe · C ask | pending | |
-| D8 E2E testing | A CI Auth+Mailpit + device · B mocks + device · C + Maestro | pending | |
-| D9 New users | A create on first code · B separate sign-up | pending | |
+| D1 Session storage | A chunked SecureStore · B AES + kv-store · C SecureStore + `userStorage` · D AsyncStorage | A — expo-secure-store with a chunking adapter | owner, 2026-10-28 |
+| D2 Sign-in required? | A guard · B optional · C welcome + skip | A — required, `Stack.Protected` route guard | owner, 2026-10-28 |
+| D3 Code vs link | A code · B code + link · C link | A — 6-digit code only, no link | owner, 2026-10-28 |
+| D4 Profile row | A trigger · B client upsert · C trigger + check | A — keep TB-19's `on_auth_user_created` trigger | owner, 2026-10-28 |
+| D5 Expiry / resend | A 30 s + 600 s · B 60 s + AC edit · C mismatch | A — 30 s resend, 600 s expiry (dashboard + `config.toml`) | owner, 2026-10-28 |
+| D6 SMTP | A built-in now, custom later · B custom now · C custom on prod only | A — built-in sender now; custom SMTP follow-up before the Wave 3 beta | owner, 2026-10-28 |
+| D7 Sign-out local data | A keep · B wipe · C ask | A — clear session and caches, keep local tasks | owner, 2026-10-28 |
+| D8 E2E testing | A CI Auth+Mailpit + device · B mocks + device · C + Maestro | A — CI test on local Supabase Auth + Mailpit, plus a manual device run | owner, 2026-10-28 |
+| D9 New users | A create on first code · B separate sign-up | A — `shouldCreateUser: true`, one flow | owner, 2026-10-28 |
 
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-28 | **No reinstall guard** (clearing a Keychain session that survived an iOS reinstall) | It needs a non-secure marker store; the only one available (expo-sqlite kv-store) may only be imported from `src/db` (TB-21 lint rule) and `src/db` is outside this ticket. The surviving session belongs to the same device owner. Logged as a follow-up | Pending coordinator |
+| 2026-10-28 | **CI `auth` job not added to `.github/workflows/ci.yml`**; job YAML committed as [`ci-auth-job.yml`](ci-auth-job.yml) for the owner to paste | The repo's `protected-paths-guard` hook blocks agent edits to `.github/workflows/*.yml` | Pending owner |
+| 2026-10-28 | Integration test runs with its own `jest.integration.config.js` (Node environment) | The jest-expo preset stubs `fetch`, so a real HTTP call to the local stack is impossible under it | Agent (no behaviour change) |
+| 2026-10-28 | No console logging at all in auth code (spec said "log `auth.storage_error`") | Stricter than spec: storage failures read as "no session"; a static test forbids `console.*` in auth code. Sentry wiring can add a value-free event later | Agent (stricter) |
+| 2026-10-28 | No "You've been signed out" banner after a server-side revoke | The guard returns to sign-in; banner deferred (UX polish, no AC) | Agent (minor) |
+| 2026-10-28 | `expo-secure-store` config plugin kept in `app.json` with `configureAndroidBackup: true`, `faceIDPermission: false` | `npx expo install` adds it; it is not needed for the module to load, but it is what excludes SecureStore data from Android Auto Backup (threat T1). `faceIDPermission: false` stops it adding an unused Face ID usage string on iOS | Agent (security) |
+| 2026-10-28 | Guard groups declare `redirectTo` (`/sign-in`, `/`) | Without it a guarded URL fell through to the not-found screen (anchor `(tabs)` is itself guarded) | Agent |
