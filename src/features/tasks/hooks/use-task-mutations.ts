@@ -56,7 +56,7 @@ export function useCreateTask() {
         deletedAt: null,
         listId: null,
         title: fields.title,
-        notes: null,
+        notes: fields.notes,
         status: 'open',
         priority: fields.priority,
         dueAt: fields.dueAt,
