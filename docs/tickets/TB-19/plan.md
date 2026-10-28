@@ -1,7 +1,7 @@
 # TB-19 — Implementation plan
 
 > Jira: https://stratyge.atlassian.net/browse/TB-19 · Spec: [spec.md](spec.md) · Intent: [intent.md](intent.md)
-> Status: **Draft — awaiting owner acceptance** (and answers to spec D1–D4)
+> Status: **Accepted** by the owner on 2026-10-28 (spec D1–D4 answered). Tasks 1–6 built; Task 7 waits on the owner action.
 > Bar: an engineer who has never seen the conversation could implement the change from this plan alone.
 
 ## Branch & worktree

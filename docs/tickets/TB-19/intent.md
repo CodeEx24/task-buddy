@@ -1,7 +1,7 @@
 # TB-19 — Intent
 
 > Jira: https://stratyge.atlassian.net/browse/TB-19 · Blueprint: US-005 · Wave 1 (batch B) · Risk: **High** (auth, RLS, secrets)
-> Status: **Draft — awaiting owner acceptance**
+> Status: **Accepted** by the owner on 2026-10-28
 
 ## Problem
 The app has no backend yet. Every later backend ticket (TB-20 email OTP, TB-22 AI gateway, TB-43 sync, TB-68 shared spaces) needs a Supabase project to talk to, a safe way to give the app its URL and public key, and a database whose default posture is "deny unless a policy allows it". Without that baseline, the first table or the first key would set the pattern, and a mistake there (a table without RLS, a secret key in the bundle) is expensive to undo once real users exist.

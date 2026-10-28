@@ -1,7 +1,7 @@
 # TB-19 — Spec
 
 > Jira: https://stratyge.atlassian.net/browse/TB-19 · Intent: [intent.md](intent.md) · Plan: [plan.md](plan.md)
-> Status: **Draft — awaiting owner acceptance.** High risk: the owner reads this spec and answers D1–D4 before any code.
+> Status: **Accepted** by the owner on 2026-10-28 (D1–D4 answered below). High risk.
 > Facts checked 2026-10-27 against Supabase docs (search_docs), Expo/EAS docs (Context7) and the Supabase CLI `2.122.0` help output.
 
 ## Acceptance criteria (verbatim from Jira)
@@ -151,12 +151,19 @@ The `ci` job additionally runs the new Jest tests (`parseEnv`, static guard, bun
 ## Decisions
 | # | Decision | Options considered | Recommendation | Decided by / date |
 |---|---|---|---|---|
-| D1 | How many Supabase projects now | (a) dev + staging + prod now on **Pro** (≈ $25 plan + ~$10 per project compute, minus $10 credit ≈ $45/mo per Supabase's billing FAQ; no pausing, backups); (b) **dev + staging on Free now** (Free allows 2 active projects; may pause when idle), prod created at release time (TB-38) on Pro; (c) dev only now | **(b)**. Meets the safety goal today at $0; prod isn't needed until the first store build, and a Free prod would pause anyway. AC1's "three projects" becomes partial → recorded as an accepted deviation with a follow-up tied to TB-38. Pick (a) if you want AC1 literally met now and accept the monthly cost | |
-| D2 | Where RLS tests and type generation run | (a) **GitHub Actions with an ephemeral DB** (`supabase db start` on the runner); (b) Node/supabase-js tests against the remote dev project (needs secret key + DB password in CI, slower, pollutes dev data); (c) local only (impossible on this machine: no Docker) | **(a)**: hermetic, no secrets in CI, tests the migrations themselves, types derive from migrations. Two new jobs (`supabase`, `bundle`) the owner adds as required checks | |
-| D3 | Which client key | (a) **publishable key** `sb_publishable_…` as `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; (b) legacy `anon` JWT as `EXPO_PUBLIC_SUPABASE_ANON_KEY` (matches AC wording) | **(a)**: legacy keys stop working at the end of 2026 (about two months away) and can't be rotated independently | |
-| D4 | Region | Singapore (`ap-southeast-1`), Tokyo, US East, EU (Frankfurt) … | **The region closest to most expected users** (if that's the Philippines / SE Asia: Singapore). All projects in the same region. Can't be changed after creation | |
+| D1 | How many Supabase projects now | (a) dev + staging + prod now on **Pro**; (b) **dev + staging on Free now**, prod created at release time (TB-38); (c) dev only now | (b) | **(b): two projects now, `taskbuddy-dev` + `taskbuddy-staging`, on the Supabase Free plan; prod is added at TB-38.** AC1's "three projects" is an accepted deviation (see Deviations) — owner, 2026-10-28 |
+| D2 | Where RLS tests and type generation run | (a) **GitHub Actions with an ephemeral DB** (`supabase db start` on the runner); (b) tests against the remote dev project; (c) local only | (a) | **(a): GitHub Actions on every PR, against a local Supabase DB (`supabase db start`); no secrets in CI** — owner, 2026-10-28 |
+| D3 | Which client key | (a) **publishable key** `sb_publishable_…` as `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; (b) legacy `anon` JWT | (a) | **(a): the new publishable key. Client vars `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (+ `EXPO_PUBLIC_APP_ENV`), non-secret only; the secret/service-role key never reaches `src/` or the bundle** — owner, 2026-10-28 |
+| D4 | Region | Singapore (`ap-southeast-1`), Tokyo, US East, EU (Frankfurt) … | Closest to most users | **Singapore (`ap-southeast-1`) for every project** — owner, 2026-10-28 |
 | D5 | Generated types location | `src/lib/database.types.ts` · `packages/schemas/` · `supabase/types/` | `src/lib/database.types.ts` (next to the client that uses it; Edge Functions in TB-22 can import it by relative path or get their own copy). Small extension of the wave-plan owned paths | proposed (coordinator) |
 
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-28 | AC1 "three projects": two now (dev, staging), prod at TB-38 | D1 (b): Free plan allows two active projects; prod not needed before the first store build | owner (D1) |
+| 2026-10-28 | `env.ts` exports a lazy memoized `getEnv()` instead of an eagerly parsed `env` const | An import-time throw would break every Jest suite and any screen that imports a module transitively; startup still fails fast on first use | build agent (self) |
+| 2026-10-28 | Bundle scanner is one TypeScript file `scripts/check-bundle-secrets.ts` (run by Node 24 type stripping; tested by `scripts/check-bundle-secrets.test.ts` in Jest), not `.mjs` | Same rules, typed and linted, and runs under the existing Jest config; a separate CLI file would need `allowImportingTsExtensions` | build agent (self) |
+| 2026-10-28 | Scanner and static guard match a secret key only with 16+ / 8+ characters after the `sb_secret_` prefix, and no longer flag the bare word `service_role` | `env.ts` must name the prefix and the JWT role to reject them; matching those would make the scan fail on its own guard | build agent (self) |
+| 2026-10-28 | `eslint.config.js` and `.gitattributes` not changed | Lint config is hook-protected; `eslint-plugin-prettier` honours `.prettierignore`, so ignoring the generated file there is enough (lint verified). `.gitattributes` already forces `eol=lf` for every file | build agent (self) |
+| 2026-10-28 | First committed `src/lib/database.types.ts` is hand-written to match CLI 2.122.0 output | No Docker locally. If CI's regenerated file differs, the `supabase` job fails and uploads it as the `database-types` artifact; commit that file | coordinator instruction (no Docker) |
+| 2026-10-28 | `@supabase/supabase-js` pinned to `2.118.0`; no URL polyfill | Latest release ≥ 2 weeks old. supabase-js supports React Native "with the framework's bundled fetch polyfill" (supabase-js README via Context7); Expo SDK 58 ships `URL`/`URLSearchParams` natively, and nothing in TB-19 runs a query on device yet (TB-20 proves it) | build agent (self) |
