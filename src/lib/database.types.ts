@@ -5,7 +5,35 @@ export type Database = {
   
   "public": {
           Tables: {
-            "profiles": {
+            "ai_usage_counters": {
+                  Row: {
+                    "calls": number,"tokens": number,"updated_at": string,"user_id": string,"window_kind": string,"window_start": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calls"?: number,"tokens"?: number,"updated_at"?: string,"user_id": string,"window_kind": string,"window_start": string
+                  }
+                  Update: {
+                    "calls"?: number,"tokens"?: number,"updated_at"?: string,"user_id"?: string,"window_kind"?: string,"window_start"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"ai_usage_ledger": {
+                  Row: {
+                    "cost_usd": number,"created_at": string,"id": string,"input_tokens": number,"model": string,"outcome": string,"output_tokens": number,"request_id": string,"route": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cost_usd": number,"created_at"?: string,"id"?: string,"input_tokens": number,"model": string,"outcome": string,"output_tokens": number,"request_id": string,"route": string,"user_id": string
+                  }
+                  Update: {
+                    "cost_usd"?: number,"created_at"?: string,"id"?: string,"input_tokens"?: number,"model"?: string,"outcome"?: string,"output_tokens"?: number,"request_id"?: string,"route"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"profiles": {
                   Row: {
                     "created_at": string,"deleted_at": string | null,"display_name": string | null,"id": string,"timezone": string,"updated_at": string
                   }
@@ -25,7 +53,14 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "ai_consume_call":
+{ Args: { "p_calls_per_hour": number,"p_now"?: string,"p_tokens_per_day": number,"p_user_id": string }; Returns: {
+              "allowed": boolean,"calls_this_hour": number,"reason": string,"retry_after_seconds": number,"tokens_today": number
+            }[]
+                           },
+"ai_record_usage":
+{ Args: { "p_cost_usd": number,"p_input_tokens": number,"p_model": string,"p_now"?: string,"p_outcome": string,"p_output_tokens": number,"p_request_id": string,"p_route": string,"p_user_id": string }; Returns: undefined
+                           }
           }
           Enums: {
             [_ in never]: never
