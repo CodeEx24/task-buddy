@@ -46,6 +46,7 @@ Failures hit during the build, and their fixes:
   - Expo Go refused to open the project until the Expo CLI on the PC was signed in to the same account.
   - `npx expo login` crashes on Windows with Expo CLI 58.1.15: its browser launch runs `cmd /c start "" <url>`, and the unescaped `&` characters in the login URL break `cmd`. The workaround is `npx expo login --no-browser` (username and password in the terminal). It's documented in README.md.
   - Newer iOS Expo Go has no "Enter URL manually"; use the Camera QR scan or open the `exp://` URL in Safari.
+- **Android, after the `src/app` move (PR #6): verified 2026-10-28** on `main` at `6fb9238` (includes TB-16 dev client and TB-17 design system). `npx expo start --dev-client -c` logged `Using src/app as the root directory for Expo Router.` and `Android Bundled 7718ms … (1931 modules)`. The `com.codeex24.taskbuddy` dev build on `Medium_Phone_API_37.0` showed the home screen at `/` ([android-src-app-home.png](android-src-app-home.png)). The deep link `taskbuddy://does-not-exist` showed "This screen does not exist." with a "Go to home" link ([android-src-app-not-found.png](android-src-app-not-found.png)).
 
 ## Review findings
 | # | Severity | Finding (file:line) | Source | Resolution |
