@@ -12,6 +12,7 @@ All run locally on 2026-10-28 (Windows 11, Node 24, pnpm 10.17.1, Docker Desktop
 | `pnpm lint` | pass | 0 problems (after `prettier --write` on the new files) |
 | `pnpm typecheck` | pass | `tsc --noEmit` (covers the Edge Function under Node types) |
 | `pnpm test --ci --maxWorkers=2` (final code) | pass | 62 suites, 531 tests in 2 projects. Before the review fixes: 62 suites, 528 tests |
+| `pnpm lint && pnpm typecheck && pnpm test --ci --maxWorkers=2` after rebasing onto `main` @ 8d9cd11 (TB-54) | pass | 66 suites, 555 tests; one docs conflict in `docs/actions/README.md` resolved by keeping both to-do entries |
 | `pnpm exec jest --selectProjects edge-functions --maxWorkers=2` (final code) | pass | 6 suites, 118 tests (new: `middleware/usage-limits.test.ts`, `usage-store.test.ts`, `config.test.ts`; TB-22's `gateway.test.ts` unchanged and green) |
 | `pnpm exec jest --selectProjects app --maxWorkers=2 src/features/ai` | pass | 2 suites, 34 tests (`gateway-errors.test.ts`, `components/AiErrorNotice.test.tsx`) |
 | `deno check --no-lock --config supabase/functions/ai-gateway/deno.json supabase/functions/ai-gateway/index.ts` | pass | Deno 2.9.8 (also 2.2.15 via `pnpm dlx deno`) |
