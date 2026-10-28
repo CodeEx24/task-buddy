@@ -1,6 +1,6 @@
 # TB-53 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-53 · PR: see the PR linked on the Jira issue (`feat/tb-53/data-export-account-deletion`) · Branch: `feat/tb-53/data-export-account-deletion`
+> Jira: https://stratyge.atlassian.net/browse/TB-53 · PR: https://github.com/CodeEx24/task-buddy/pull/29 · Branch: `feat/tb-53/data-export-account-deletion`
 > Record only what was actually run and observed. Device check (Android, new dev build) is done by the orchestrator after this PR; see "Manual / E2E".
 
 ## Commands run
