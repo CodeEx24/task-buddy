@@ -53,14 +53,16 @@ describe('Appearance preference (TB-32 AC2)', () => {
 
     await fireEvent.press(chip('Dark'));
 
-    expect(chip('Dark')).toBeChecked();
+    // The cache changes in the press handler; TanStack Query re-renders observers in a 0 ms batch
+    // that `fireEvent` doesn't wait for, hence `waitFor` (no DB read is involved).
+    await waitFor(() => expect(chip('Dark')).toBeChecked());
     expect(setColorScheme).toHaveBeenLastCalledWith('dark');
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('dark'));
 
     await fireEvent.press(chip('Light'));
-    expect(setColorScheme).toHaveBeenLastCalledWith('light');
+    await waitFor(() => expect(setColorScheme).toHaveBeenLastCalledWith('light'));
     await fireEvent.press(chip('System'));
-    expect(setColorScheme).toHaveBeenLastCalledWith('auto');
+    await waitFor(() => expect(setColorScheme).toHaveBeenLastCalledWith('auto'));
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('system'));
   });
 

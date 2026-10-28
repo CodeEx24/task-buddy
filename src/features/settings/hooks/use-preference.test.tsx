@@ -48,7 +48,9 @@ describe('usePreference (TB-32)', () => {
       .mockImplementation(realWrite);
 
     await act(async () => result.current.setValue('dark'));
-    expect(result.current.value).toBe('dark');
+    // Dark shows while its write is still pending (applies before it is stored). TanStack Query
+    // notifies observers in a 0 ms batch that `act` doesn't wait for, so wait for the re-render.
+    await waitFor(() => expect(result.current.value).toBe('dark'));
     await act(async () => result.current.setValue('light'));
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('light'));
 
