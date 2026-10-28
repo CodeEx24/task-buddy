@@ -1,6 +1,6 @@
 # TB-23 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-23 · PR: see the PR for branch `feat/tb-23/ai-rate-limits` · Branch: `feat/tb-23/ai-rate-limits`
+> Jira: https://stratyge.atlassian.net/browse/TB-23 · PR: https://github.com/CodeEx24/task-buddy/pull/25 · Branch: `feat/tb-23/ai-rate-limits`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
@@ -24,6 +24,7 @@ All run locally on 2026-10-28 (Windows 11, Node 24, pnpm 10.17.1, Docker Desktop
 | Live: TB-23 function in its own `edge-runtime:v1.77.8` container on the stack network + `scripts/ai-gateway/local-limits-check.sh` | pass | 31 calls with a real user JWT: 30×200, call 31 → 429 `RATE_LIMITED` `Retry-After: 3207`; 40 concurrent calls → exactly 30×200 + 10×429; `AI_TOKENS_PER_DAY=60` → 2×200 then 429 `QUOTA_EXCEEDED` `Retry-After: 24773` (to 00:00 UTC); re-run on the final code: 30×200 + 429. Transcript: [local-integration.md](local-integration.md) |
 | `psql` on `ai_usage_ledger` / `ai_usage_counters` | pass | One row per provider call with user, route, model, tokens, cost; counters match (30 calls / 900 tokens) |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-23/ai-rate-limits --pr` | pass | "workflow check: ok" |
+| CI on PR #25, run 40734916598 (`aee5c2b`) | pass | `ci` (lint, typecheck, Jest, ticket-docs gate) 1m15s; `supabase` (pgTAP incl. `ai_usage_limits.test.sql`, type drift, TB-19 rollback) 1m34s; `bundle` 1m17s |
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
@@ -66,6 +67,6 @@ Independent reviewer subagent (fresh context; inputs: AC, decisions, the full di
 
 ## Completion
 - [x] All AC met with evidence
-- [x] Gates green locally (CI: see PR)
+- [x] Gates green locally and in CI (PR #25)
 - [x] No open Blocking findings
 - [ ] Jira updated (In Review now; Done after merge by the orchestrator)
