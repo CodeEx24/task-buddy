@@ -10,7 +10,7 @@
 | `npx expo install expo-sharing expo-file-system` | pass | `expo-sharing` 58.0.21, `expo-file-system` 58.0.13; `expo-sharing` config plugin added to `app.json` (share-extension options off by default) |
 | `pnpm lint` | pass | 0 problems |
 | `pnpm typecheck` | pass | |
-| `pnpm test --ci --maxWorkers=1` | pass | `Test Suites: 86 passed, 86 total` · `Tests: 723 passed, 723 total` (app + edge-functions projects; final code) |
+| `pnpm test --ci --maxWorkers=1` | pass | `Test Suites: 90 passed, 90 total` · `Tests: 761 passed, 761 total` (app + edge-functions; after merging `origin/main` with TB-33; before the merge: 86 / 723) |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine" (no local schema change) |
 | `supabase test db --db-url postgresql://…@127.0.0.1:55322/postgres?sslmode=disable` (CLI 2.122.0) | pass | `Files=5, Tests=105 … Result: PASS` (new `account_deletion.test.sql`: 14) |
 | `bash scripts/account/local-delete-check.sh` against the local stack + own edge-runtime container | pass | [local-integration.md](local-integration.md) |
