@@ -43,7 +43,10 @@ export const AI_ERROR_CODES = [
   'AI_TIMEOUT',
   'AI_PROVIDER_ERROR',
   'AI_BAD_OUTPUT',
+  // TB-23: both are 429 with a Retry-After header (seconds). RATE_LIMITED = too many calls this
+  // hour; QUOTA_EXCEEDED = daily token quota used up (resets at 00:00 UTC).
   'RATE_LIMITED',
+  'QUOTA_EXCEEDED',
   'INTERNAL',
 ] as const;
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number];

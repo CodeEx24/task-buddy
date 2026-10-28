@@ -5,6 +5,7 @@ import {
   AI_ROUTES,
   type AiGatewaySuccess,
   type AiRoute,
+  type AiUsage,
   aiGatewayRequestSchema,
 } from '../../../packages/schemas/src/ai-gateway.ts';
 
@@ -15,6 +16,7 @@ import {
   type GatewayContext,
   type GatewayMiddleware,
   type OutputCheck,
+  type ProviderCallOutcome,
   runPipeline,
 } from './pipeline.ts';
 import { type AiProvider, ProviderError } from './providers/provider.ts';
@@ -45,6 +47,24 @@ type Trace = Pick<
   GatewayLogEntry,
   'usage' | 'providerCalls' | 'errorKind' | 'upstreamStatus' | 'errorName' | 'outputCheck'
 >;
+
+const NO_USAGE = Object.freeze({ inputTokens: 0, outputTokens: 0 });
+
+/** Conservative characters per token for the upper-bound estimate (real text averages ~4). */
+const CHARS_PER_TOKEN_LOWER_BOUND = 3;
+
+/**
+ * Upper-bound usage for a call that may have been billed without reporting usage (timeout, or a
+ * 2xx body we couldn't read): the whole prompt plus the route's full `max_tokens`. Over-counting
+ * keeps the daily quota and the cost estimate on the safe side (TB-23).
+ */
+export function estimateUsageUpperBound(ctx: GatewayContext): AiUsage {
+  const promptChars = ctx.routeConfig.system.length + ctx.body.input.length;
+  return {
+    inputTokens: Math.ceil(promptChars / CHARS_PER_TOKEN_LOWER_BOUND),
+    outputTokens: ctx.routeConfig.maxTokens,
+  };
+}
 
 /** Bodies above this are rejected before parsing; the input itself is capped by the schema. */
 export const MAX_BODY_BYTES = 64 * 1024;
@@ -153,17 +173,39 @@ export function createGateway(deps: GatewayDeps): (request: Request) => Promise<
         inputTokens: (trace.usage?.inputTokens ?? 0) + ctx.result.usage.inputTokens,
         outputTokens: (trace.usage?.outputTokens ?? 0) + ctx.result.usage.outputTokens,
       };
+      ctx.providerCalls.push({
+        model: ctx.result.model,
+        requestedModel: ctx.model,
+        usage: ctx.result.usage,
+        usageEstimated: false,
+        outcome: 'ok',
+      });
       return successResponse(ctx);
     } catch (error) {
+      // A failed call still gets a ledger entry (TB-23). Calls that may have been billed without
+      // reporting usage (timeout, unreadable 2xx body) are counted at an upper-bound estimate.
+      const failed = (outcome: ProviderCallOutcome) => {
+        const mayBeBilled = outcome === 'timeout' || outcome === 'bad_response';
+        ctx.providerCalls.push({
+          model: ctx.model,
+          requestedModel: ctx.model,
+          usage: mayBeBilled ? estimateUsageUpperBound(ctx) : NO_USAGE,
+          usageEstimated: mayBeBilled,
+          outcome,
+        });
+      };
       if (controller.signal.aborted || isAbortError(error)) {
         trace.errorKind = 'timeout';
+        failed('timeout');
         return errorResponse(ctx.requestId, 'AI_TIMEOUT');
       }
       if (error instanceof ProviderError) {
         trace.errorKind = error.kind;
         if (error.status !== undefined) trace.upstreamStatus = error.status;
+        failed(error.kind);
         return errorResponse(ctx.requestId, 'AI_PROVIDER_ERROR');
       }
+      failed('exception');
       throw error;
     } finally {
       clearTimeout(timer);
@@ -204,6 +246,7 @@ export function createGateway(deps: GatewayDeps): (request: Request) => Promise<
       model: modelForRoute(deps.config, route),
       user,
       body: parsed.data,
+      providerCalls: [],
     };
 
     // Stages 4–5: registered middleware around the provider call.

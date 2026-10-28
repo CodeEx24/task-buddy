@@ -5,7 +5,8 @@ export const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Expose-Headers': 'X-Request-Id',
+  // Retry-After (TB-23) so a web client can read it on a 429.
+  'Access-Control-Expose-Headers': 'X-Request-Id, Retry-After',
 };
 
 const STATUS_BY_CODE: Readonly<Record<AiErrorCode, number>> = {
@@ -14,6 +15,7 @@ const STATUS_BY_CODE: Readonly<Record<AiErrorCode, number>> = {
   METHOD_NOT_ALLOWED: 405,
   BAD_REQUEST: 400,
   RATE_LIMITED: 429,
+  QUOTA_EXCEEDED: 429,
   AI_NOT_CONFIGURED: 500,
   INTERNAL: 500,
   AI_PROVIDER_ERROR: 502,
@@ -27,6 +29,7 @@ const MESSAGE_BY_CODE: Readonly<Record<AiErrorCode, string>> = {
   METHOD_NOT_ALLOWED: 'Use POST.',
   BAD_REQUEST: 'The request body is invalid.',
   RATE_LIMITED: 'Too many AI requests. Try again later.',
+  QUOTA_EXCEEDED: 'Daily AI limit reached. It resets at 00:00 UTC.',
   AI_NOT_CONFIGURED: 'The AI service is not configured.',
   INTERNAL: 'Something went wrong.',
   AI_PROVIDER_ERROR: 'The AI service is unavailable.',

@@ -13,7 +13,9 @@ import type { GatewayMiddleware } from '../pipeline.ts';
 import { REPAIR_PROMPT_VERSION } from '../prompts/index.ts';
 import { ProviderError, type ProviderRequest } from '../providers/provider.ts';
 
-import { MIDDLEWARE } from './index.ts';
+import { createMemoryUsageStore } from '../testing/memory-usage-store.ts';
+
+import { buildMiddleware } from './index.ts';
 import { createOutputValidation, outputValidation, todayIn } from './output-validation.ts';
 
 const BASE = 'http://127.0.0.1:54321/functions/v1/ai-gateway';
@@ -264,7 +266,10 @@ describe('prompt version in the log line', () => {
 
 describe('registration', () => {
   it('output validation is registered and runs last (innermost, around the provider only)', () => {
-    expect(MIDDLEWARE.at(-1)).toBe(outputValidation);
+    const config = loadGatewayConfig(() => undefined);
+    const built = buildMiddleware({ config, usageStore: createMemoryUsageStore(() => 0) });
+    expect(built.at(-1)).toBe(outputValidation);
+    expect(built[0]?.name).toBe('usage-limits');
   });
 
   it('the registered instance has no persistence hook and validates end to end', async () => {
@@ -281,5 +286,65 @@ describe('todayIn', () => {
     const instant = new Date('2026-10-28T20:30:00Z');
     expect(todayIn('Asia/Manila', instant)).toBe('2026-10-29');
     expect(todayIn('UTC', instant)).toBe('2026-10-28');
+  });
+});
+
+describe('with TB-23 usage limits (the registered order)', () => {
+  const START = Date.parse('2026-10-28T10:15:00Z');
+
+  function limitedGateway(answers: Answer[], env: Record<string, string> = {}) {
+    const store = createMemoryUsageStore(() => START);
+    const config = loadGatewayConfig((name) => env[name]);
+    let calls = 0;
+    const handler = createGateway({
+      config,
+      auth,
+      provider: {
+        name: 'scripted',
+        complete(request) {
+          const answer = answers[calls++];
+          if (answer === undefined) throw new Error('provider called more often than scripted');
+          if (answer instanceof Error) return Promise.reject(answer);
+          return Promise.resolve({
+            text: answer,
+            model: request.model,
+            usage: { inputTokens: 100, outputTokens: 20 },
+          });
+        },
+      },
+      middleware: buildMiddleware({ config, usageStore: store }),
+      newRequestId: () => 'req-24',
+    });
+    return { handler, store, providerCalls: () => calls };
+  }
+
+  it('a repair is a second ledger row of the same request, one hourly call, both calls in the quota', async () => {
+    const { handler, store } = limitedGateway(['not json', VALID_PARSE]);
+    expect((await handler(post('parse'))).status).toBe(200);
+    expect(store.ledger.map((row) => [row.requestId, row.outcome])).toEqual([
+      ['req-24', 'ok'],
+      ['req-24', 'ok'],
+    ]);
+    expect(store.callsThisHour(USER_ID)).toBe(1);
+    expect(store.tokensToday(USER_ID)).toBe(240);
+  });
+
+  it('AI_BAD_OUTPUT still records both paid calls', async () => {
+    const { handler, store } = limitedGateway(['nope', 'still nope']);
+    const response = await handler(post('breakdown'));
+    expect(aiGatewayErrorSchema.parse(await response.json()).error.code).toBe('AI_BAD_OUTPUT');
+    expect(store.ledger).toHaveLength(2);
+    expect(store.tokensToday(USER_ID)).toBe(240);
+  });
+
+  it('a rate-limited request never reaches output validation or the provider', async () => {
+    const { handler, store, providerCalls } = limitedGateway([VALID_PARSE], {
+      AI_CALLS_PER_HOUR: '1',
+    });
+    expect((await handler(post('parse'))).status).toBe(200);
+    const limited = await handler(post('parse'));
+    expect(aiGatewayErrorSchema.parse(await limited.json()).error.code).toBe('RATE_LIMITED');
+    expect(providerCalls()).toBe(1);
+    expect(store.ledger).toHaveLength(1);
   });
 });
