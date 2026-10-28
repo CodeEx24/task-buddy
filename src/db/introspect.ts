@@ -2,7 +2,14 @@ import { sql } from 'drizzle-orm';
 
 import type { TaskBuddyDb } from './types';
 
-export const APP_TABLES = ['lists', 'tasks', 'subtasks', 'tags', 'task_tags'] as const;
+export const APP_TABLES = [
+  'lists',
+  'tasks',
+  'subtasks',
+  'tags',
+  'task_tags',
+  'preferences',
+] as const;
 export const SYNC_COLUMNS = ['id', 'created_at', 'updated_at', 'deleted_at'] as const;
 
 export type ColumnInfo = { name: string; type: string; notnull: number; pk: number };
