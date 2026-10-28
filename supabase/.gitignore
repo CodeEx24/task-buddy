@@ -1,0 +1,4 @@
+# Supabase CLI local state (same entries `supabase init` generates).
+# .temp holds the CLI's version-check cache and, after `supabase link`, the linked project ref.
+.branches
+.temp

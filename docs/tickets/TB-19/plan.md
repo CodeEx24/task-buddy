@@ -19,7 +19,7 @@ Blocked by: TB-15 (Done). Owner action [`docs/actions/supabase-projects.md`](../
 ### Task 1 — Supabase project scaffold (local files only)
 - [ ] `npx supabase@2.122.0 init` in the repo root (purely local: creates `supabase/config.toml` and `supabase/.gitignore`; decline the editor-settings prompts). Keep the existing `README.md` files.
 - [ ] `config.toml`: `project_id = "task-buddy"`; `[db] major_version` matching the hosted projects (read from the dashboard after the owner action; default from `init` until then); `[auth] site_url` / redirect URLs left for TB-20.
-- [ ] Confirm `supabase/.temp/` is git-ignored (it already exists untracked in the worktree from a CLI version check).
+- [x] `supabase/.gitignore` (`.branches`, `.temp`) added in the design commit: `supabase/.temp/cli-latest` is the CLI's version-check cache, written by any `npx supabase …` run. If `init` wants to overwrite it, keep the existing entries.
 - **Verify:** `git status` shows only `config.toml` + `.gitignore`; `npx supabase@2.122.0 --help` runs from the repo root without errors.
 
 ### Task 2 — Migration: `profiles` + RLS baseline (+ rollback)
