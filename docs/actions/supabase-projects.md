@@ -1,7 +1,7 @@
 # Create the Supabase projects and set their EAS variables
 
 > Related: TB-19 (https://stratyge.atlassian.net/browse/TB-19) | Wave 1 | Unblocks TB-20, TB-22 and every later backend ticket
-> Status: Open · Created by: Claude Code (TB-19 worker) on 2026-10-27 · Updated 2026-10-28 with the owner's decisions
+> Status: Done (2026-10-28: both projects created, EAS vars set; the migration push is tracked in supabase-db-push.md) · Created by: Claude Code (TB-19 worker) on 2026-10-27 · Updated 2026-10-28 with the owner's decisions
 > Facts checked 2026-10-27: Supabase docs (API keys, billing FAQ, managing environments), Expo EAS environment-variable docs, Supabase CLI 2.122.0.
 
 ## Purpose
