@@ -1,0 +1,152 @@
+// App environment config, validated at the boundary (TB-19).
+// Only EXPO_PUBLIC_* values reach the bundle, and they are public by design. The Supabase secret
+// (service-role) key must never be one of them: parseEnv rejects anything shaped like it.
+import { z } from 'zod';
+
+export const APP_ENVS = ['development', 'staging', 'production'] as const;
+export type AppEnv = (typeof APP_ENVS)[number];
+
+export type Env = {
+  appEnv: AppEnv;
+  supabaseUrl: string;
+  supabasePublishableKey: string;
+};
+
+/** The raw variables, keyed by their EXPO_PUBLIC_* names. */
+export type RawEnv = {
+  EXPO_PUBLIC_APP_ENV?: string;
+  EXPO_PUBLIC_SUPABASE_URL?: string;
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;
+};
+
+export type EnvIssue = { name: keyof RawEnv; rule: string };
+
+/** Names the bad variables and the rule each broke. Never includes the values. */
+export class EnvError extends Error {
+  readonly issues: readonly EnvIssue[];
+
+  constructor(issues: readonly EnvIssue[]) {
+    super(
+      `Invalid app environment: ${issues.map((i) => `${i.name} ${i.rule}`).join('; ')}. ` +
+        'Set the EXPO_PUBLIC_* variables for this EAS environment (docs/actions/supabase-projects.md).',
+    );
+    this.name = 'EnvError';
+    this.issues = issues;
+  }
+}
+
+const PUBLISHABLE_KEY_PREFIX = 'sb_publishable_';
+const SECRET_KEY_PREFIX = 'sb_secret_';
+
+function decodeBase64Url(segment: string): string {
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+  return atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='));
+}
+
+/** A legacy service_role JWT: three dot-separated parts whose payload says role = service_role. */
+function isServiceRoleJwt(value: string): boolean {
+  const parts = value.split('.');
+  if (parts.length !== 3 || !parts[1]) return false;
+  try {
+    const payload: unknown = JSON.parse(decodeBase64Url(parts[1]));
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      (payload as { role?: unknown }).role === 'service_role'
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function isSecretKeyShaped(value: string): boolean {
+  return value.startsWith(SECRET_KEY_PREFIX) || isServiceRoleJwt(value);
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+const required = (rule: string) => (issue: { input: unknown }) =>
+  issue.input === undefined || issue.input === '' ? 'is required' : rule;
+
+const rawEnvSchema = z.object({
+  EXPO_PUBLIC_APP_ENV: z.enum(APP_ENVS, {
+    error: required(`must be one of ${APP_ENVS.join(', ')}`),
+  }),
+  EXPO_PUBLIC_SUPABASE_URL: z
+    .string({ error: required('must be a string') })
+    .min(1, { error: 'is required' })
+    .refine(isHttpUrl, { error: 'must be an http(s) URL' }),
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
+    .string({ error: required('must be a string') })
+    .min(1, { error: 'is required' })
+    .refine((key) => !isSecretKeyShaped(key), {
+      error: 'must not be a secret or service-role key (use the publishable key)',
+      abort: true,
+    })
+    .refine((key) => key.startsWith(PUBLISHABLE_KEY_PREFIX), {
+      error: `must start with ${PUBLISHABLE_KEY_PREFIX}`,
+    }),
+});
+
+/** Pure: validates raw variables and returns typed config, or throws EnvError. */
+export function parseEnv(raw: RawEnv): Env {
+  // Treat empty strings as missing so `EXPO_PUBLIC_X=` in a .env file reads as "is required".
+  const input = Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => [key, value === '' ? undefined : value]),
+  );
+  const result = rawEnvSchema.safeParse(input);
+  const issues: EnvIssue[] = [];
+
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      const name = issue.path[0];
+      if (typeof name === 'string' && name in rawEnvSchema.shape) {
+        issues.push({ name: name as keyof RawEnv, rule: issue.message });
+      }
+    }
+    throw new EnvError(issues);
+  }
+
+  const data = result.data;
+  if (
+    data.EXPO_PUBLIC_APP_ENV !== 'development' &&
+    !data.EXPO_PUBLIC_SUPABASE_URL.startsWith('https:')
+  ) {
+    throw new EnvError([
+      { name: 'EXPO_PUBLIC_SUPABASE_URL', rule: 'must use https outside development' },
+    ]);
+  }
+
+  return {
+    appEnv: data.EXPO_PUBLIC_APP_ENV,
+    supabaseUrl: data.EXPO_PUBLIC_SUPABASE_URL,
+    supabasePublishableKey: data.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  };
+}
+
+/**
+ * Expo inlines EXPO_PUBLIC_* only for static dot access (`process.env.EXPO_PUBLIC_X`).
+ * Destructuring or bracket access silently yields undefined, so keep each read spelled out.
+ */
+function readRawEnv(): RawEnv {
+  return {
+    EXPO_PUBLIC_APP_ENV: process.env.EXPO_PUBLIC_APP_ENV,
+    EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  };
+}
+
+let cached: Env | undefined;
+
+/** Parsed app config. Lazy, so modules that never talk to Supabase don't need the variables. */
+export function getEnv(): Env {
+  cached ??= parseEnv(readRawEnv());
+  return cached;
+}

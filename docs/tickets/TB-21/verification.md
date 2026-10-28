@@ -93,7 +93,7 @@ Run on 2026-10-28 (see "Device run" above; all screenshots in this folder). Step
 | 11 | — | Self-review: injection (all values bound), soft deletes only, `updated_at` on every write, transactions on every multi-statement write, logs carry no task data, no `any` | self | — |
 
 ## Known limitations & follow-ups
-- **ESLint rule not committed** (a config-protection hook blocks edits to `eslint.config.js`). Coordinator applies the block in the worker report; the rule itself is proven.
+- **ESLint rule committed on 2026-10-28** (`chore/tb-21/eslint-db-import-rule`, at the owner's explicit request; the config-protection hook had blocked agent edits before). `no-restricted-imports` blocks `expo-sqlite`, `better-sqlite3` and `drizzle-orm/expo-sqlite/*` outside `src/db/**`. Proven with a temporary violating file: 2 errors.
 - **Task 6 wiring done**; `src/db/client.ts` + `drizzle/migrations.js` are proven to bundle (Android export) but only run on a device: Jest still maps `@/db/client` to the Node twin. The emulator run is the first real execution of the expo-sqlite path.
 - **Future table rebuilds:** with `foreign_keys = ON`, drizzle-kit's `PRAGMA foreign_keys=OFF` inside the migration transaction is a no-op, so rebuilding a *parent* table (`lists`, `tasks`, `tags`) with children present will fail on devices. Write such migrations by hand (or run them outside the transaction) and prove them with the fixture harness.
 - `tags` uniqueness uses SQLite `lower()`, which folds ASCII only; Postgres `lower()` is Unicode-aware. TB-43 should align the rule.
