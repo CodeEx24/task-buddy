@@ -7,3 +7,4 @@ Files import only `zod`, so they run under Node (app, Jest) and Deno (Edge Funct
 | File | Contents | Ticket |
 |---|---|---|
 | `src/ai-gateway.ts` | AI gateway request, success and error envelopes; route names; error codes (`QUOTA_EXCEEDED` added by TB-23) | [TB-22](https://stratyge.atlassian.net/browse/TB-22), [TB-23](https://stratyge.atlassian.net/browse/TB-23) |
+| `src/ai-output.ts` | Strict per-route AI output schemas (`parsedTasksSchema`, `breakdownSchema`, `dayPlanSchema`), `AI_OUTPUT_SCHEMAS`, and `checkAiOutput(route, text)`, the one validator the gateway and the app both use | [TB-24](https://stratyge.atlassian.net/browse/TB-24) |

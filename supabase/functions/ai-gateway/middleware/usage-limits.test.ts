@@ -3,7 +3,13 @@
 // on an injected clock.
 import { aiGatewayErrorSchema } from '../../../../packages/schemas/src/ai-gateway.ts';
 import type { AuthVerifier } from '../auth.ts';
-import { DEFAULT_MODELS, estimateCostUsd, loadGatewayConfig, ROUTES } from '../config.ts';
+import {
+  DEFAULT_MODELS,
+  estimateCostUsd,
+  loadGatewayConfig,
+  REFERENCE_TIME_ZONE,
+  ROUTES,
+} from '../config.ts';
 import { createGateway } from '../gateway.ts';
 import type { GatewayMiddleware } from '../pipeline.ts';
 import { type AiProvider, ProviderError, type ProviderResult } from '../providers/provider.ts';
@@ -11,6 +17,7 @@ import { createMemoryUsageStore } from '../testing/memory-usage-store.ts';
 import { type UsageStore, UsageStoreError } from '../usage-store.ts';
 
 import { buildMiddleware } from './index.ts';
+import { todayIn } from './output-validation.ts';
 import { createUsageLimits, type UsageLogEntry } from './usage-limits.ts';
 
 const BASE = 'http://127.0.0.1:54321/functions/v1/ai-gateway';
@@ -22,6 +29,14 @@ const auth: AuthVerifier = {
 };
 
 type ProviderImpl = () => Promise<ProviderResult>;
+
+/** Schema-valid answers (TB-24 output validation is registered after this guard). */
+const VALID_ANSWER: Record<string, string> = {
+  [ROUTES.parse.system]: '{"tasks":[{"title":"Buy milk"}]}',
+  [ROUTES.breakdown.system]: '{"subtasks":[{"title":"Go to the store","estimateMinutes":15}]}',
+  [ROUTES.plan.system]:
+    '{"blocks":[{"title":"Groceries","start":"09:00","end":"09:30","kind":"task"}]}',
+};
 
 function setup(
   options: {
@@ -44,7 +59,7 @@ function setup(
       providerCalls.push(request.model);
       if (options.provider) return options.provider();
       return Promise.resolve({
-        text: '{"ok":true}',
+        text: VALID_ANSWER[request.system] ?? '{"tasks":[]}',
         model: request.model,
         usage: { inputTokens: 120, outputTokens: 30 },
       });
@@ -201,8 +216,16 @@ describe('AC2: every AI call writes a ledger row', () => {
       expect((await handler(post('plan'))).status).toBe(status);
       const plan = ROUTES.plan;
       const usage = {
-        // whole prompt at 3 chars/token, plus the route's full max_tokens
-        inputTokens: Math.ceil((plan.system.length + 'buy milk tomorrow'.length) / 3),
+        // whole prompt at 3 chars/token, plus the route's full max_tokens. The user message is
+        // TB-24's rendered template (date line + <user_input> block), not the raw input.
+        inputTokens: Math.ceil(
+          (plan.system.length +
+            plan.prompt.renderUser({
+              input: 'buy milk tomorrow',
+              referenceDate: todayIn(REFERENCE_TIME_ZONE),
+            }).length) /
+            3,
+        ),
         outputTokens: plan.maxTokens,
       };
       expect(memory.ledger).toEqual([
