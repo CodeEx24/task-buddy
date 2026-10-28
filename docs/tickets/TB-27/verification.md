@@ -14,6 +14,7 @@ Windows 11, Node 24.21.0, pnpm 10.17.1, 2026-10-28, Orca worktree `tb-27-today-i
 | `pnpm test --ci` | pass | 46 suites, 293 tests, ~19 s after the review fixes (first run 45 / 290; `main` 42 / 265); no "worker failed to exit" warning |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine" (re-run). No schema change, no migration |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-27/today-inbox-swipe` | pass | `workflow check: ok` (re-run after this docs update) |
+| `git merge origin/main` (merge of main (TB-28) `1a00ccf`), then all gates again | pass after conflicts | Conflicts in `NewTaskModal.test.tsx` (kept TB-27's `?due=today` tests and TB-28's notes test) and `task-crud-routes.test.tsx` (kept TB-28's autosave + notes + step + Close flow, with TB-27's Today paths/testIDs: Close → `/`, `today-section-today`). No `package.json`/lockfile conflict. After merge: install `--ignore-scripts`, lint, typecheck, drizzle check, ticket-docs check pass; `pnpm test --ci` 48 suites, 327 tests |
 
 Failures hit during the build, and their fixes:
 1. The real `ReanimatedSwipeable` throws in Jest (`Reanimated?.isSharedValue is not a function`), and loading it with `jest.requireActual` inside a mock factory breaks Reanimated's setup (`loadUnpackersWithCode`) → a Jest stand-in (`src/components/ui/testing/swipeable-mock.tsx`, installed in `jest-setup.ts`) that renders both action panels and two test buttons that release a swipe left/right. The real enum values are checked separately (`task-actions.test.ts`).

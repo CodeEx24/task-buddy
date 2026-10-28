@@ -3,6 +3,8 @@ export const taskQueryKeys = {
   all: ['tasks'] as const,
   board: () => ['tasks', 'board'] as const,
   detail: (id: string) => ['tasks', 'detail', id] as const,
+  /** A task's live subtasks, in checklist order (TB-28). */
+  subtasks: (taskId: string) => ['tasks', 'subtasks', taskId] as const,
 };
 
 /** First page of open tasks the board loads. Pagination/virtualisation: TB-63. */

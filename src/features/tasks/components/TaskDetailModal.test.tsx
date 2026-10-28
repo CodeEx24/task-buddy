@@ -1,12 +1,18 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { getDb } from '@/db/client';
 import { addLocalDays, startOfLocalDay } from '@/lib/dates';
 import { useUndoStore } from '@/stores/undo-store';
 
+import { AUTOSAVE_DELAY_MS } from '@/lib/use-autosave';
+
 import { taskQueryKeys } from '../hooks/task-query-keys';
+import { RepoError } from '../repo/repo-utils';
+import * as taskRepo from '../repo/task-repo';
 import { createTask, updateTask } from '../repo/task-repo';
+import { MAX_NOTES_LENGTH } from '../schema';
+import { NOTES_TOO_LONG_MESSAGE } from '../task-form';
 import {
   cleanupTaskTests,
   createTestQueryClient,
@@ -19,6 +25,12 @@ import {
   TASK_NOT_FOUND_MESSAGE,
   TaskDetailModal,
 } from './TaskDetailModal';
+import {
+  AUTOSAVE_FAILED_MESSAGE,
+  NOT_SAVED_INVALID_MESSAGE,
+  SAVED_MESSAGE,
+  SAVING_MESSAGE,
+} from './TaskDetailForm';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
@@ -29,11 +41,14 @@ const mockParams = jest.mocked(useLocalSearchParams);
 const mockRouter = jest.mocked(router);
 
 beforeEach(async () => {
+  jest.restoreAllMocks();
   jest.clearAllMocks();
   mockRouter.canGoBack.mockReturnValue(true);
   await resetTaskData();
 });
 afterEach(cleanupTaskTests);
+
+const NOTES = 'Landlord: Ana\nIBAN on the fridge';
 
 async function openModalFor(id: string) {
   mockParams.mockReturnValue({ id });
@@ -57,41 +72,120 @@ describe('TaskDetailModal', () => {
     expect(screen.getByTestId('task-detail-modal')).toBeOnTheScreen();
   });
 
-  it('pre-fills the form and saves edits to the DB', async () => {
+  it('pre-fills the form and autosaves edits without a Save button (TB-28 AC1, AC3)', async () => {
     const dueAt = startOfLocalDay(Date.now());
-    const task = createTask(getDb(), { title: 'Pay rent', dueAt, priority: 1 });
+    const task = createTask(getDb(), { title: 'Pay rent', dueAt, priority: 1, notes: 'Ana' });
     await openModalFor(task.id);
 
     const title = await screen.findByLabelText('Title');
     expect(title).toHaveDisplayValue('Pay rent');
+    expect(screen.getByLabelText('Notes')).toHaveDisplayValue('Ana');
     expect(screen.getByRole('radio', { name: 'Today' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Low' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
 
     await fireEvent.changeText(title, 'Pay rent and water');
+    await fireEvent.changeText(screen.getByLabelText('Notes'), NOTES);
     await fireEvent.press(screen.getByRole('radio', { name: 'Tomorrow' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'High' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() => expect(mockRouter.back).toHaveBeenCalledTimes(1));
-    expect(storedTask(task.id)).toMatchObject({
-      title: 'Pay rent and water',
-      dueAt: addLocalDays(dueAt, 1),
-      priority: 3,
-    });
+    await waitFor(() =>
+      expect(storedTask(task.id)).toMatchObject({
+        title: 'Pay rent and water',
+        notes: NOTES,
+        dueAt: addLocalDays(dueAt, 1),
+        priority: 3,
+      }),
+    );
+    expect(await screen.findByText(SAVED_MESSAGE)).toBeOnTheScreen();
+    // Autosave never closes the screen.
+    expect(mockRouter.back).not.toHaveBeenCalled();
   });
 
-  it('keeps the modal open with field errors for invalid input', async () => {
+  it('autosaves 500 ms after the last keystroke, not before (TB-28 AC3)', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent' });
+    await openModalFor(task.id);
+    const notes = await screen.findByLabelText('Notes');
+
+    jest.useFakeTimers();
+    try {
+      await fireEvent.changeText(notes, 'L');
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+      await fireEvent.changeText(notes, 'Landlord');
+      await act(async () => {
+        jest.advanceTimersByTime(AUTOSAVE_DELAY_MS - 1);
+      });
+      // 799 ms after the first keystroke, 499 ms after the last: nothing written yet.
+      expect(storedTask(task.id)?.notes).toBeNull();
+      expect(screen.getByTestId('task-detail-save-status')).toHaveTextContent(SAVING_MESSAGE);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+      });
+      await act(async () => {
+        await jest.runOnlyPendingTimersAsync();
+      });
+      expect(storedTask(task.id)?.notes).toBe('Landlord');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('shows field errors for invalid input and saves nothing until it is valid', async () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
     await openModalFor(task.id);
 
     await fireEvent.changeText(await screen.findByLabelText('Title'), '   ');
     await fireEvent.changeText(screen.getByLabelText('Or type a date'), '2026-02-30');
-    await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+    await fireEvent.changeText(screen.getByLabelText('Notes'), 'n'.repeat(MAX_NOTES_LENGTH + 1));
 
     expect(await screen.findByText('Add a title')).toBeOnTheScreen();
     expect(screen.getByText('Use a real date as YYYY-MM-DD')).toBeOnTheScreen();
-    expect(mockRouter.back).not.toHaveBeenCalled();
-    expect(storedTask(task.id)?.title).toBe('Pay rent');
+    expect(screen.getByText(NOTES_TOO_LONG_MESSAGE)).toBeOnTheScreen();
+    expect(screen.getByTestId('task-detail-save-status')).toHaveTextContent(
+      NOT_SAVED_INVALID_MESSAGE,
+    );
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS + 100));
+    expect(storedTask(task.id)).toMatchObject({ title: 'Pay rent', notes: null, dueAt: null });
+
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Pay rent');
+    await fireEvent.changeText(screen.getByLabelText('Or type a date'), '');
+    await fireEvent.changeText(screen.getByLabelText('Notes'), 'ok');
+    await waitFor(() => expect(storedTask(task.id)?.notes).toBe('ok'));
+  });
+
+  it('saves a change still waiting for autosave when the modal closes', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent' });
+    await openModalFor(task.id);
+
+    await fireEvent.changeText(await screen.findByLabelText('Notes'), 'typed just before closing');
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    await screen.unmount();
+
+    await waitFor(() => expect(storedTask(task.id)?.notes).toBe('typed just before closing'));
+  });
+
+  it('shows an error and keeps the typed text when autosave fails', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent' });
+    const updateSpy = jest.spyOn(taskRepo, 'updateTask').mockImplementation(() => {
+      throw new RepoError('DB_FAILURE', 'Local database operation failed');
+    });
+    await openModalFor(task.id);
+
+    await fireEvent.changeText(await screen.findByLabelText('Notes'), 'will fail');
+
+    expect(await screen.findByText(AUTOSAVE_FAILED_MESSAGE)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Notes')).toHaveDisplayValue('will fail');
+    // Not retried in a loop: one attempt for one change.
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS * 2));
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+
+    updateSpy.mockRestore();
+    await fireEvent.changeText(screen.getByLabelText('Notes'), 'will work');
+    await waitFor(() => expect(storedTask(task.id)?.notes).toBe('will work'));
   });
 
   it('completes with a timestamp and un-completes (AC2)', async () => {

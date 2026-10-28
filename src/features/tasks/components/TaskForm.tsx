@@ -1,12 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Text, View } from 'react-native';
 
-import { Button, ChipGroup, Input, type ChipOption } from '@/components/ui';
-import { addLocalDays, toDateInput } from '@/lib/dates';
-import { useNow } from '@/lib/use-now';
+import { Button } from '@/components/ui';
 
-import { TASK_PRIORITIES } from '../priority';
 import {
   EMPTY_TASK_FORM,
   taskFormSchema,
@@ -15,32 +12,9 @@ import {
   type TaskFields,
   type TaskFormValues,
 } from '../task-form';
+import { TaskFormFields } from './TaskFormFields';
 
 export const SAVE_FAILED_MESSAGE = "Couldn't save. Please try again.";
-
-type QuickDate = 'none' | 'today' | 'tomorrow' | 'next-week';
-
-const QUICK_DATES: readonly ChipOption<QuickDate>[] = [
-  { value: 'none', label: 'No date' },
-  { value: 'today', label: 'Today' },
-  { value: 'tomorrow', label: 'Tomorrow' },
-  { value: 'next-week', label: 'Next week' },
-];
-
-const QUICK_DATE_OFFSETS: Record<Exclude<QuickDate, 'none'>, number> = {
-  today: 0,
-  tomorrow: 1,
-  'next-week': 7,
-};
-
-function quickDateValue(choice: QuickDate, now: number): string {
-  return choice === 'none' ? '' : toDateInput(addLocalDays(now, QUICK_DATE_OFFSETS[choice]));
-}
-
-/** The chip matching the typed date, or null for any other date. */
-function quickDateFor(dueDate: string, now: number): QuickDate | null {
-  return QUICK_DATES.find((c) => quickDateValue(c.value, now) === dueDate.trim())?.value ?? null;
-}
 
 export type TaskFormProps = {
   defaultValues?: TaskFormValues;
@@ -50,26 +24,24 @@ export type TaskFormProps = {
 };
 
 /**
- * Add/edit task form (TB-26): title, due date (quick chips or `YYYY-MM-DD`) and priority.
+ * Add-task form (TB-26): the shared task fields plus an explicit submit.
  * React Hook Form + Zod (`taskFormSchema`); errors show under each field.
+ * The detail screen edits the same fields with autosave instead (`TaskDetailForm`, TB-28).
  */
 export function TaskForm({
   defaultValues = EMPTY_TASK_FORM,
   submitLabel,
   onSubmit,
 }: TaskFormProps) {
-  const {
-    control,
-    handleSubmit,
-    setError,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<TaskFormValues, unknown, ParsedTaskForm>({
+  const form = useForm<TaskFormValues, unknown, ParsedTaskForm>({
     resolver: zodResolver(taskFormSchema),
     defaultValues,
   });
-  const now = useNow();
-  const dueDate = useWatch({ control, name: 'dueDate' });
+  const {
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = form;
 
   const submit = handleSubmit(async (values) => {
     try {
@@ -82,68 +54,7 @@ export function TaskForm({
 
   return (
     <View className="gap-lg" testID="task-form">
-      <Controller
-        control={control}
-        name="title"
-        render={({ field }) => (
-          <Input
-            testID="task-form-title"
-            label="Title"
-            placeholder="e.g. Pay the electricity bill"
-            value={field.value}
-            onChangeText={field.onChange}
-            onBlur={field.onBlur}
-            error={errors.title?.message}
-            returnKeyType="done"
-          />
-        )}
-      />
-
-      <ChipGroup
-        testID="task-form-due-chips"
-        label="Due date"
-        options={QUICK_DATES}
-        value={quickDateFor(dueDate, now)}
-        onChange={(choice) =>
-          setValue('dueDate', quickDateValue(choice, now), {
-            shouldDirty: true,
-            shouldValidate: true,
-          })
-        }
-      />
-      <Controller
-        control={control}
-        name="dueDate"
-        render={({ field }) => (
-          <Input
-            testID="task-form-due-date"
-            label="Or type a date"
-            placeholder="YYYY-MM-DD"
-            helperText="Leave empty for no due date."
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="numbers-and-punctuation"
-            value={field.value}
-            onChangeText={field.onChange}
-            onBlur={field.onBlur}
-            error={errors.dueDate?.message}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="priority"
-        render={({ field }) => (
-          <ChipGroup
-            testID="task-form-priority"
-            label="Priority"
-            options={TASK_PRIORITIES}
-            value={field.value}
-            onChange={field.onChange}
-          />
-        )}
-      />
+      <TaskFormFields form={form} />
 
       {errors.root?.message ? (
         <Text accessibilityRole="alert" className="text-sm text-danger">
