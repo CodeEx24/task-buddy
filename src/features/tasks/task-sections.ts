@@ -1,28 +1,41 @@
-// Groups the task board into the list's sections (TB-26, spec "Behaviour"). Pure.
+// Groups the task board into the Today and Inbox screens' sections (TB-27 spec "Behaviour"). Pure.
+// Dated tasks live on Today (Overdue / Today / Later), undated ones in the Inbox; each screen
+// lists its own completed tasks last, so un-completing (TB-26 AC2) stays one tap away.
 import { localDaysFromToday } from '@/lib/dates';
 
 import type { Task } from './repo/task-repo';
 
 export type TaskBoard = { open: Task[]; completed: Task[] };
 
-export type TaskSectionKey = 'today' | 'upcoming' | 'no-date' | 'completed';
+/** The tab a task is listed on. */
+export type TaskScreenKind = 'today' | 'inbox';
+
+export type DueGroupKey = 'overdue' | 'today' | 'later';
+
+export type TaskSectionKey = DueGroupKey | 'no-date' | 'completed';
 
 export type TaskSection = { key: TaskSectionKey; title: string; data: Task[] };
 
 const SECTION_TITLES: Record<TaskSectionKey, string> = {
+  overdue: 'Overdue',
   today: 'Today',
-  upcoming: 'Upcoming',
+  later: 'Later',
   'no-date': 'No date',
   completed: 'Completed',
 };
-const SECTION_ORDER: readonly TaskSectionKey[] = ['today', 'upcoming', 'no-date', 'completed'];
 
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** Which open section a task belongs in. Overdue tasks count as Today. */
-export function openSectionFor(task: Pick<Task, 'dueAt'>, now: number): TaskSectionKey {
-  if (task.dueAt === null) return 'no-date';
-  return localDaysFromToday(task.dueAt, now) <= 0 ? 'today' : 'upcoming';
+/** Dated tasks are planned (Today tab); undated ones wait in the Inbox. */
+export function screenFor(task: Pick<Task, 'dueAt'>): TaskScreenKind {
+  return task.dueAt === null ? 'inbox' : 'today';
+}
+
+/** Overdue = due before today's local date, Today = due today, Later = after today. */
+export function dueGroupFor(dueAt: number, now: number): DueGroupKey {
+  const days = localDaysFromToday(dueAt, now);
+  if (days < 0) return 'overdue';
+  return days === 0 ? 'today' : 'later';
 }
 
 /** Due date ascending (none last), then priority (high first), then id (UUIDv7 = creation order). */
@@ -42,20 +55,36 @@ export function compareCompletedTasks(a: Task, b: Task): number {
   return diff !== 0 ? diff : compareIds(b.id, a.id);
 }
 
-/** Non-empty sections in display order: Today, Upcoming, No date, Completed. */
-export function groupTaskBoard(board: TaskBoard, now: number): TaskSection[] {
-  const buckets: Record<TaskSectionKey, Task[]> = {
-    today: [],
-    upcoming: [],
-    'no-date': [],
-    completed: [...board.completed].sort(compareCompletedTasks),
-  };
+function toSections(
+  order: readonly TaskSectionKey[],
+  buckets: Partial<Record<TaskSectionKey, Task[]>>,
+): TaskSection[] {
+  return order.flatMap((key) => {
+    const data = buckets[key] ?? [];
+    return data.length > 0 ? [{ key, title: SECTION_TITLES[key], data }] : [];
+  });
+}
+
+const completedOn = (board: TaskBoard, kind: TaskScreenKind) =>
+  board.completed.filter((task) => screenFor(task) === kind).sort(compareCompletedTasks);
+
+/** Today tab: non-empty Overdue, Today, Later and Completed (dated tasks only), in that order. */
+export function groupTodayTasks(board: TaskBoard, now: number): TaskSection[] {
+  const buckets: Record<DueGroupKey, Task[]> = { overdue: [], today: [], later: [] };
   for (const task of [...board.open].sort(compareOpenTasks)) {
-    buckets[openSectionFor(task, now)].push(task);
+    if (task.dueAt !== null) buckets[dueGroupFor(task.dueAt, now)].push(task);
   }
-  return SECTION_ORDER.filter((key) => buckets[key].length > 0).map((key) => ({
-    key,
-    title: SECTION_TITLES[key],
-    data: buckets[key],
-  }));
+  return toSections(['overdue', 'today', 'later', 'completed'], {
+    ...buckets,
+    completed: completedOn(board, 'today'),
+  });
+}
+
+/** Inbox tab: non-empty No date and Completed (undated tasks only). */
+export function groupInboxTasks(board: TaskBoard): TaskSection[] {
+  const open = board.open.filter((task) => task.dueAt === null).sort(compareOpenTasks);
+  return toSections(['no-date', 'completed'], {
+    'no-date': open,
+    completed: completedOn(board, 'inbox'),
+  });
 }

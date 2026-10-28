@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { getDb } from '@/db/client';
 import { addLocalDays, startOfLocalDay } from '@/lib/dates';
@@ -12,14 +12,17 @@ import { SAVE_FAILED_MESSAGE } from './TaskForm';
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(), replace: jest.fn() },
+  useLocalSearchParams: jest.fn(() => ({})),
 }));
 
 const mockRouter = jest.mocked(router);
+const mockSearchParams = jest.mocked(useLocalSearchParams);
 
 beforeEach(async () => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   mockRouter.canGoBack.mockReturnValue(true);
+  mockSearchParams.mockReturnValue({});
   await resetTaskData();
 });
 afterEach(cleanupTaskTests);
@@ -62,6 +65,27 @@ describe('NewTaskModal', () => {
       dueAt: new Date(2031, 2, 9).getTime(),
       priority: 0,
     });
+  });
+
+  it('opened from Today (`?due=today`) the due date starts as today (TB-27)', async () => {
+    mockSearchParams.mockReturnValue({ due: 'today' });
+    await renderWithQuery(<NewTaskModal />);
+    expect(screen.getByRole('radio', { name: 'Today' })).toBeChecked();
+
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Water plants');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
+
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(openTasks()[0]).toMatchObject({
+      title: 'Water plants',
+      dueAt: startOfLocalDay(Date.now()),
+    });
+  });
+
+  it('ignores an unknown `due` param (untrusted link input)', async () => {
+    mockSearchParams.mockReturnValue({ due: 'yesterday' });
+    await renderWithQuery(<NewTaskModal />);
+    expect(screen.getByRole('radio', { name: 'No date' })).toBeChecked();
   });
 
   it('shows a field error and writes nothing for a blank title', async () => {

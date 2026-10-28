@@ -1,16 +1,14 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
 import { Button, Card, Checkbox, Input, Sheet } from '@/components/ui';
-import { NEW_TASK_HREF } from '@/features/tasks/task-routes';
 import { APP_NAME } from '@/lib/app-info';
 
 /**
- * Today tab placeholder (TB-15, TB-18). It showcases the design-system primitives (TB-17) and
- * opens the add-task modal (TB-26) until Today/Inbox (TB-27) replaces it.
+ * Design-system showcase (TB-17): every primitive on one screen, for checking themes on a device.
+ * It was the Today tab placeholder until TB-27; now a dev-only route (`/dev/ui-showcase`).
  */
-export function HomeScreen() {
+export function UiShowcaseScreen() {
   const [taskName, setTaskName] = useState('');
   const [isDone, setIsDone] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -22,7 +20,7 @@ export function HomeScreen() {
 
   return (
     <ScrollView
-      testID="home-screen"
+      testID="ui-showcase-screen"
       className="flex-1 bg-background"
       contentContainerClassName="flex-grow justify-center gap-xl p-xl"
       keyboardShouldPersistTaps="handled"
@@ -42,12 +40,6 @@ export function HomeScreen() {
         <Checkbox label="Mark as done" checked={isDone} onCheckedChange={setIsDone} />
         <Button label="Open sheet" onPress={() => setIsSheetOpen(true)} />
         <Button label="Clear" variant="ghost" onPress={clearForm} />
-        <Button
-          testID="home-add-task-button"
-          label="Add a task"
-          variant="secondary"
-          onPress={() => router.push(NEW_TASK_HREF)}
-        />
       </Card>
 
       <Sheet
