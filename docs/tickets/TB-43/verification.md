@@ -1,6 +1,6 @@
 # TB-43 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-43 · PR: (set when opened) · Branch: `feat/tb-43/offline-sync`
+> Jira: https://stratyge.atlassian.net/browse/TB-43 · PR: https://github.com/CodeEx24/task-buddy/pull/27 · Branch: `feat/tb-43/offline-sync`
 > Record only what was actually run and observed. Windows 11, Node 24, pnpm 10.17; jest always `--maxWorkers=1` (low memory). No Metro or emulator was started by this agent: the on-device check is the orchestrator's (steps below).
 
 ## Commands run
