@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { migrateNodeDb, openMigratedNodeDb, openNodeDb, type NodeDb } from '@/db/node-client';
 import { newId } from '@/lib/ids';
 
-import { MAX_NOTES_LENGTH, MAX_TITLE_LENGTH } from '../schema';
+import { MAX_NOTES_LENGTH, MAX_SUBTASKS_PER_TASK, MAX_TITLE_LENGTH } from '../schema';
 import { createList, softDeleteList } from './list-repo';
 import { RepoError } from './repo-utils';
 import { addTagToTask, createTag, listTagsForTask, softDeleteTag } from './tag-repo';
@@ -18,6 +18,7 @@ import {
   listCompletedTasks,
   listOpenTasks,
   listSubtasks,
+  moveSubtask,
   softDeleteSubtask,
   softDeleteTask,
   restoreTask,
@@ -295,6 +296,91 @@ describe('task-repo: subtasks', () => {
     softDeleteTask(handle.db, task.id);
     expect(() => createSubtask(handle.db, { taskId: task.id, title: 's' })).toThrow(
       'Task not found',
+    );
+  });
+});
+
+describe('task-repo: subtask checklist order and limit (TB-28)', () => {
+  const titles = (taskId: string) => listSubtasks(handle.db, taskId).map((s) => s.title);
+
+  it('appends new subtasks to the end of the checklist', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const first = createSubtask(handle.db, { taskId: task.id, title: 'one' });
+    expect(first.sortOrder).toBe(0);
+    createSubtask(handle.db, { taskId: task.id, title: 'two' });
+    createSubtask(handle.db, { taskId: task.id, title: 'three' });
+    expect(titles(task.id)).toEqual(['one', 'two', 'three']);
+    expect(listSubtasks(handle.db, task.id).map((s) => s.sortOrder)).toEqual([0, 1, 2]);
+  });
+
+  it('moves a subtask up and down, writing updated_at only on rows that moved', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const [one, two, three] = ['one', 'two', 'three'].map((title) =>
+      createSubtask(handle.db, { taskId: task.id, title }),
+    );
+    if (!one || !two || !three) throw new Error('expected three subtasks');
+
+    const t1 = clock.advance();
+    const moved = moveSubtask(handle.db, three.id, 'up');
+    expect(moved.map((s) => s.title)).toEqual(['one', 'three', 'two']);
+    expect(titles(task.id)).toEqual(['one', 'three', 'two']);
+    expect(rawRow('subtasks', three.id)).toMatchObject({ sort_order: 1, updated_at: t1 });
+    expect(rawRow('subtasks', two.id)).toMatchObject({ sort_order: 2, updated_at: t1 });
+    expect(rawRow('subtasks', one.id)).toMatchObject({ updated_at: one.updatedAt });
+
+    clock.advance();
+    moveSubtask(handle.db, one.id, 'down');
+    expect(titles(task.id)).toEqual(['three', 'one', 'two']);
+  });
+
+  it('leaves the order alone at either end', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const one = createSubtask(handle.db, { taskId: task.id, title: 'one' });
+    const two = createSubtask(handle.db, { taskId: task.id, title: 'two' });
+    clock.advance();
+    expect(moveSubtask(handle.db, one.id, 'up').map((s) => s.title)).toEqual(['one', 'two']);
+    expect(moveSubtask(handle.db, two.id, 'down').map((s) => s.title)).toEqual(['one', 'two']);
+    expect(rawRow('subtasks', one.id)).toMatchObject({ updated_at: one.updatedAt });
+  });
+
+  it('renumbers legacy rows that share a sort order', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const one = createSubtask(handle.db, { taskId: task.id, title: 'one', sortOrder: 0 });
+    const two = createSubtask(handle.db, { taskId: task.id, title: 'two', sortOrder: 0 });
+    const [later, earlier] = one.id > two.id ? [one, two] : [two, one];
+    moveSubtask(handle.db, later.id, 'up');
+    expect(titles(task.id)).toEqual([later.title, earlier.title]);
+  });
+
+  it('skips deleted subtasks and rejects unknown ids and directions', () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const one = createSubtask(handle.db, { taskId: task.id, title: 'one' });
+    const gone = createSubtask(handle.db, { taskId: task.id, title: 'gone' });
+    const three = createSubtask(handle.db, { taskId: task.id, title: 'three' });
+    softDeleteSubtask(handle.db, gone.id);
+    expect(moveSubtask(handle.db, three.id, 'up').map((s) => s.title)).toEqual(['three', 'one']);
+    expect(() => moveSubtask(handle.db, gone.id, 'up')).toThrow('Subtask not found');
+    expect(() => moveSubtask(handle.db, newId(), 'up')).toThrow('Subtask not found');
+    expect(() => moveSubtask(handle.db, one.id, 'sideways' as 'up')).toThrow(ZodError);
+  });
+
+  it(`caps a task at ${MAX_SUBTASKS_PER_TASK} live subtasks`, () => {
+    const task = createTask(handle.db, { title: 'a' });
+    const rows = Array.from({ length: MAX_SUBTASKS_PER_TASK }, (_, i) =>
+      createSubtask(handle.db, { taskId: task.id, title: `s${i}` }),
+    );
+    let error: unknown;
+    try {
+      createSubtask(handle.db, { taskId: task.id, title: 'one too many' });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(RepoError);
+    expect(error).toMatchObject({ code: 'LIMIT_REACHED' });
+    // Deleted subtasks don't count.
+    softDeleteSubtask(handle.db, rows[0]?.id ?? '');
+    expect(createSubtask(handle.db, { taskId: task.id, title: 'fits again' }).sortOrder).toBe(
+      MAX_SUBTASKS_PER_TASK,
     );
   });
 });

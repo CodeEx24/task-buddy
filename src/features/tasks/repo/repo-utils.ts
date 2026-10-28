@@ -2,7 +2,7 @@ import { ZodError } from 'zod';
 
 import { describeDbError } from '@/db/db-errors';
 
-export type RepoErrorCode = 'NOT_FOUND' | 'DUPLICATE' | 'DB_FAILURE';
+export type RepoErrorCode = 'NOT_FOUND' | 'DUPLICATE' | 'LIMIT_REACHED' | 'DB_FAILURE';
 
 /**
  * Expected repository failure. Messages name the entity only, never user content
