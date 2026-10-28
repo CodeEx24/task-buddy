@@ -6,6 +6,7 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 
 ## Your to-do list (open actions, in order)
 1. **[Push the database migration to Supabase](supabase-db-push.md)** (TB-19 deploy step). About 5 minutes. It creates the `profiles` table in dev and staging, and TB-20 sign-in needs it.
+2. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
 
 Everything else is done.
 
@@ -13,6 +14,7 @@ Everything else is done.
 | Action | Related | Status |
 |---|---|---|
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
+| [Confirm the operator facts on the legal pages](legal-owner-facts.md) | TB-54 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
 | [Make the Supabase and bundle checks required](github-required-checks.md) | TB-19 | Done (2026-10-28, by Claude) |

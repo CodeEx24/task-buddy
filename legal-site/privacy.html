@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="index, follow" />
+    <title>Privacy Policy · Task Buddy</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <nav aria-label="Legal pages">
+        <a href="/">Task Buddy legal</a>
+        <a href="/privacy" aria-current="page">Privacy Policy</a>
+        <a href="/terms">Terms of Use</a>
+        <a href="/ai">AI disclosure</a>
+      </nav>
+
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 28 October 2026</p>
+
+      <p>
+        This policy explains what information the Task Buddy app ("Task Buddy", "we", "us") handles,
+        why, who it is shared with, how long it is kept, and the choices and rights you have. Task
+        Buddy is a to-do app that works offline and has an optional AI "buddy" that helps you turn
+        sentences, voice and photos into tasks and plan your day.
+      </p>
+
+      <h2 id="who-we-are">1. Who we are</h2>
+      <p>
+        Task Buddy is operated by an individual developer:
+        <span class="owner-confirm" data-owner-confirm="operator-name"
+          >[Operator name: to be confirmed by owner]</span
+        >, based in
+        <span class="owner-confirm" data-owner-confirm="operator-country"
+          >[Country of the operator: to be confirmed by owner]</span
+        >. The operator is the "controller" (in the Philippines, the "personal information
+        controller") of the personal data described here.
+      </p>
+      <p>
+        Contact for privacy questions and requests:
+        <span class="owner-confirm" data-owner-confirm="contact-email"
+          >[Privacy contact: to be confirmed by owner]</span
+        >.
+      </p>
+
+      <h2 id="summary">2. The short version</h2>
+      <ul>
+        <li>Your tasks are stored on your device. You can use the core to-do features offline.</li>
+        <li>
+          To sign in we use your email address. We do not ask for your name, phone number or
+          location.
+        </li>
+        <li>
+          Text, voice transcripts and photos are sent to our AI provider, Anthropic, only when you
+          use an AI feature, and only through our own server. See <a href="#ai">section 4</a>.
+        </li>
+        <li>Crash reports are scrubbed of task text and are not linked to your account.</li>
+        <li>Usage analytics are off unless you turn them on.</li>
+        <li>We do not sell your personal information and we do not show ads.</li>
+      </ul>
+
+      <h2 id="what-we-collect">3. What we collect and why</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Information</th>
+              <th scope="col">When</th>
+              <th scope="col">Why</th>
+              <th scope="col">Where it goes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Email address and an account ID</td>
+              <td>When you sign in with a one-time code</td>
+              <td>To create your account, send you sign-in codes and keep you signed in</td>
+              <td>Our backend provider, Supabase</td>
+            </tr>
+            <tr>
+              <td>Your tasks, notes, steps, due dates and priorities</td>
+              <td>When you create or edit tasks</td>
+              <td>To run the app</td>
+              <td>
+                Stored on your device. Not uploaded, unless you use an AI feature (section 4) or a
+                future sync or sharing feature that we will describe here before it launches
+              </td>
+            </tr>
+            <tr>
+              <td>Text you send to an AI feature (for example "dentist Friday 3pm")</td>
+              <td>Only when you use an AI feature</td>
+              <td>To produce the AI result you asked for</td>
+              <td>Our server, then Anthropic (section 4)</td>
+            </tr>
+            <tr>
+              <td>Voice input</td>
+              <td>Only when you tap the microphone</td>
+              <td>To turn speech into text</td>
+              <td>
+                Speech is converted to text by your phone's speech recognition (on the device where
+                available; otherwise by Apple's or Google's speech service under their terms). We do
+                not receive or store the audio. The resulting text is handled like typed text
+              </td>
+            </tr>
+            <tr>
+              <td>Photos you choose (for example a picture of a handwritten list)</td>
+              <td>Only when you pick or take a photo for an AI feature</td>
+              <td>To read tasks from the photo</td>
+              <td>Our server, then Anthropic (section 4). We do not keep the photo</td>
+            </tr>
+            <tr>
+              <td>
+                AI usage records: time, feature used, size of the request and cost. Not the content
+              </td>
+              <td>Each AI request</td>
+              <td>To apply fair-use limits, prevent abuse and control costs</td>
+              <td>Supabase</td>
+            </tr>
+            <tr>
+              <td>Crash reports: error details, app version, device model and operating system</td>
+              <td>When the app crashes or hits an error</td>
+              <td>To find and fix bugs</td>
+              <td>
+                Sentry. Task titles, notes, email addresses and sign-in codes are removed before a
+                report leaves the device, and reports are not linked to your account
+              </td>
+            </tr>
+            <tr>
+              <td>Usage analytics: which screens and features are used</td>
+              <td>Only if you opt in in Settings. Off by default</td>
+              <td>To understand which features help and improve the app</td>
+              <td>PostHog. Never includes task text</td>
+            </tr>
+            <tr>
+              <td>A push notification token</td>
+              <td>Only if you allow notifications for server check-ins (a future feature)</td>
+              <td>To deliver check-in notifications</td>
+              <td>Supabase and Expo's push service, then Apple or Google</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Local reminders you set are scheduled on your device. We do not collect your contacts,
+        precise location, advertising identifier, browsing history or health data.
+      </p>
+
+      <h2 id="ai">4. AI features and what is sent to the AI provider</h2>
+      <p>
+        Task Buddy's AI features are provided by <strong>Anthropic</strong> (the company that makes
+        Claude). The app never contacts Anthropic directly: every AI request goes from the app to
+        our own server first, which checks that you are signed in, applies usage limits, and then
+        forwards the request. Anthropic's API key is kept on our server and is never in the app.
+      </p>
+      <h3>What is sent, and when</h3>
+      <ul>
+        <li>
+          <strong>Text:</strong> the sentence you type or paste into an AI feature, and when you ask
+          for a plan, a breakdown, a review or a check-in, the tasks needed for that request (for
+          example titles, notes, steps, due dates and priorities of the tasks involved).
+        </li>
+        <li>
+          <strong>Voice:</strong> only the text transcript of what you said. The audio is not sent
+          to us or to Anthropic.
+        </li>
+        <li><strong>Images:</strong> only the photo you chose for that request.</li>
+        <li>
+          Nothing is sent to Anthropic when you use Task Buddy without an AI feature. Your email
+          address is not sent to Anthropic.
+        </li>
+      </ul>
+      <h3>How Anthropic handles it</h3>
+      <p>
+        Anthropic processes this content as our service provider under its commercial terms for its
+        API. Under those terms Anthropic may not use it to train its models. Anthropic's published
+        policy for API customers (checked 28 October 2026) is that inputs and outputs are
+        automatically deleted from its systems within 30 days, with exceptions: content its
+        automated safety systems flag as violating its Usage Policy may be kept for up to 2 years,
+        and data may be kept longer where the law requires. See
+        <a href="https://www.anthropic.com/legal/commercial-terms">Anthropic's commercial terms</a>
+        and
+        <a
+          href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data"
+          >Anthropic's commercial data retention policy</a
+        >.
+      </p>
+      <h3>What we keep</h3>
+      <p>
+        Our server does not store the text or photos you send to an AI feature. It keeps a usage
+        record (time, feature, size and cost, not the content) to apply limits. AI suggestions are
+        shown to you first and are only saved to your tasks if you confirm them; saved suggestions
+        are stored with your tasks on your device.
+      </p>
+      <p>
+        AI output can be wrong. Please check suggested dates, times and steps before relying on
+        them. More detail is in the <a href="/ai">AI disclosure</a>.
+      </p>
+
+      <h2 id="legal-bases">5. Legal bases (EEA, UK and similar laws)</h2>
+      <ul>
+        <li>
+          <strong>Contract:</strong> your account, sign-in, storing your tasks and AI features you
+          ask for.
+        </li>
+        <li>
+          <strong>Legitimate interests:</strong> crash reports, AI usage limits, security and abuse
+          prevention. You can object; see <a href="#rights">section 9</a>.
+        </li>
+        <li><strong>Consent:</strong> optional analytics and push notifications.</li>
+        <li>
+          <strong>Legal obligation:</strong> where we must keep or disclose information by law.
+        </li>
+      </ul>
+      <p>
+        Under the Philippine Data Privacy Act of 2012 we process personal information on the
+        equivalent grounds: your consent, the performance of our contract with you, our legitimate
+        interests, and compliance with legal obligations.
+      </p>
+
+      <h2 id="sharing">6. Who we share it with</h2>
+      <p>We share personal data only with service providers that run parts of Task Buddy for us:</p>
+      <ul>
+        <li><strong>Supabase</strong>: sign-in, account database, our server functions.</li>
+        <li><strong>Anthropic</strong>: AI features (section 4).</li>
+        <li><strong>Sentry</strong>: crash reporting.</li>
+        <li><strong>PostHog</strong>: optional analytics, only if you opt in.</li>
+        <li>
+          <strong>Expo</strong>: app updates, and push notification delivery once check-ins launch.
+        </li>
+        <li>
+          <strong>Apple and Google</strong>: app distribution, speech recognition when it is not
+          done on the device, and push notification delivery.
+        </li>
+      </ul>
+      <p>
+        Task Buddy is free and has no payments today. If we add a paid plan, payments will be
+        handled by the App Store or Google Play, with subscription status managed by RevenueCat, and
+        we will update this policy before that plan launches. We would never see your card details.
+      </p>
+      <p>
+        We do not sell personal information and do not share it for cross-context behavioural
+        advertising. We may disclose information if the law requires it, to protect users or the
+        service, or as part of a transfer of the app to a new operator, who would have to honour
+        this policy.
+      </p>
+
+      <h2 id="transfers">7. International transfers</h2>
+      <p>
+        Our service providers may process data in countries other than yours, including the United
+        States. Where the law requires it, these transfers rely on appropriate safeguards such as
+        the European Commission's standard contractual clauses in the providers' data processing
+        terms.
+      </p>
+
+      <h2 id="retention">8. How long we keep it</h2>
+      <ul>
+        <li>
+          <strong>Account (email, account ID):</strong> until you delete your account. Deletion from
+          backups may take up to 30 more days.
+        </li>
+        <li>
+          <strong>Tasks on your device:</strong> until you uninstall the app. A task you delete is
+          hidden at once and marked as deleted in the app's database on your device (this is what
+          makes undo work); it never leaves your device and is removed when you uninstall.
+        </li>
+        <li>
+          <strong>AI content:</strong> not stored on our server. Anthropic's retention is described
+          in section 4.
+        </li>
+        <li><strong>AI usage records:</strong> up to 13 months, then deleted or anonymised.</li>
+        <li>
+          <strong>Crash reports:</strong> according to Sentry's retention for our plan, at most 90
+          days.
+        </li>
+        <li><strong>Optional analytics:</strong> up to 13 months after collection.</li>
+      </ul>
+
+      <h2 id="rights">9. Your choices and rights</h2>
+      <ul>
+        <li>Delete any task in the app at any time.</li>
+        <li>Do not use AI features if you do not want content sent to Anthropic.</li>
+        <li>Turn analytics on or off in Settings at any time.</li>
+        <li>Turn notifications off in your phone's settings.</li>
+      </ul>
+      <p>
+        Depending on where you live, you may have the right to access, correct, delete or export
+        your personal data, to object to or restrict processing, to withdraw consent at any time
+        (without affecting earlier processing), and to complain to a data protection authority. To
+        make a request, contact us at the address in <a href="#who-we-are">section 1</a>. We reply
+        within 30 days and may need to confirm that you own the account.
+      </p>
+
+      <h3 id="delete-account">Deleting your account</h3>
+      <p>
+        An in-app option to delete your account is coming in a future update. Until then, email us
+        from the address you sign in with and ask us to delete your account. We will delete your
+        account and the data linked to it within 30 days and confirm by email. Tasks stored only on
+        your device are removed when you uninstall the app.
+      </p>
+
+      <h2 id="regional">10. Regional information</h2>
+      <h3>Philippines</h3>
+      <p>
+        You have the rights of a data subject under the Data Privacy Act of 2012 (Republic Act No.
+        10173), including to be informed, to access, to object, to erasure or blocking, to
+        rectification, to data portability and to damages. You may also file a complaint with the
+        <a href="https://privacy.gov.ph/">National Privacy Commission</a>.
+      </p>
+      <h3>European Economic Area and United Kingdom</h3>
+      <p>
+        You have the rights described in section 9 under the GDPR and the UK GDPR, and you can
+        complain to your local data protection authority (in the UK, the Information Commissioner's
+        Office).
+      </p>
+      <h3>California</h3>
+      <p>
+        Under the CCPA as amended by the CPRA, you have the right to know what personal information
+        we collect, use and disclose, to delete it, to correct it, and not to be discriminated
+        against for using these rights. In the last 12 months we have collected these categories:
+        identifiers (email address, account ID), customer records (email address), the content of AI
+        requests you made (see section 4), and internet or other electronic network activity (crash
+        reports and, if you opt in, analytics). We collect them for the purposes in section 3 and
+        disclose them only to the service providers in section 6. We do not sell or share personal
+        information as those terms are defined, and we do not use sensitive personal information to
+        infer characteristics about you.
+      </p>
+
+      <h2 id="children">11. Children</h2>
+      <p>
+        Task Buddy is not directed at children under 13, and we do not knowingly collect personal
+        data from them. Where local law sets a higher age for consenting to online services, that
+        age applies. If you think a child has given us personal data, contact us and we will delete
+        it.
+      </p>
+
+      <h2 id="security">12. Security</h2>
+      <p>
+        Data sent between the app and our services is encrypted in transit (HTTPS/TLS). Your sign-in
+        session is kept in your phone's secure storage, and access to account data on our backend is
+        limited to your own account by database access rules. No system is perfectly secure, and we
+        will tell you and the authorities about a breach where the law requires.
+      </p>
+
+      <h2 id="changes">13. Changes to this policy</h2>
+      <p>
+        We will update this page when Task Buddy changes how it handles data, for example before
+        launching sync, shared spaces or a paid plan, and change the date at the top. If a change is
+        significant we will also tell you in the app before it takes effect.
+      </p>
+
+      <footer>
+        <p>
+          Questions:
+          <span class="owner-confirm" data-owner-confirm="contact-email"
+            >[Privacy contact: to be confirmed by owner]</span
+          >
+        </p>
+        <p><a href="/terms">Terms of Use</a> · <a href="/ai">AI disclosure</a></p>
+      </footer>
+    </main>
+  </body>
+</html>
