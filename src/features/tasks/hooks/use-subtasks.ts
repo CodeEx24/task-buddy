@@ -83,6 +83,7 @@ export function useSubtaskMutations(taskId: string) {
         title: title.trim(),
         isDone: false,
         sortOrder: last ? Math.floor(last.sortOrder) + 1 : 0,
+        syncedUpdatedAt: null,
       };
       return [...list, placeholder];
     },

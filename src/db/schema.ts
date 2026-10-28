@@ -1,11 +1,13 @@
-// Local SQLite schema (TB-21). The schema is a contract shared with the future sync (TB-43):
+// Local SQLite schema (TB-21). The schema is a contract shared with sync (TB-43):
 // every table carries a UUIDv7 `id`, `created_at`, `updated_at` and `deleted_at` (soft delete).
 // Timestamps are integer epoch milliseconds, UTC.
+// Each signed-in user has their own database file (src/db/user-db.ts), so rows carry no owner.
 //
 // After a release, never edit a shipped migration: change this file and run `pnpm db:generate`
 // to fix forward with a new migration.
 import { sql } from 'drizzle-orm';
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -25,15 +27,39 @@ function syncColumns() {
   };
 }
 
+/**
+ * TB-43: the `updated_at` the server last confirmed for this row (NULL = never synced). A row is
+ * dirty (has local changes to push) when it differs from `updated_at`; repositories never write
+ * it, so every local edit, which sets `updated_at`, marks the row dirty without extra code.
+ */
+function syncedUpdatedAt() {
+  return integer('synced_updated_at', { mode: 'number' });
+}
+
+/** Partial index over the rows that still need a push (same predicate as the sync repo's query). */
+function dirtyIndex(
+  name: string,
+  t: { id: AnySQLiteColumn; updatedAt: AnySQLiteColumn; syncedUpdatedAt: AnySQLiteColumn },
+) {
+  return index(name)
+    .on(t.id)
+    .where(sql`${t.syncedUpdatedAt} IS NULL OR ${t.syncedUpdatedAt} <> ${t.updatedAt}`);
+}
+
 export const TASK_STATUSES = ['open', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const lists = sqliteTable('lists', {
-  ...syncColumns(),
-  name: text('name').notNull(),
-  color: text('color'),
-  sortOrder: real('sort_order').notNull().default(0),
-});
+export const lists = sqliteTable(
+  'lists',
+  {
+    ...syncColumns(),
+    name: text('name').notNull(),
+    color: text('color'),
+    sortOrder: real('sort_order').notNull().default(0),
+    syncedUpdatedAt: syncedUpdatedAt(),
+  },
+  (t) => [dirtyIndex('lists_dirty_idx', t)],
+);
 
 export const tasks = sqliteTable(
   'tasks',
@@ -47,6 +73,7 @@ export const tasks = sqliteTable(
     dueAt: integer('due_at', { mode: 'number' }),
     completedAt: integer('completed_at', { mode: 'number' }),
     sortOrder: real('sort_order').notNull().default(0),
+    syncedUpdatedAt: syncedUpdatedAt(),
   },
   (t) => [
     // DB-level guards that match the Zod input schemas, so bad rows fail even outside the repos.
@@ -55,6 +82,7 @@ export const tasks = sqliteTable(
     // Main list query: live + open, ordered by due date then manual order (migration 0001).
     index('tasks_live_status_due_sort_idx').on(t.deletedAt, t.status, t.dueAt, t.sortOrder),
     index('tasks_list_id_idx').on(t.listId),
+    dirtyIndex('tasks_dirty_idx', t),
   ],
 );
 
@@ -68,8 +96,9 @@ export const subtasks = sqliteTable(
     title: text('title').notNull(),
     isDone: integer('is_done', { mode: 'boolean' }).notNull().default(false),
     sortOrder: real('sort_order').notNull().default(0),
+    syncedUpdatedAt: syncedUpdatedAt(),
   },
-  (t) => [index('subtasks_task_id_idx').on(t.taskId)],
+  (t) => [index('subtasks_task_id_idx').on(t.taskId), dirtyIndex('subtasks_dirty_idx', t)],
 );
 
 export const tags = sqliteTable(
@@ -126,6 +155,15 @@ export const preferences = sqliteTable(
       .where(sql`${t.deletedAt} IS NULL`),
   ],
 );
+
+/**
+ * TB-43: local-only key/value state, never synced: the account that owns this database file
+ * (`owner_user_id`) and the pull cursor per synced table (`cursor:<table>`).
+ */
+export const syncMeta = sqliteTable('sync_meta', {
+  id: text('id').primaryKey(),
+  value: text('value').notNull(),
+});
 
 export type ListRow = typeof lists.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;

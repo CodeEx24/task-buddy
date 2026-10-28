@@ -12,8 +12,9 @@ import { join, resolve } from 'node:path';
 
 import * as schema from './schema';
 import type { TaskBuddyDb } from './types';
+import { LEGACY_DATABASE_NAME, resolveUserDb } from './user-db';
 
-export const DATABASE_NAME = 'taskbuddy.db';
+export const DATABASE_NAME = LEGACY_DATABASE_NAME;
 export const BENCHMARK_DATABASE_NAME = 'benchmark.db';
 export const MIGRATIONS_FOLDER = resolve(__dirname, '..', '..', 'drizzle');
 
@@ -78,11 +79,36 @@ export function migrateNodeDb(
 
 // --- Same surface as `@/db/client` (the Jest stand-in for the app client) ---
 
-let appDb: NodeDb | undefined;
+// Named in-memory databases stand in for the device's files (one per name, like the app).
+const openDbs = new Map<string, NodeDb>();
+let userDb: TaskBuddyDb | undefined;
+let userDbGeneration = 0;
+
+function openNamed(name: string): TaskBuddyDb {
+  let handle = openDbs.get(name);
+  if (!handle) {
+    handle = openNodeDb();
+    openDbs.set(name, handle);
+  }
+  return handle.db;
+}
 
 export function getDb(): TaskBuddyDb {
-  appDb ??= openNodeDb();
-  return appDb.db;
+  return userDb ?? openNamed(DATABASE_NAME);
+}
+
+export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
+  // A newer open (fast account switch) or a sign-out wins over this one finishing late.
+  const generation = ++userDbGeneration;
+  const { db } = await resolveUserDb(userId, { open: openNamed, migrate: migrateDb });
+  if (generation === userDbGeneration) userDb = db;
+  return db;
+}
+
+/** TB-43: sign-out. Deselects the user's DB and cancels any open still in flight. */
+export function clearUserDb(): void {
+  userDbGeneration += 1;
+  userDb = undefined;
 }
 
 export async function migrateDb(db: TaskBuddyDb): Promise<void> {
@@ -94,10 +120,11 @@ export function openBenchmarkDb(): { db: TaskBuddyDb; close: () => void } {
   return { db: handle.db, close: handle.close };
 }
 
-/** Test-only: drop the shared app DB so the next getDb() starts empty. */
+/** Test-only: drop every app DB (and the selected user) so the next getDb() starts empty. */
 export function resetDbForTests(): void {
-  appDb?.close();
-  appDb = undefined;
+  for (const handle of openDbs.values()) handle.close();
+  openDbs.clear();
+  userDb = undefined;
 }
 
 /** Test helper: an in-memory DB with every migration applied. */

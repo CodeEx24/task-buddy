@@ -48,6 +48,7 @@ function createListUnchecked(db: TaskBuddyDb, input: CreateListInput): List {
     name: data.name,
     color: data.color ?? null,
     sortOrder: data.sortOrder ?? 0,
+    syncedUpdatedAt: null,
   };
   db.insert(lists).values(row).run();
   return row;
