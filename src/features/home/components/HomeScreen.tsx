@@ -1,12 +1,16 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, Text } from 'react-native';
 
 import { Button, Card, Checkbox, Input, Sheet } from '@/components/ui';
 import { APP_NAME } from '@/lib/app-info';
 
+/** Demo target for the task modal until real tasks exist (TB-26). */
+export const SAMPLE_TASK_HREF = '/task/sample-task';
+
 /**
- * Placeholder home route (TB-15). It showcases the design-system primitives (TB-17) until the
- * tab shell (TB-18) and Today/Inbox (TB-27) replace it.
+ * Today tab placeholder (TB-15, TB-18). It showcases the design-system primitives (TB-17) and
+ * opens a sample task modal (TB-18) until Today/Inbox (TB-27) replaces it.
  */
 export function HomeScreen() {
   const [taskName, setTaskName] = useState('');
@@ -40,6 +44,11 @@ export function HomeScreen() {
         <Checkbox label="Mark as done" checked={isDone} onCheckedChange={setIsDone} />
         <Button label="Open sheet" onPress={() => setIsSheetOpen(true)} />
         <Button label="Clear" variant="ghost" onPress={clearForm} />
+        <Button
+          label="Open sample task"
+          variant="secondary"
+          onPress={() => router.push(SAMPLE_TASK_HREF)}
+        />
       </Card>
 
       <Sheet
