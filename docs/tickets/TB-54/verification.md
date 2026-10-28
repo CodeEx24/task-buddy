@@ -1,6 +1,6 @@
 # TB-54 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-54 · PR: draft, link in the Jira comment · Branch: `feat/tb-54/privacy-terms-ai-disclosure`
+> Jira: https://stratyge.atlassian.net/browse/TB-54 · PR: https://github.com/CodeEx24/task-buddy/pull/21 (draft) · Branch: `feat/tb-54/privacy-terms-ai-disclosure`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
