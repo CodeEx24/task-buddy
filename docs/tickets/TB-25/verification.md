@@ -1,6 +1,6 @@
 # TB-25 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-25 · PR: see the Jira comment (opened as **draft**) · Branch: `feat/tb-25/prompt-injection-hardening`
+> Jira: https://stratyge.atlassian.net/browse/TB-25 · PR: https://github.com/CodeEx24/task-buddy/pull/26 (**draft**) · Branch: `feat/tb-25/prompt-injection-hardening`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
@@ -21,6 +21,7 @@ All run locally on 2026-10-28 (Windows 11, Node 24.21, pnpm, Docker Desktop) in 
 | False-positive check: `detectPromptLeak` over TB-24's golden inputs (branch `feat/tb-24/ai-output-schemas`), valid and repairable mock answers, TB-24's real prompts + hardening rules | pass | 400 answers, 0 flagged (scratch script, not committed) |
 | Live: this branch in its own `edge-runtime:v1.77.8` container on the stack network + `scripts/ai-gateway/mock-anthropic-leaky.mjs` + `scripts/ai-gateway/local-injection-check.sh` with a real user JWT | pass | `/parse`: 2,000 → 200, 2,001 → 413, 2,000 emoji → 200, 2,001 emoji → 413, 9,000 → 413, controls/zero-width/bidi/tags stripped, only-invisible → 400; corpus 18 refused (502 `AI_UNSAFE_OUTPUT`) + 2 clean (tool prompts, text only). `/breakdown`: 18 + 2. Transcript: [local-integration.md](local-integration.md) |
 | `psql` on `ai_usage_ledger` / `ai_usage_counters` for the run-1 user | pass | 24 ledger rows, 24 hour-counter calls for 28 requests: the 3×413 and 1×400 used no quota |
+| CI on draft PR #26, run 40741555312 (`6a49844`) | pass | `ci` 1m10s (lint, typecheck, Jest; the docs `--pr` gate is skipped on drafts), `supabase` 1m22s, `bundle` 1m21s |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-25/prompt-injection-hardening` | pass | "workflow check: ok". The `--pr` gate fails by design while AC1 is `partial`, so the PR is a draft |
 
 ## Acceptance criteria
@@ -61,6 +62,6 @@ Independent reviewer: `ecc:security-reviewer` subagent with fresh context, given
 
 ## Completion
 - [ ] All AC met with evidence (AC1 partial: real-model run pending)
-- [x] Gates green locally (CI: see the PR)
+- [x] Gates green locally and in CI (draft PR #26)
 - [x] No open Blocking findings
 - [ ] Jira updated (In Review → Done)
