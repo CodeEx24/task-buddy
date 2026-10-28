@@ -1,13 +1,16 @@
 # TB-20 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-20 · PR: not opened yet (not pushed) · Branch: `feat/tb-20/email-otp-sign-in`
-> Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`. The AC rows below stay `partial` until the device run and the CI `auth` job are done.
+> Jira: https://stratyge.atlassian.net/browse/TB-20 · PR: https://github.com/CodeEx24/task-buddy/pull/18 · Branch: `feat/tb-20/email-otp-sign-in`
+> Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
-All run on 2026-10-28 in the worktree `tb-20-email-otp` (Windows, Node 24.21, pnpm 10.17.1), on the branch rebased onto `origin/main` @ `ceb46ab` (TB-26 merged). Re-run in full after the PR #18 security-review fixes and the `env.ts` bundle fix.
+All run on 2026-10-28 in the worktree `tb-20-email-otp` (Windows, Node 24.21, pnpm 10.17.1). Last full re-run after merging `origin/main` @ `abc74da` (TB-28 + the TB-26 flaky-test fix, PR #23) into the branch.
 
 | Command | Result | Notes |
 |---|---|---|
+| `SUPABASE_AUTH_IT=1 SUPABASE_AUTH_IT_KEY=<local publishable key> pnpm exec jest -c jest.integration.config.js --ci` | pass | 1 suite / 1 test against a **real local Supabase stack in Docker** (`supabase@2.122.0 start`, Auth + Mailpit + this branch's `supabase/config.toml` and migration). Code email → immediate resend refused (`rate_limited`) → wrong code rejected and no session → right code signs in → session chunks ≤ 2,048 bytes each in SecureStore → own `profiles` row only (RLS) → real token refresh → sign-out empties SecureStore |
+| `pnpm test --ci --maxWorkers=2` (after merging main @ `abc74da`) | pass | 54 suites, 377 tests |
+| `pnpm lint` / `pnpm typecheck` / `pnpm exec drizzle-kit check` (after merging main) | pass | 0 problems / 0 errors / "Everything's fine" |
 | `pnpm install --frozen-lockfile --ignore-scripts` | pass | Lockfile matches `package.json` after adding `expo-secure-store` ~58.0.2 and the supabase-js patch (applies cleanly). `better-sqlite3` (Jest's DB) was built once with `pnpm rebuild better-sqlite3` because its install script fails on this machine without `--ignore-scripts` |
 | `pnpm lint` | pass | 0 problems; no lint config changed |
 | `pnpm typecheck` | pass | `tsc --noEmit`, 0 errors |
@@ -19,18 +22,41 @@ All run on 2026-10-28 in the worktree `tb-20-email-otp` (Windows, Node 24.21, pn
 1. `src/lib/env.ts` `SECRET_KEY_PREFIX`: now built at runtime (`['sb', 'secret', ''].join('_')`). It was the only contiguous `sb_secret_` literal in `src/`.
 2. supabase-js 2.118 (`dist/index.mjs:274` `key.startsWith("sb_secret_")`): fixed with a **pnpm patch**, [`patches/@supabase__supabase-js@2.118.0.patch`](../../../patches/README.md). It builds the literal at runtime in `dist/index.cjs`, `dist/index.mjs` and `dist/umd/supabase.js`; behaviour is unchanged. The scanner stays strict, so this fails closed: **re-check on every supabase-js upgrade** (steps in `patches/README.md`). pnpm refuses to install if the patch stops applying.
 
-Not run locally: the integration test against real Supabase Auth + Mailpit (`jest -c jest.integration.config.js` with `SUPABASE_AUTH_IT=1`) needs Docker, which the owner's machine doesn't have. Wiring smoke check only: run with `SUPABASE_AUTH_IT=1` against an unreachable URL (`http://127.0.0.1:59999`), it failed at the first step with `{ ok: false, reason: 'network' }`. That proves it makes a real HTTP call through the app's `auth-api` → supabase-js path. It runs for real in the CI `auth` job once the owner adds it ([`ci-auth-job.yml`](ci-auth-job.yml)).
+The integration test (first row) now runs for real on this machine against a local Supabase stack in Docker. In CI it runs in the `auth` job once the owner pastes it into `ci.yml` ([`ci-auth-job.yml`](ci-auth-job.yml); agents can't edit workflow files).
 
 ## Acceptance criteria
 | AC (verbatim) | Status | Evidence (test name, file:line, screenshot, observed result) |
 |---|---|---|
-| Given a valid email and correct code, when I submit, then I land on Today within 3 seconds and the session survives an app restart | partial — device pending coordinator (needs new dev build + owner dashboard steps + db push) | Jest: `sign-in-routes.test.tsx` "wrong code → inline error; right code → Today" (path `/`, `home-screen`); "a stored session opens Today directly"; "shows a blank gate, not sign-in, while the stored session is being read". `secure-store-adapter.test.ts` round-trips a session-sized value over 2,048 bytes. **Not yet observed:** the 3 s timing and a real restart on device |
-| Given a wrong or expired code, then an inline error is shown and I can request a new code after 30 seconds | partial — device pending coordinator (needs new dev build + owner dashboard steps + db push) | Jest: wrong code shows `SIGN_IN_ERRORS.invalidCode` inline, keeps the value, stays signed out (`sign-in-routes.test.tsx`). `SignInScreen.test.tsx` "unlocks 'Resend code' only after 30 seconds…" (disabled at 0:30 and 0:01, enabled at 30 s, second send restarts the wait); 429 shown inline. `use-resend-countdown.test.ts`. Server 30 s interval: `supabase/config.toml` `max_frequency = "30s"` (CI integration asserts the immediate resend is refused); hosted projects need the owner's dashboard step |
-| Sessions are stored in expo-secure-store and refresh automatically; sign-out clears them | partial — device pending coordinator (needs new dev build + owner dashboard steps + db push) | `src/lib/supabase.ts` passes `createSecureStoreAdapter(SecureStore, { keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY })` as `storage`, `persistSession: true`, `autoRefreshToken: true` (`supabase.test.ts`, `auth-no-leaks.test.ts`). `app-state-refresh.test.ts`: start on active, stop in background. `auth-api.test.ts`: `signOut({ scope: 'local' })`, never throws. Route test: Settings → Sign out → confirm → sign-in; revoked session → sign-in. `QueryCacheReset.test.tsx`: caches and pending undo cleared. Integration test (CI, pending the job) asserts real refresh and empty SecureStore after sign-out |
-| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | partial — device pending coordinator (needs new dev build + owner dashboard steps + db push) | 67 new tests; all 265 existing tests still pass under the guard. Ticket docs updated. PR not opened or reviewed yet (not pushed by instruction) |
+| Given a valid email and correct code, when I submit, then I land on Today within 3 seconds and the session survives an app restart | met | **Device (Android emulator, dev build `fd23b5cf`, local Supabase):** last digit → Today visible within **1.22 s** (on-device frame capture every ~0.4 s: frame at 7 ms shows the code screen, frame at 1,221 ms shows Today; dev-mode JS, so release is faster), [`android-06-today-1.2s-after-code.png`](android-06-today-1.2s-after-code.png). Kill + relaunch → blank gate → Today, no sign-in frame in 25 captured frames ([`android-07`](android-07-relaunch-blank-gate.png), [`android-08`](android-08-relaunch-today-no-sign-in.png)). Jest: `sign-in-routes.test.tsx` "wrong code → inline error; right code → Today"; "a stored session opens Today directly"; "shows a blank gate, not sign-in…". Integration test: right code signs in |
+| Given a wrong or expired code, then an inline error is shown and I can request a new code after 30 seconds | met | **Device:** `000000` → inline "That code is wrong or has expired…", stays on the code screen ([`android-04`](android-04-wrong-code-inline-error.png)); countdown "Resend code in 0:14" disabled ([`android-03`](android-03-code-screen-countdown.png)); after 30 s **Resend code** → "New code sent", countdown restarts, a second email arrived in Mailpit ([`android-05`](android-05-resend-after-30s.png)). Integration test: immediate resend refused by the server (`rate_limited`), wrong code rejected. Jest: wrong code shows `SIGN_IN_ERRORS.invalidCode` inline, keeps the value, stays signed out (`sign-in-routes.test.tsx`). `SignInScreen.test.tsx` "unlocks 'Resend code' only after 30 seconds…" (disabled at 0:30 and 0:01, enabled at 30 s, second send restarts the wait); 429 shown inline. `use-resend-countdown.test.ts`. Server 30 s interval: `supabase/config.toml` `max_frequency = "30s"` (CI integration asserts the immediate resend is refused); hosted projects need the owner's dashboard step |
+| Sessions are stored in expo-secure-store and refresh automatically; sign-out clears them | met | **Device:** after sign-in, Android SecureStore holds `…-auth-token.manifest` + 2 chunks (key names only inspected); Settings → **Sign out** → confirm dialog ([`android-11`](android-11-sign-out-confirm.png)) → sign-in screen; SecureStore then has **no keys**; relaunch → still signed out ([`android-12`](android-12-relaunch-still-signed-out.png)). **Integration (real Auth):** `refreshSession()` returns a new access token; sign-out leaves no `-auth-token` keys. Automatic refresh on device after 1 h was not waited for; covered by `autoRefreshToken: true` + `app-state-refresh.test.ts` + the real refresh above. `src/lib/supabase.ts` passes `createSecureStoreAdapter(SecureStore, { keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY })` as `storage`, `persistSession: true`, `autoRefreshToken: true` (`supabase.test.ts`, `auth-no-leaks.test.ts`). `app-state-refresh.test.ts`: start on active, stop in background. `auth-api.test.ts`: `signOut({ scope: 'local' })`, never throws. Route test: Settings → Sign out → confirm → sign-in; revoked session → sign-in. `QueryCacheReset.test.tsx`: caches and pending undo cleared. Integration test (CI, pending the job) asserts real refresh and empty SecureStore after sign-out |
+| Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated | met | 377 tests pass after merging main (54 suites); integration test passes against real Auth. Ticket docs updated with device evidence. PR #18 reviewed by the coordinator's security review (findings 8–15 fixed) and verified on device by the coordinator |
 
 ## Manual / E2E
-**Pending: run by the coordinator/owner.** Prerequisites, in order:
+### Run 2026-10-28 by the coordinator: Android emulator (API 37), dev build `fd23b5cf`, local Supabase in Docker
+Environment: `supabase@2.122.0 start` from this branch (Auth, PostgREST, Mailpit, this branch's `config.toml`, OTP template and migration); Metro from this branch with `EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321` and the local publishable key via `adb reverse` (no env file written). Mailpit stood in for a real inbox. Screenshots are in this folder.
+
+| Step | Result | Evidence |
+|---|---|---|
+| 1. Fresh launch → sign-in | pass | [`android-01`](android-01-fresh-launch-sign-in.png) |
+| 2. Signed out, `taskbuddy://task/<id>` → still sign-in | pass | [`android-02`](android-02-deeplink-while-signed-out.png) |
+| 3. Send code → `t•••@example.com`, countdown disabled | pass | [`android-03`](android-03-code-screen-countdown.png) |
+| 4. Email has a 6-digit code, no link | pass | Mailpit: 1 email "Your Task Buddy code", 0 `href`, no URL in the text ([`local-email-code-redacted.txt`](local-email-code-redacted.txt)) |
+| 5. Wrong code `000000` → inline error, stays | pass | [`android-04`](android-04-wrong-code-inline-error.png) |
+| 6. After 30 s, Resend → "New code sent", 2nd email | pass | [`android-05`](android-05-resend-after-30s.png); Mailpit count 1 → 2 (resend tapped 54 s after the first send) |
+| 7. Latest code → Today ≤ 3 s | pass | 1.22 s ([`android-06`](android-06-today-1.2s-after-code.png)) |
+| 8. `profiles` row for the new user | pass | `select … from public.profiles join auth.users` → id matches, email `tb20.proof@example.com` |
+| 9. Kill + relaunch → Today, no sign-in flash | pass | 25 frames: dev loading → blank gate → Today ([`android-07`](android-07-relaunch-blank-gate.png), [`android-08`](android-08-relaunch-today-no-sign-in.png)) |
+| 10. Offline relaunch → Today; create + complete a task | pass | Airplane mode **and** the `adb reverse` route to Supabase removed: relaunch → Today ([`android-09`](android-09-offline-relaunch-today.png)); "Offline task TB20" created and marked complete ([`android-10`](android-10-offline-task-completed.png)); app DB copy: `completed = 1` |
+| 11. Background > 1 h → still signed in, refresh | not run on device | Not waited for. Covered by the integration test's real `refreshSession()` and `app-state-refresh.test.ts` |
+| 12. Sign out → sign-in; relaunch signed out; tasks kept after signing in again | pass | [`android-11`](android-11-sign-out-confirm.png), [`android-12`](android-12-relaunch-still-signed-out.png); SecureStore empty after sign-out; after signing in again the local DB still has all 505 tasks incl. the offline one (D7-A) |
+
+iOS simulator: not run (no Mac). The owner's earlier iOS check covered the TB-18 shell only.
+
+### Hosted projects (owner)
+The hosted dev/staging projects still need the owner steps below before a dev build pointed at them can sign in (the default hosted email is a magic link, not a code). The local run above used this branch's own config, so it proves the code path; the steps below configure the hosted servers to match.
+
+Prerequisites, in order:
 1. [`supabase-db-push.md`](../../actions/supabase-db-push.md) on dev (creates `profiles` + trigger).
 2. [`supabase-auth-email-otp.md`](../../actions/supabase-auth-email-otp.md) steps 1–5 on dev (code-only template, OTP 6 digits / 600 s, 30 s resend interval, Site URL `taskbuddy://`).
 3. New dev builds (new native module `expo-secure-store`): `eas build --profile development --platform android` and `eas build --profile development --platform ios`; install them; `pnpm start` with the dev env pulled (`eas env:pull --environment development`).
@@ -84,9 +110,9 @@ Independent reviewer subagent and the security pass (`senior-security`) for the 
 - No "signed out" banner after a server-side revoke (deviation).
 
 ## Completion
-- [ ] All AC met with evidence (device run pending)
+- [x] All AC met with evidence (Android device run + real-Auth integration test, 2026-10-28)
 - [x] Gates green locally (`pnpm install --frozen-lockfile --ignore-scripts`, lint, typecheck, `test --ci`, drizzle-kit check, ticket-docs check)
-- [ ] Gates green in CI (not pushed; `auth` job not yet added)
+- [x] Gates green in CI (`ci`, `supabase`, `bundle`); the `auth` job is an owner action (protected workflow file)
 - [x] No open Blocking findings (self-review)
-- [ ] Independent review + security pass
-- [ ] Jira updated (In Review → Done)
+- [x] Independent review + security pass (coordinator security review on PR #18, findings 8–15 fixed)
+- [ ] Jira updated (In Review → Done), done at merge
