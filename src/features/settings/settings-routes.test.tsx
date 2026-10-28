@@ -5,6 +5,7 @@ import { getDb } from '@/db/client';
 import { migrateDb, resetDbForTests } from '@/db/node-client';
 import { getFakeAuth } from '@/features/auth/testing/fake-auth';
 import { FAKE_EMAIL } from '@/features/auth/testing/fake-auth-client';
+import { getPlanningConstraints } from '@/features/plan/planning-constraints';
 import { cleanupTaskTests } from '@/features/tasks/testing/task-test-utils';
 import { setColorSchemePreference, themeVars } from '@/theme';
 
@@ -155,6 +156,39 @@ describe('Settings routes (TB-32)', () => {
       await screen.findByTestId('settings-page-appearance');
       expectAppScheme('dark');
       await waitFor(() => expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked());
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'Settings → Work hours page from the registry → save 9:00–17:00 / 5 h → planner reads it (TB-33)',
+    async () => {
+      const pressBack = captureHardwareBack();
+      await renderRouter(APP_DIR, { initialUrl: '/settings' });
+
+      const row = await screen.findByTestId('settings-row-work-hours');
+      expect(row).toHaveTextContent(/Work hours/);
+      await fireEvent.press(row);
+      expect(screen).toHavePathname('/settings/work-hours');
+      expect(await screen.findByTestId('settings-page-work-hours')).toBeVisible();
+      expect(screen.getByTestId('tab-settings')).toBeSelected();
+
+      // Defaults for a user who never set them (AC3).
+      expect(await screen.findByTestId('work-hours-start-value')).toHaveTextContent('9:00');
+      expect(screen.getByTestId('work-hours-end-value')).toHaveTextContent('17:00');
+      expect(screen.getByTestId('work-hours-capacity-value')).toHaveTextContent('6 h');
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Daily capacity 1 hour less' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() =>
+        expect(getPlanningConstraints(getDb())).toEqual({
+          workHours: { start: '09:00', end: '17:00' },
+          capacityMinutes: 300,
+        }),
+      );
+
+      await pressBack();
+      expect(screen).toHavePathname('/settings');
     },
     ROUTE_TEST_TIMEOUT_MS,
   );

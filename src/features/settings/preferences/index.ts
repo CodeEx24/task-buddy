@@ -3,6 +3,7 @@
 // TB-33); the repository and `usePreference` work for it with no other change.
 import { appearanceThemePreference } from './appearance';
 import type { PreferenceDefinition } from './define-preference';
+import { planningConstraintsPreference } from './planning';
 
 export { APPEARANCE_THEMES, appearanceThemePreference, type AppearanceTheme } from './appearance';
 export {
@@ -11,6 +12,10 @@ export {
   encodePreference,
   type PreferenceDefinition,
 } from './define-preference';
+export { planningConstraintsPreference } from './planning';
 
 /** Every registered preference. Keys must be unique (checked by the registry test). */
-export const PREFERENCES: readonly PreferenceDefinition<unknown>[] = [appearanceThemePreference];
+export const PREFERENCES: readonly PreferenceDefinition<unknown>[] = [
+  appearanceThemePreference,
+  planningConstraintsPreference,
+];

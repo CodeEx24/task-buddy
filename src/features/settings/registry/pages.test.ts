@@ -16,6 +16,7 @@ describe('settings page registry (TB-32)', () => {
 
   it('resolves slugs and builds hrefs', () => {
     expect(findSettingsPage('appearance')?.title).toBe('Appearance');
+    expect(findSettingsPage('work-hours')?.title).toBe('Work hours');
     expect(findSettingsPage('nope')).toBeUndefined();
     expect(findSettingsPage(undefined)).toBeUndefined();
     expect(settingsPageHref('appearance')).toBe('/settings/appearance');

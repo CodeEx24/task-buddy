@@ -2,6 +2,7 @@
 // page at `/settings/<slug>`; neither the Settings screen nor a route file changes. To add one
 // (e.g. TB-33 work hours), write its component and append an entry here.
 import { AppearanceSettings } from '../components/AppearanceSettings';
+import { WorkHoursSettings } from '../components/WorkHoursSettings';
 import type { SettingsPageDefinition } from './types';
 
 export const SETTINGS_PAGES: readonly SettingsPageDefinition[] = [
@@ -10,6 +11,12 @@ export const SETTINGS_PAGES: readonly SettingsPageDefinition[] = [
     title: 'Appearance',
     description: 'Light, dark or match your device',
     Component: AppearanceSettings,
+  },
+  {
+    slug: 'work-hours',
+    title: 'Work hours',
+    description: 'When you work and how much a day can hold',
+    Component: WorkHoursSettings,
   },
 ];
 

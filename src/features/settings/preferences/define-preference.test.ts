@@ -66,4 +66,13 @@ describe('preference registry', () => {
       expect.objectContaining({ key: 'appearance.theme', defaultValue: 'system' }),
     );
   });
+
+  it('registers work hours and capacity (TB-33), defaulting to 09:00–17:00 and 6 h', () => {
+    expect(PREFERENCES).toContainEqual(
+      expect.objectContaining({
+        key: 'planner.constraints',
+        defaultValue: { workHours: { start: '09:00', end: '17:00' }, capacityMinutes: 360 },
+      }),
+    );
+  });
 });
