@@ -6,6 +6,7 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 
 ## Your to-do list (open actions, in order)
 1. **[Push the database migration to Supabase](supabase-db-push.md)** (TB-19 deploy step). About 5 minutes. It creates the `profiles` table in dev and staging, and TB-20 sign-in needs it.
+2. **[Set up Sentry crash reporting](sentry-setup.md)** (TB-37). About 15 minutes. Free Sentry account, the public DSN and an auth token stored as an EAS **secret**; then a new dev build shows crashes in Sentry.
 
 Everything else is done.
 
@@ -13,6 +14,7 @@ Everything else is done.
 | Action | Related | Status |
 |---|---|---|
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
+| [Set up Sentry crash reporting](sentry-setup.md) | TB-37 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
 | [Make the Supabase and bundle checks required](github-required-checks.md) | TB-19 | Done (2026-10-28, by Claude) |
