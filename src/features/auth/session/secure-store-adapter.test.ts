@@ -116,7 +116,7 @@ describe('createSecureStoreAdapter (TB-20 AC3)', () => {
     const { store, data } = createMemoryStore();
     const adapter = createSecureStoreAdapter(store);
     await adapter.setItem(KEY, 'value');
-    data.set(`${KEY}.manifest`, '{"v":2}');
+    data.set(`${KEY}.manifest`, '{"v":3}');
     expect(await adapter.getItem(KEY)).toBeNull();
     expect(data.size).toBe(0);
   });
@@ -125,8 +125,76 @@ describe('createSecureStoreAdapter (TB-20 AC3)', () => {
     const { store, data } = createMemoryStore();
     const adapter = createSecureStoreAdapter(store);
     await adapter.setItem(KEY, 'value');
-    data.set(`${KEY}.0`, 'valu');
+    data.set(`${KEY}.0`, (data.get(`${KEY}.0`) ?? '').slice(0, -1));
     expect(await adapter.getItem(KEY)).toBeNull();
+    expect(data.size).toBe(0);
+  });
+
+  it('keeps a valid session when a read throws (transient Keystore error, before first unlock)', async () => {
+    const { store, data, getItemAsync, deleteItemAsync } = createMemoryStore();
+    const adapter = createSecureStoreAdapter(store);
+    await adapter.setItem(KEY, BIG_VALUE);
+    const stored = new Map(data);
+    deleteItemAsync.mockClear();
+
+    getItemAsync.mockRejectedValueOnce(new Error('User interaction is not allowed')); // manifest
+    expect(await adapter.getItem(KEY)).toBeNull();
+    getItemAsync.mockImplementationOnce(async (key: string) => data.get(key) ?? null); // manifest ok
+    getItemAsync.mockRejectedValueOnce(new Error('keystore busy')); // first chunk throws
+    expect(await adapter.getItem(KEY)).toBeNull();
+
+    expect(deleteItemAsync).not.toHaveBeenCalled();
+    expect(data).toEqual(stored);
+    expect(await adapter.getItem(KEY)).toBe(BIG_VALUE);
+  });
+
+  it('rejects a set that mixes chunks from two writes', async () => {
+    const { store, data } = createMemoryStore();
+    const adapter = createSecureStoreAdapter(store);
+    await adapter.setItem(KEY, BIG_VALUE);
+    const chunkFromFirstWrite = data.get(`${KEY}.1`);
+    await adapter.setItem(KEY, BIG_VALUE.replace(/x/g, 'y'));
+    data.set(`${KEY}.1`, chunkFromFirstWrite ?? '');
+
+    expect(await adapter.getItem(KEY)).toBeNull();
+    expect(data.size).toBe(0);
+  });
+
+  it('rejects a manifest from the old format (v1)', async () => {
+    const { store, data } = createMemoryStore();
+    const adapter = createSecureStoreAdapter(store);
+    data.set(`${KEY}.manifest`, JSON.stringify({ v: 1, count: 1, length: 5 }));
+    data.set(`${KEY}.0`, 'value');
+    expect(await adapter.getItem(KEY)).toBeNull();
+    expect(data.size).toBe(0);
+  });
+
+  it('serializes overlapping writes to one key: the last write wins, intact', async () => {
+    const { store, data, setItemAsync } = createMemoryStore();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    setItemAsync.mockImplementation(async (key: string, value: string) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      data.set(key, value);
+      inFlight -= 1;
+    });
+    const adapter = createSecureStoreAdapter(store);
+    const first = BIG_VALUE;
+    const second = BIG_VALUE.replace(/x/g, 'y');
+
+    await Promise.all([adapter.setItem(KEY, first), adapter.setItem(KEY, second)]);
+
+    expect(maxInFlight).toBe(1);
+    expect(await adapter.getItem(KEY)).toBe(second);
+    const manifest = JSON.parse(data.get(`${KEY}.manifest`) ?? '{}') as {
+      id: string;
+      count: number;
+    };
+    for (let i = 0; i < manifest.count; i += 1) {
+      expect(data.get(`${KEY}.${i}`)?.startsWith(`${manifest.id}:`)).toBe(true);
+    }
   });
 
   it('never throws when the native store fails, and leaves no partial value', async () => {
@@ -134,6 +202,7 @@ describe('createSecureStoreAdapter (TB-20 AC3)', () => {
     const adapter = createSecureStoreAdapter(store);
     getItemAsync.mockRejectedValueOnce(new Error('keychain locked'));
     await expect(adapter.getItem(KEY)).resolves.toBeNull();
+    getItemAsync.mockImplementation(async (key: string) => data.get(key) ?? null);
 
     let writes = 0;
     setItemAsync.mockImplementation(async (key: string, value: string) => {

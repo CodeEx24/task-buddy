@@ -22,7 +22,8 @@ export function classifyAuthError(error: unknown, step: 'send' | 'verify'): Auth
     ) {
       return 'rate_limited';
     }
-    if (step === 'verify' && (error.code === 'otp_expired' || error.status === 403)) {
+    // By error code only: other 403s (bad JWT, disabled provider…) are not a wrong code.
+    if (step === 'verify' && error.code === 'otp_expired') {
       return 'invalid_code';
     }
     if (step === 'send' && error.code === 'email_address_invalid') return 'invalid_email';

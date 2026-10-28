@@ -14,6 +14,9 @@ export type SessionState = {
 
 const SessionContext = createContext<SessionState | null>(null);
 
+/** Fail closed: if the stored session hasn't been read by then, show sign-in instead of a blank screen. */
+export const SESSION_RESTORE_TIMEOUT_MS = 5_000;
+
 /**
  * Owns the auth session for the app (TB-20). Subscribes once to supabase-js auth events (an
  * external system), which also delivers the stored session at start-up, and keeps token refresh
@@ -29,11 +32,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const auth = getAuthClient();
     const detachRefresh = registerAutoRefresh(auth, AppState);
+    const restoreTimeout = setTimeout(() => {
+      setState((current) =>
+        current.isLoading ? { session: null, isLoading: false, isSignedIn: false } : current,
+      );
+    }, SESSION_RESTORE_TIMEOUT_MS);
     const { data } = auth.onAuthStateChange((_event, session) => {
+      clearTimeout(restoreTimeout);
       // Don't call other auth methods from here (supabase-js guidance); just mirror the session.
+      // A session that arrives after the timeout still signs the user in.
       setState({ session, isLoading: false, isSignedIn: session !== null });
     });
     return () => {
+      clearTimeout(restoreTimeout);
       data.subscription.unsubscribe();
       detachRefresh();
     };

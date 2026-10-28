@@ -192,6 +192,11 @@ The owner's machine can't run Docker, so anything needing the local Supabase sta
 
 **Recommendation: A.**
 
+## Known limitations
+- **Shared device, second account (D7-A):** sign-out keeps local tasks, and local rows have no owner. A second account signing in on the same device sees the first account's local tasks. This is accepted for Wave 1 (single-user phones; no sync yet). Proposed mitigation: tag local rows with the owner's user id when TB-43 (sync) lands, then filter by the signed-in user or wipe on sign-out (D7-B). Tracked as a follow-up in [verification.md](verification.md#known-limitations--follow-ups).
+- **iOS reinstall keeps the Keychain session** (see Deviations).
+- **Client lockout is per sent code, in memory:** 5 wrong codes lock the code screen until a resend; restarting the app resets the count. The server-side token-verification limit (dashboard, lowered per the action guide) is the real control.
+
 ## Decisions
 | Decision | Options considered | Choice | Decided by / date |
 |---|---|---|---|
@@ -214,4 +219,5 @@ The owner's machine can't run Docker, so anything needing the local Supabase sta
 | 2026-10-28 | No console logging at all in auth code (spec said "log `auth.storage_error`") | Stricter than spec: storage failures read as "no session"; a static test forbids `console.*` in auth code. Sentry wiring can add a value-free event later | Agent (stricter) |
 | 2026-10-28 | No "You've been signed out" banner after a server-side revoke | The guard returns to sign-in; banner deferred (UX polish, no AC) | Agent (minor) |
 | 2026-10-28 | `expo-secure-store` config plugin kept in `app.json` with `configureAndroidBackup: true`, `faceIDPermission: false` | `npx expo install` adds it; it is not needed for the module to load, but it is what excludes SecureStore data from Android Auto Backup (threat T1). `faceIDPermission: false` stops it adding an unused Face ID usage string on iOS | Agent (security) |
+| 2026-10-28 | Security review fixes (PR #18 review): read errors no longer wipe the stored session; per-key serialized storage ops with write ids (manifest v2; a v1 manifest from dev build `fd23b5cf` reads as "no session", so testers sign in once more); 5-wrong-codes client lockout; 5 s restore timeout fails closed to sign-in; verify errors mapped by `error.code` only | Coordinator security review, 2026-10-28 | Coordinator |
 | 2026-10-28 | Guard groups declare `redirectTo` (`/sign-in`, `/`) | Without it a guarded URL fell through to the not-found screen (anchor `(tabs)` is itself guarded) | Agent |

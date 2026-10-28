@@ -11,6 +11,9 @@ import { emailSchema, maskEmail, normalizeOtpInput, otpCodeSchema } from '../sch
 
 type Step = 'email' | 'code';
 
+/** Client lockout: after this many wrong codes for one sent code, verifying needs a new code. */
+export const MAX_WRONG_CODES_PER_SEND = 5;
+
 function messageFor(reason: AuthFailure, step: Step): string {
   switch (reason) {
     case 'invalid_email':
@@ -43,6 +46,9 @@ export function SignInScreen() {
   const lastSubmittedCode = useRef<string | null>(null);
   // In-flight guard that doesn't depend on a render (auto-submit + a quick tap must verify once).
   const isVerifyingRef = useRef(false);
+  // Wrong codes for the current send; a ref so auto-submit can't race past the limit.
+  const wrongCodesRef = useRef(0);
+  const [isLockedOut, setIsLockedOut] = useState(false);
   const secondsLeft = useResendCountdown(sentAt);
 
   const parsedEmail = emailSchema.safeParse(email);
@@ -61,6 +67,9 @@ export function SignInScreen() {
     setSentEmail(target);
     setSentAt(Date.now());
     setStep('code');
+    // A new code resets the lockout (only after the server accepted the send).
+    wrongCodesRef.current = 0;
+    setIsLockedOut(false);
     if (isResend) {
       setCode('');
       lastSubmittedCode.current = null;
@@ -69,7 +78,13 @@ export function SignInScreen() {
   }
 
   async function submitCode(value: string) {
-    if (isVerifyingRef.current || !otpCodeSchema.safeParse(value).success) return;
+    if (
+      isVerifyingRef.current ||
+      wrongCodesRef.current >= MAX_WRONG_CODES_PER_SEND ||
+      !otpCodeSchema.safeParse(value).success
+    ) {
+      return;
+    }
     isVerifyingRef.current = true;
     lastSubmittedCode.current = value;
     setIsVerifying(true);
@@ -78,7 +93,13 @@ export function SignInScreen() {
     const result = await verifyCode(sentEmail, value);
     isVerifyingRef.current = false;
     setIsVerifying(false);
-    if (!result.ok) setError(messageFor(result.reason, 'code'));
+    if (result.ok) return;
+    if (result.reason === 'invalid_code') {
+      wrongCodesRef.current += 1;
+      // Same copy as any wrong code (it already says to request a new one): nothing new revealed.
+      if (wrongCodesRef.current >= MAX_WRONG_CODES_PER_SEND) setIsLockedOut(true);
+    }
+    setError(messageFor(result.reason, 'code'));
   }
 
   function onCodeChange(text: string) {
@@ -169,7 +190,7 @@ export function SignInScreen() {
               <Button
                 testID="sign-in-verify"
                 label={SIGN_IN_COPY.verify}
-                disabled={!isCodeComplete}
+                disabled={!isCodeComplete || isLockedOut}
                 loading={isVerifying}
                 onPress={() => void submitCode(code)}
               />

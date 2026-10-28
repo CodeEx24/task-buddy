@@ -35,6 +35,13 @@ describe('classifyAuthError', () => {
       'invalid_email',
     ],
     ['server error', new AuthApiError('boom', 500, 'unexpected_failure'), 'send', 'unknown'],
+    ['other 403 on verify', new AuthApiError('forbidden', 403, 'bad_jwt'), 'verify', 'unknown'],
+    [
+      '403 without a code on verify',
+      new AuthApiError('forbidden', 403, undefined),
+      'verify',
+      'unknown',
+    ],
     ['anything else', new Error('???'), 'verify', 'unknown'],
   ];
 

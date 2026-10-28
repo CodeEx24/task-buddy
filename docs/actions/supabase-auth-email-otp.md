@@ -24,8 +24,16 @@ Do steps 1–5 on **dev**, then repeat them on **staging**. Steps 6–8 are once
    <p>It expires in 10 minutes. If you didn't ask for it, you can ignore this email.</p>
    ```
    There must be no `{{ .ConfirmationURL }}` in it. If **Confirm email** was on in step 1, make the same change to the **Confirm signup** template, because a brand-new user gets that one instead. Save each template.
-3. **Allow a resend after 30 seconds.** Go to *Authentication → Rate Limits*. Find the minimum time between OTP or magic-link requests for one user (the default is 60 seconds) and set it to `30` seconds. Leave the per-IP token-verification limit at its default. Save. If you chose D5 option B instead, skip this step.
-4. **Set the redirect URL.** Go to *Authentication → URL Configuration*. Set **Site URL** to `taskbuddy://`. The code flow doesn't use links, but this stops any stray link from pointing at a random website.
+3. **Allow a resend after 30 seconds, and slow down code guessing.** Go to *Authentication → Rate Limits*.
+   - Find the minimum time between OTP or magic-link requests for one user (the default is 60 seconds) and set it to `30` seconds.
+   - Find the limit on **token verifications** (OTP / magic-link checks per IP, default 30 per 5 minutes) and lower it to `10` per 5 minutes. The app already locks the code screen after 5 wrong codes per email sent, so 10 leaves room for two attempts from the same network.
+   - Optional: if *Authentication → Attack Protection* offers a **CAPTCHA** (hCaptcha / Cloudflare Turnstile), note it for later. Turning it on now would block sign-in, because the app doesn't send a captcha token yet. That's a follow-up ticket.
+   - Save.
+4. **Set the redirect URL.** Go to *Authentication → URL Configuration*. Set **Site URL** to `taskbuddy://`. Check that **Redirect URLs** (the allow-list) is **empty**, and remove anything there. The code flow doesn't use links, so nothing should be allowed as a redirect. Do the same on **production** when that project exists.
+4a. **The other email templates.** In *Authentication → Emails → Templates*, Task Buddy doesn't use **Reset password (recovery)**, **Invite user** or **Change email address**: the app has no passwords, invites or email changes.
+   - **Reset password: neutralize it (recommended).** Anyone holding the app's public key can request a recovery email for any address, and the default body contains a sign-in link. Replace the body with `This request didn't come from the Task Buddy app. You can ignore this email.` (no `{{ .ConfirmationURL }}`).
+   - **Invite user** needs a server key, and **Change email address** needs a signed-in user. Neutralize them the same way, or tick "confirmed unused" in the checklist.
+   - Don't change **Confirm signup** or **Magic Link** beyond step 2; sign-in uses them.
 5. **Email sender (D6).**
    - Option A (recommended): change nothing. The built-in sender works for testing, but it only sends a handful of emails per hour. Space out your test sign-ins.
    - Option B: go to *Authentication → Emails → SMTP Settings*, enable custom SMTP, and enter your provider's details. Your provider will first ask you to verify a sending domain with DNS records. Afterwards, raise the email-per-hour limit under *Rate Limits* if you need to.
@@ -51,8 +59,11 @@ On dev and staging, a sign-in request sends an email with a 6-digit code and no 
 - [ ] dev: OTP length 6, expiry 600 s
 - [ ] dev: Magic Link template uses `{{ .Token }}`, plus Confirm signup if confirmations are on
 - [ ] dev: resend interval 30 s
-- [ ] dev: Site URL `taskbuddy://`
-- [ ] staging: the same five settings
+- [ ] dev: Site URL `taskbuddy://`, Redirect URLs allow-list empty
+- [ ] dev: token-verification limit lowered to 10 per 5 minutes
+- [ ] dev: recovery template neutralized; invite and email-change neutralized or confirmed unused
+- [ ] staging: the same settings
+- [ ] production (when created): redirect allow-list empty, same templates and limits
 - [ ] Sender decided (D6) and, for option B, SMTP configured
 - [ ] CI `auth` job pasted into `.github/workflows/ci.yml`
 - [ ] New Android and iOS dev builds installed (once Claude asks)
