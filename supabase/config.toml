@@ -158,11 +158,12 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# TB-20: the app's scheme. Sign-in is code-only (no links), so nothing should redirect here.
+site_url = "taskbuddy://"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = []
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -229,11 +230,22 @@ enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+# TB-20 (spec D5-A): one code per user every 30 s, matching the app's resend countdown.
+max_frequency = "30s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires (defaults to 1 hour). TB-20 (D5-A): 10 minutes.
+otp_expiry = 600
+
+# TB-20: the sign-in email carries the 6-digit code only (spec D3-A). New users get the
+# confirmation template when confirmations are on, so both use the same code-only body.
+[auth.email.template.magic_link]
+subject = "Your Task Buddy code"
+content_path = "./supabase/templates/otp-code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Task Buddy code"
+content_path = "./supabase/templates/otp-code.html"
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]

@@ -18,6 +18,19 @@ describe('describeDbError', () => {
     expect(describeDbError(error)).toEqual({ name: 'Error', code: 'SQLITE_5' });
   });
 
+  it('reads the code from an error made in another realm (not instanceof Error)', () => {
+    const foreign = {
+      name: 'SqliteError',
+      message: 'secret title',
+      code: 'SQLITE_CONSTRAINT_TRIGGER',
+    };
+    expect(foreign instanceof Error).toBe(false);
+    expect(describeDbError(foreign)).toEqual({
+      name: 'SqliteError',
+      code: 'SQLITE_CONSTRAINT_TRIGGER',
+    });
+  });
+
   it('handles non-Error throws', () => {
     expect(describeDbError('boom')).toEqual({ name: 'string' });
   });
