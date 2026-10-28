@@ -76,6 +76,21 @@ describe('Settings routes (TB-32)', () => {
   );
 
   it(
+    'tapping the Settings tab on a preference page pops back to the list',
+    async () => {
+      await renderRouter(APP_DIR, { initialUrl: '/settings' });
+      await fireEvent.press(await screen.findByTestId('settings-row-appearance'));
+      expect(await screen.findByTestId('settings-page-appearance')).toBeVisible();
+
+      await fireEvent.press(screen.getByTestId('tab-settings'));
+
+      await waitFor(() => expect(screen).toHavePathname('/settings'));
+      expect(screen.getByTestId('settings-screen')).toBeVisible();
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
     'shows a message for an unknown settings page',
     async () => {
       await renderRouter(APP_DIR, { initialUrl: '/settings/not-a-page' });

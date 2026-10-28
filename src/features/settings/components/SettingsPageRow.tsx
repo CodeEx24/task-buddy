@@ -5,20 +5,15 @@ import { Pressable, Text, View } from 'react-native';
 import { MIN_TOUCH_TARGET, useTheme } from '@/theme';
 
 import { settingsPageHref } from '../registry/pages';
-
-export type SettingsPageRowProps = {
-  id: string;
-  title: string;
-  description?: string;
-  slug: string;
-};
+import type { SettingsPageDefinition } from '../registry/types';
 
 /** A row that opens a preference page (`/settings/<slug>`). */
-export function SettingsPageRow({ id, title, description, slug }: SettingsPageRowProps) {
+export function SettingsPageRow({ page }: { page: SettingsPageDefinition }) {
   const { colors } = useTheme();
+  const { slug, title, description } = page;
   return (
     <Pressable
-      testID={`settings-row-${id}`}
+      testID={`settings-row-${slug}`}
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityHint={description}
@@ -28,7 +23,7 @@ export function SettingsPageRow({ id, title, description, slug }: SettingsPageRo
     >
       <View className="flex-1 gap-xs">
         <Text className="text-base font-medium text-text">{title}</Text>
-        {description ? <Text className="text-sm text-text-muted">{description}</Text> : null}
+        <Text className="text-sm text-text-muted">{description}</Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
     </Pressable>

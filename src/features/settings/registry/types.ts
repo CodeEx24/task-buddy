@@ -2,8 +2,11 @@ import type { ComponentType } from 'react';
 
 /** One row of a Settings section. */
 export type SettingsRowDefinition =
-  /** Opens a preference page (`/settings/<slug>`). */
-  | { kind: 'page'; id: string; title: string; description?: string; slug: string }
+  /**
+   * Opens a registered preference page (`/settings/<slug>`). It references the page object, not a
+   * slug string, so a row can't point at a page that doesn't exist.
+   */
+  | { kind: 'page'; page: SettingsPageDefinition }
   /** Renders its own content (account email, sign-out button, …). */
   | { kind: 'custom'; id: string; Component: ComponentType };
 

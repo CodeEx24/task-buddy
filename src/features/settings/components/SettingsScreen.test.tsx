@@ -59,10 +59,12 @@ describe('SettingsScreen (TB-32)', () => {
           { kind: 'custom', id: 'later-row', Component: LaterStoryRow },
           {
             kind: 'page',
-            id: 'quiet-hours',
-            title: 'Quiet hours',
-            description: 'No check-ins at night',
-            slug: 'quiet-hours',
+            page: {
+              slug: 'quiet-hours',
+              title: 'Quiet hours',
+              description: 'No check-ins at night',
+              Component: LaterStoryRow,
+            },
           },
         ],
       },

@@ -14,12 +14,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDefinition[] = [
   {
     id: 'preferences',
     title: 'Preferences',
-    rows: SETTINGS_PAGES.map((page) => ({
-      kind: 'page',
-      id: page.slug,
-      title: page.title,
-      description: page.description,
-      slug: page.slug,
-    })),
+    rows: SETTINGS_PAGES.map((page) => ({ kind: 'page', page })),
   },
 ];
