@@ -10,7 +10,7 @@ import { deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-
 import migrations from '../../drizzle/migrations';
 import * as schema from './schema';
 import type { TaskBuddyDb } from './types';
-import { LEGACY_DATABASE_NAME, resolveUserDb } from './user-db';
+import { LEGACY_DATABASE_NAME, resolveUserDb, wipeUserDb } from './user-db';
 
 export const DATABASE_NAME = LEGACY_DATABASE_NAME;
 export const BENCHMARK_DATABASE_NAME = 'benchmark.db';
@@ -23,17 +23,17 @@ function open(name: string): { db: ExpoDb; sqlite: SQLiteDatabase } {
   return { db: drizzle(sqlite, { schema }), sqlite };
 }
 
-const openDbs = new Map<string, ExpoDb>();
+const openDbs = new Map<string, { db: ExpoDb; sqlite: SQLiteDatabase }>();
 let userDb: TaskBuddyDb | undefined;
 let userDbGeneration = 0;
 
 function openNamed(name: string): ExpoDb {
-  let db = openDbs.get(name);
-  if (!db) {
-    db = open(name).db;
-    openDbs.set(name, db);
+  let handle = openDbs.get(name);
+  if (!handle) {
+    handle = open(name);
+    openDbs.set(name, handle);
   }
-  return db;
+  return handle.db;
 }
 
 /**
@@ -57,6 +57,34 @@ export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
 export function clearUserDb(): void {
   userDbGeneration += 1;
   userDb = undefined;
+}
+
+/**
+ * TB-53 (account deletion): removes `userId`'s data from this device (see `wipeUserDb`): deletes
+ * their own file and empties + retires the legacy file if they own it. Call only after sign-out
+ * (their DB is no longer selected); `pending-wipe.ts` does that. Throws `LocalWipeError`.
+ */
+export async function deleteUserDb(userId: string): Promise<void> {
+  await wipeUserDb(userId, {
+    open: openNamed,
+    migrate: migrateDb,
+    compact: (name) => {
+      // VACUUM rebuilds the file without the deleted rows; the checkpoint empties the WAL.
+      openDbs.get(name)?.sqlite.execSync('VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');
+    },
+    deleteFile: (name) => {
+      const handle = openDbs.get(name);
+      openDbs.delete(name);
+      handle?.sqlite.closeSync();
+      try {
+        deleteDatabaseSync(name);
+      } catch (error) {
+        // expo-sqlite (Android and iOS) says "Database '<name>' not found" for a missing file.
+        if (error instanceof Error && /not found/i.test(error.message)) return;
+        throw error;
+      }
+    },
+  });
 }
 
 /** Applies pending migrations. Drizzle runs them in one transaction, so a failure leaves no partial schema. */

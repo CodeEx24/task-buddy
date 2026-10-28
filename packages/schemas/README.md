@@ -7,3 +7,4 @@ Files import only `zod`, so they run under Node (app, Jest) and Deno (Edge Funct
 | File | Contents | Ticket |
 |---|---|---|
 | `src/ai-gateway.ts` | AI gateway request, success and error envelopes; route names; error codes (`QUOTA_EXCEEDED` added by TB-23) | [TB-22](https://stratyge.atlassian.net/browse/TB-22), [TB-23](https://stratyge.atlassian.net/browse/TB-23) |
+| `src/delete-account.ts` | Account deletion request (`{ confirm: "DELETE" }`), success (`deleted` / `already_deleted`) and error envelopes | [TB-53](https://stratyge.atlassian.net/browse/TB-53) |

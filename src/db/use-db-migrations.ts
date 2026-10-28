@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { clearUserDb, openUserDb } from '@/db/client';
+import { clearUserDb, deleteUserDb, openUserDb } from '@/db/client';
 
 import { logDbError } from './db-errors';
+import { runPendingWipes } from './pending-wipe';
 import type { TaskBuddyDb } from './types';
 
 export type DbMigrationStatus = 'pending' | 'ready' | 'error';
@@ -34,11 +35,16 @@ export function useDbMigrations(
   useEffect(() => {
     if (userId === null) {
       clearUserDb();
+      // TB-53: wipe a just-deleted account's files now that nothing has them selected.
+      void runPendingWipes(deleteUserDb);
       return;
     }
     let isCancelled = false;
     (async () => {
       try {
+        // TB-53: finish any wipe still owed (failed earlier, or the app was killed) before
+        // opening a DB, so no account ever opens a deleted account's data.
+        await runPendingWipes(deleteUserDb);
         const db = await openUserDb(userId);
         if (isCancelled) return;
         onReadyRef.current?.(db);

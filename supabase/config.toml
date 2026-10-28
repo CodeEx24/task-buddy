@@ -436,3 +436,11 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/ai-gateway/deno.json"
 entrypoint = "./functions/ai-gateway/index.ts"
+
+# TB-53: like the ai-gateway, delete-account verifies the user JWT itself
+# (supabase/functions/delete-account/account-auth.ts), so the platform check is off.
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+import_map = "./functions/delete-account/deno.json"
+entrypoint = "./functions/delete-account/index.ts"
