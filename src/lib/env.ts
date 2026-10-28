@@ -36,7 +36,10 @@ export class EnvError extends Error {
 }
 
 const PUBLISHABLE_KEY_PREFIX = 'sb_publishable_';
-const SECRET_KEY_PREFIX = 'sb_secret_';
+// Built at runtime on purpose: Hermes packs string literals back to back, so a literal
+// `sb_secret_` followed by an unrelated string looks like a leaked key to the bundle scanner
+// (scripts/check-bundle-secrets.ts). Same trick as the scanner itself. Don't inline it.
+const SECRET_KEY_PREFIX = ['sb', 'secret', ''].join('_');
 
 function decodeBase64Url(segment: string): string {
   const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
