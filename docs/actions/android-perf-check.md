@@ -12,12 +12,12 @@ This unblocks: marking TB-27's third acceptance criterion as met, and merging PR
 
 ## Prerequisites
 - An Android phone, charged, about 10 minutes.
-- The preview build download link: `<APK link>` (Claude or the coordinator fills this in once the build is ready).
+- The preview build download link: https://expo.dev/artifacts/eas/-14tnGPVtfS5vHeYm5d_1mhMsh-MI39cxKqajAWi43Y.apk (EAS preview build `41b2c3ec`, expires 2026-11-11).
 - No accounts or passwords are needed.
 
 ## Steps
 1. **Install the app.**
-   1. On the phone, open `<APK link>` in Chrome and tap **Download**.
+   1. On the phone, open https://expo.dev/artifacts/eas/-14tnGPVtfS5vHeYm5d_1mhMsh-MI39cxKqajAWi43Y.apk in Chrome and tap **Download**.
    2. When the download finishes, tap the file (`.apk`). Android may say it doesn't allow installs from this source. Tap **Settings**, turn on **Allow from this source** for Chrome, go back, and tap **Install**.
    3. If you already have the Task Buddy development build installed, Android may ask to update it. Tap **Update**. If it says the app isn't compatible, uninstall the old Task Buddy first (long-press its icon → **Uninstall**), then install again.
 2. **Open Task Buddy** once from the home screen, so it sets itself up.
