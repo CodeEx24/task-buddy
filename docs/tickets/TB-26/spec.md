@@ -27,7 +27,8 @@
 - **Surfaces**
   - Routes (thin): `src/app/(tabs)/inbox.tsx` → `TaskListScreen`; `src/app/task/new.tsx` (new) → `NewTaskModal`; `src/app/task/[id].tsx` → `TaskDetailModal` (moved from `features/navigation` to `features/tasks`). `src/app/_layout.tsx`: add `QueryProvider` and the `task/new` modal screen.
   - Components (`src/features/tasks/components`): `TaskListScreen`, `TaskRow`, `TaskForm`, `NewTaskModal`, `TaskDetailModal`, `UndoSnackbar`.
-  - Hooks (`src/features/tasks/hooks`): `use-task-board.ts` (board query), `use-task.ts` (one task), `use-task-mutations.ts` (create, update, set done, delete, restore; optimistic).
+  - Hooks (`src/features/tasks/hooks`): `use-task-board.ts` (`useTaskBoard`, `useTask`), `use-task-mutations.ts` (create, update incl. complete/un-complete, delete, restore; optimistic), `task-query-keys.ts`.
+  - Optimistic cache helpers (pure): `src/features/tasks/board-cache.ts`.
   - Pure logic: `src/features/tasks/task-sections.ts` (grouping + ordering), `src/features/tasks/task-form.ts` (form schema, form ↔ repo input), `src/features/tasks/priority.ts`, `src/lib/dates.ts` (local-day maths, `YYYY-MM-DD`, labels).
   - UI store: `src/stores/undo-store.ts` (Zustand): the pending undo and its 5 s timer.
   - Shared primitive: `src/components/ui/ChipGroup.tsx` (single-choice radio chips), used for due chips and priority.
@@ -73,3 +74,6 @@ No AI, no network, no new permissions. Task titles are user content: they are ne
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-28 | Added `src/lib/use-now.ts` (clock read once per mount, refreshed every minute) | The React Compiler lint (`react-hooks/purity`) rejects `Date.now()` during render; also keeps "Today/Overdue" labels current while the screen stays open | Worker (no behaviour change) |
+| 2026-10-28 | `useTask` lives in `use-task-board.ts` instead of a separate `use-task.ts` | Same queries module; avoids a one-function file | Worker (no behaviour change) |
+| 2026-10-28 | TB-18 route test "opens the task detail modal for /task/<id>" now expects the not-found message instead of `ID: <id>` | The modal loads the task since TB-26; the test id has no task | Worker |

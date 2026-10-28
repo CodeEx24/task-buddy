@@ -16,26 +16,26 @@ Blocked by TB-21 and TB-18, both merged on `main` (4d42e5e, 8974964).
 - [x] intent.md, spec.md, plan.md.
 
 ### Task 2 — Dependencies and query client
-- [ ] `pnpm add` the four pinned deps (D6).
-- [ ] `src/lib/query-client.ts` (`networkMode: 'always'`, `retry: false`, `staleTime: Infinity`), `src/lib/QueryProvider.tsx`; wire into `src/app/_layout.tsx` inside `DbGate`.
+- [x] `pnpm add` the four pinned deps (D6).
+- [x] `src/lib/query-client.ts` (`networkMode: 'always'`, `retry: false`, `staleTime: Infinity`), `src/lib/QueryProvider.tsx`; wire into `src/app/_layout.tsx` inside `DbGate`.
 - Verify: `pnpm typecheck`, existing route tests.
 
 ### Task 3 — Repository additions
-- [ ] `listCompletedTasks`, `restoreTask` + schemas; tests in `task-repo.test.ts` (ordering, limit, restore of children, not-found, deleted list → Inbox, deleted tag stays unlinked, file DB reopen keeps tasks).
+- [x] `listCompletedTasks`, `restoreTask` + schemas; tests in `task-repo.test.ts` (ordering, limit, restore of children, not-found, deleted list → Inbox, deleted tag stays unlinked, file DB reopen keeps tasks).
 
 ### Task 4 — Pure logic
-- [ ] `src/lib/dates.ts` (+ test): `startOfLocalDay`, `addLocalDays`, `toDateInput`, `parseDateInput`, `formatDueLabel`, `formatCompletedAt`.
-- [ ] `src/features/tasks/priority.ts`, `task-form.ts` (+ test), `task-sections.ts` (+ test).
+- [x] `src/lib/dates.ts` (+ test): `startOfLocalDay`, `addLocalDays`, `toDateInput`, `parseDateInput`, `formatDueLabel`, `formatCompletedAt`.
+- [x] `src/features/tasks/priority.ts`, `task-form.ts` (+ test), `task-sections.ts` (+ test).
 
 ### Task 5 — UI store and primitives
-- [ ] `src/stores/undo-store.ts` (+ test with fake timers): `offerUndo`, `dismissUndo`, 5 s expiry, replacement.
-- [ ] `src/components/ui/ChipGroup.tsx` (+ test): radiogroup/radio roles, checked state, 44 pt targets.
+- [x] `src/stores/undo-store.ts` (+ test with fake timers): `offerUndo`, `dismissUndo`, 5 s expiry, replacement.
+- [x] `src/components/ui/ChipGroup.tsx` (+ test): radiogroup/radio roles, checked state, 44 pt targets.
 
 ### Task 6 — Hooks
-- [ ] `use-task-board.ts`, `use-task.ts`, `use-task-mutations.ts` with optimistic `onMutate`, rollback `onError`, `invalidateQueries` on settle.
+- [x] `use-task-board.ts`, `use-task.ts`, `use-task-mutations.ts` with optimistic `onMutate`, rollback `onError`, `invalidateQueries` on settle.
 
 ### Task 7 — Screens
-- [ ] `TaskForm` (RHF + `zodResolver`), `TaskRow`, `UndoSnackbar`, `TaskListScreen`, `NewTaskModal`, `TaskDetailModal` (moved); routes; component tests + route-level integration tests (create → section, complete → Completed → un-complete, delete → undo, restart).
+- [x] `TaskForm` (RHF + `zodResolver`), `TaskRow`, `UndoSnackbar`, `TaskListScreen`, `NewTaskModal`, `TaskDetailModal` (moved); routes; component tests + route-level integration tests (create → section, complete → Completed → un-complete, delete → undo, restart).
 
 ### Task 8 — Gates, self-review, verification.md
 
