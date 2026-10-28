@@ -1,5 +1,6 @@
 # CI for every PR and every push to main (TB-16).
-# The job name `ci` is the required status check on `main`. Add steps here rather than new workflows.
+# The job name `ci` is the required status check on `main`. Add steps here rather than new workflows;
+# TB-19 adds the `supabase` and `bundle` jobs (also required checks once the owner enables them).
 name: CI
 
 on:
@@ -51,3 +52,82 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/workflow/check-ticket-docs.mjs --branch "$HEAD_REF" --pr
+
+  # TB-19: RLS/SQL tests and generated-type drift against a throwaway local Postgres. No secrets.
+  supabase:
+    name: supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Fixed by supabase/config.toml ([db] port); only reachable inside this runner.
+      LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      # Postgres only (no Auth/Storage/Studio containers); applies supabase/migrations.
+      - name: Start local database
+        run: supabase db start
+
+      - name: RLS and SQL tests (pgTAP)
+        run: supabase test db
+
+      - name: Generate types
+        run: supabase gen types typescript --local --schema public > src/lib/database.types.ts
+
+      - name: Fail on type drift
+        id: drift
+        run: |
+          if ! git diff --exit-code -- src/lib/database.types.ts; then
+            echo "::error file=src/lib/database.types.ts::Generated types differ from the migrations. Download the database-types artifact (or run supabase gen types typescript --local --schema public) and commit it."
+            exit 1
+          fi
+
+      - name: Upload regenerated types
+        if: failure() && steps.drift.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: src/lib/database.types.ts
+
+      # Reversibility: the rollback script must remove everything the migration created.
+      - name: Rollback applies cleanly
+        run: |
+          psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/rollback/20261028120000_profiles_rls_baseline.down.sql
+          gone=$(psql "$LOCAL_DB_URL" -tAc "select to_regclass('public.profiles') is null and not exists (select 1 from pg_trigger where tgname = 'on_auth_user_created') and to_regprocedure('public.handle_new_user()') is null and to_regprocedure('public.set_updated_at()') is null")
+          test "$gone" = "t" || { echo "::error::rollback left objects behind"; exit 1; }
+
+  # TB-19 AC1: no secret or service-role key can reach the app bundle. No secrets: dummy public values.
+  bundle:
+    name: bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Canary: a secret-shaped value in a non-EXPO_PUBLIC_ variable, generated per run (never committed).
+      # Expo must not inline it; the scan below fails if it shows up anywhere in the export.
+      - name: Export Android and iOS bundles
+        env:
+          EXPO_PUBLIC_APP_ENV: development
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_dummy
+        run: |
+          export SUPABASE_SECRET_KEY="sb_secret_ci$(openssl rand -hex 16)"
+          pnpm exec expo export --platform android --platform ios --output-dir dist-bundle-check
+
+      - name: Scan bundles for secrets
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-bundle-secrets.ts dist-bundle-check
