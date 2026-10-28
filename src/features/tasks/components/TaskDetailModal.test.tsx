@@ -25,8 +25,12 @@ import {
   TASK_NOT_FOUND_MESSAGE,
   TaskDetailModal,
 } from './TaskDetailModal';
-import { NOT_SAVED_INVALID_MESSAGE, SAVED_MESSAGE, SAVING_MESSAGE } from './TaskDetailForm';
-import { SAVE_FAILED_MESSAGE } from './TaskForm';
+import {
+  AUTOSAVE_FAILED_MESSAGE,
+  NOT_SAVED_INVALID_MESSAGE,
+  SAVED_MESSAGE,
+  SAVING_MESSAGE,
+} from './TaskDetailForm';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
@@ -173,7 +177,7 @@ describe('TaskDetailModal', () => {
 
     await fireEvent.changeText(await screen.findByLabelText('Notes'), 'will fail');
 
-    expect(await screen.findByText(SAVE_FAILED_MESSAGE)).toBeOnTheScreen();
+    expect(await screen.findByText(AUTOSAVE_FAILED_MESSAGE)).toBeOnTheScreen();
     expect(screen.getByLabelText('Notes')).toHaveDisplayValue('will fail');
     // Not retried in a loop: one attempt for one change.
     await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS * 2));

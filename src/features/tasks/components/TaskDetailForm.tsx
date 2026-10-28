@@ -15,11 +15,11 @@ import {
   type ParsedTaskForm,
   type TaskFormValues,
 } from '../task-form';
-import { SAVE_FAILED_MESSAGE } from './TaskForm';
 import { TaskFormFields } from './TaskFormFields';
 
 export const SAVED_MESSAGE = 'All changes saved';
 export const SAVING_MESSAGE = 'Saving…';
+export const AUTOSAVE_FAILED_MESSAGE = "Couldn't save. Edit again to retry.";
 export const NOT_SAVED_INVALID_MESSAGE = 'Not saved yet: fix the field marked in red.';
 
 export type TaskDetailFormProps = {
@@ -58,7 +58,7 @@ export function TaskDetailForm({ task, ref }: TaskDetailFormProps) {
 
   let status: { text: string; isError: boolean } | null = null;
   if (!isValid) status = { text: NOT_SAVED_INVALID_MESSAGE, isError: true };
-  else if (update.isError) status = { text: SAVE_FAILED_MESSAGE, isError: true };
+  else if (update.isError) status = { text: AUTOSAVE_FAILED_MESSAGE, isError: true };
   else if (pending !== null || update.isPending) status = { text: SAVING_MESSAGE, isError: false };
   else if (update.isSuccess) status = { text: SAVED_MESSAGE, isError: false };
 

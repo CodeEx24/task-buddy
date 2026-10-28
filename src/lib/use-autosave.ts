@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 export const AUTOSAVE_DELAY_MS = 500;
 
 export type Autosave = {
-  /** Saves a pending change now instead of waiting for the delay. Resolves when it is saved. */
+  /** Saves a pending change now instead of waiting for the delay. Resolves when it is settled. */
   flush: () => Promise<void>;
 };
 
@@ -14,6 +14,10 @@ export type Autosave = {
  * is still waiting when the component unmounts (the screen closes) is saved right away, so nothing
  * typed is lost. Values are compared by their JSON, so a new object with the same content does not
  * restart the timer.
+ *
+ * A value whose save failed is never retried on its own: an optimistic update followed by a
+ * rollback makes it pending again, and retrying would loop every `delayMs`. It is attempted again
+ * only after a different value was attempted (the user edited again).
  */
 export function useAutosave<T>(
   pending: T | null,
@@ -21,8 +25,12 @@ export function useAutosave<T>(
   delayMs: number = AUTOSAVE_DELAY_MS,
 ): Autosave {
   const latest = useRef({ pending, save });
-  // A change that was handed to `save` is not pending any more, even before the next render.
+  /** The value being written right now (no duplicate write while it is in flight). */
+  const inFlightKey = useRef<string | null>(null);
+  /** The last value saved; not saved again while it stays pending (cleared once nothing is). */
   const savedKey = useRef<string | null>(null);
+  /** The last value whose save failed; blocked until another value is attempted. */
+  const failedKey = useRef<string | null>(null);
   const key = pending === null ? null : JSON.stringify(pending);
 
   useEffect(() => {
@@ -33,17 +41,27 @@ export function useAutosave<T>(
     const { pending: value, save: run } = latest.current;
     if (value === null) return;
     const valueKey = JSON.stringify(value);
-    if (savedKey.current === valueKey) return;
-    savedKey.current = valueKey;
+    if ([inFlightKey.current, savedKey.current, failedKey.current].includes(valueKey)) return;
+    inFlightKey.current = valueKey;
+    failedKey.current = null;
     try {
       await run(value);
+      // Usually the saved value stopped being pending already (optimistic update). Only remember
+      // it while it is still pending, so editing back to it later saves again.
+      const now = latest.current.pending;
+      if (now !== null && JSON.stringify(now) === valueKey) savedKey.current = valueKey;
     } catch {
-      // `save` reports its own failures; a failed value is retried only once it changes again.
+      // `save` reports its own failure; this value now waits for the next edit.
+      failedKey.current = valueKey;
+    } finally {
+      if (inFlightKey.current === valueKey) inFlightKey.current = null;
     }
   }, []);
 
   useEffect(() => {
     if (key === null) {
+      // Saved and stored. A later identical value is a new change (edited back) and is saved.
+      // The failed-value block is deliberately kept: a rollback makes a failed value pending again.
       savedKey.current = null;
       return;
     }
