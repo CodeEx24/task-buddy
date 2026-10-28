@@ -28,7 +28,7 @@ React Native looks like React for the web, but it draws **real phone UI** (iOS/A
 
 ### Small example (from this repo)
 
-`src/features/home/components/HomeScreen.tsx`:
+`src/features/showcase/components/UiShowcaseScreen.tsx` (simplified):
 
 ```tsx
 <View style={styles.container}>      {/* like <div> that fills the screen and centers */}
@@ -77,7 +77,7 @@ task-buddy/
   - `src/app/(tabs)/today.tsx` → the Today tab. Folders in `( )` group screens **without** adding to the address.
   - `src/app/_layout.tsx` → the frame around every screen (it holds the `<Stack>`).
   - `src/app/+not-found.tsx` → the "404 page".
-- **Rule:** keep these files **thin**. A route file should mostly just show a screen from `src/features/`. For example, `src/app/index.tsx` is one line that re-exports `HomeScreen`.
+- **Rule:** keep these files **thin**. A route file should mostly just show a screen from `src/features/`. For example, `src/app/(tabs)/index.tsx` only renders `TaskListScreen` from `src/features/tasks`.
 
 ### 2.2 `src/features/`: the real work, grouped by feature
 - **Status:** Built for `home/`. Planned for `tasks/`, `capture/`, `ai/`, `plan/`, `buddy/`, `review/`, `notifications/`, `spaces/`, `auth/`, `settings/`, `billing/`.
@@ -166,7 +166,7 @@ Why: if the database ever changes, you fix one repo file instead of 40 screens.
 | `docs/actions/` | Step-by-step guides for things a human must do (e.g. set up the emulator) |
 | `docs/workflow/` | How work moves from Jira to a merged PR |
 
-Tests sit **next to** the code they test, for example `HomeScreen.tsx` and `HomeScreen.test.tsx` in the same folder.
+Tests sit **next to** the code they test, for example `TaskListScreen.tsx` and `TaskListScreen.test.tsx` in the same folder.
 
 ---
 

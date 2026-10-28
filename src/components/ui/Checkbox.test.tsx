@@ -38,4 +38,29 @@ describe('Checkbox', () => {
     await fireEvent.press(checkbox);
     expect(onCheckedChange).not.toHaveBeenCalled();
   });
+
+  it('passes custom accessibility actions through, beside the normal press (TB-27)', async () => {
+    const onCheckedChange = jest.fn();
+    const onAccessibilityAction = jest.fn();
+    await render(
+      <Checkbox
+        label="Done"
+        checked={false}
+        onCheckedChange={onCheckedChange}
+        accessibilityActions={[{ name: 'tomorrow', label: 'Move to tomorrow' }]}
+        onAccessibilityAction={onAccessibilityAction}
+      />,
+    );
+    const checkbox = screen.getByRole('checkbox', { name: 'Done' });
+    expect(checkbox.props.accessibilityActions).toEqual([
+      { name: 'tomorrow', label: 'Move to tomorrow' },
+    ]);
+
+    await fireEvent(checkbox, 'accessibilityAction', { nativeEvent: { actionName: 'tomorrow' } });
+    expect(onAccessibilityAction).toHaveBeenCalledWith(
+      expect.objectContaining({ nativeEvent: { actionName: 'tomorrow' } }),
+    );
+    await fireEvent.press(checkbox);
+    expect(onCheckedChange).toHaveBeenCalledWith(true);
+  });
 });

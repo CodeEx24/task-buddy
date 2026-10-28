@@ -1,5 +1,6 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { AccessibilityInfo } from 'react-native';
 
 import { getDb } from '@/db/client';
 import { addLocalDays, startOfLocalDay } from '@/lib/dates';
@@ -12,7 +13,7 @@ import {
   resetTaskData,
   storedTask,
 } from '../testing/task-test-utils';
-import { NEW_TASK_HREF } from '../task-routes';
+import { NEW_TASK_HREF, NEW_TODAY_TASK_HREF } from '../task-routes';
 import { TaskListScreen } from './TaskListScreen';
 import { UndoSnackbar } from './UndoSnackbar';
 
@@ -22,12 +23,14 @@ jest.mock('expo-router', () => ({
 
 const mockRouter = jest.mocked(router);
 const today = () => startOfLocalDay(Date.now());
+const tomorrow = () => addLocalDays(Date.now(), 1);
 
-/** The list with the snackbar the root layout renders above every screen. */
-function WithUndo() {
+/** Both tabs on one query client, as in the app (both stay mounted), plus the root snackbar. */
+function BothTabs() {
   return (
     <>
-      <TaskListScreen />
+      <TaskListScreen kind="today" />
+      <TaskListScreen kind="inbox" />
       <UndoSnackbar />
     </>
   );
@@ -39,57 +42,82 @@ beforeEach(async () => {
 });
 afterEach(cleanupTaskTests);
 
-const checkboxNames = () =>
-  screen.getAllByRole('checkbox').map((c) => c.props.accessibilityLabel as string);
+const checkboxNames = (screenTestId: string) =>
+  within(screen.getByTestId(screenTestId))
+    .queryAllByRole('checkbox')
+    .map((c) => c.props.accessibilityLabel as string);
 
-describe('TaskListScreen', () => {
-  it('shows the empty state and opens the add form', async () => {
-    await renderWithQuery(<TaskListScreen />);
+/** The panel a swipe uncovers (hidden from screen readers: the actions are on the checkbox). */
+const swipePanel = (action: 'toggle-done' | 'tomorrow', taskId: string) =>
+  screen.queryByTestId(`task-swipe-${action}-${taskId}`, { includeHiddenElements: true });
 
-    expect(await screen.findByTestId('task-list-empty')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Add task' }));
+const swipe = (taskId: string, direction: 'left' | 'right') =>
+  fireEvent.press(screen.getByTestId(`task-swipe-${taskId}-swipe-${direction}`));
+
+describe('Today and Inbox screens (TB-27)', () => {
+  it('Today: the empty state explains the next action; Add task presets today (AC3)', async () => {
+    await renderWithQuery(<TaskListScreen kind="today" />);
+
+    const empty = await screen.findByTestId('today-empty');
+    expect(empty).toHaveTextContent(/Nothing planned/);
+    expect(empty).toHaveTextContent(/Tap Add task to plan one for today/);
+    await fireEvent.press(screen.getByTestId('today-add-task-button'));
+    expect(mockRouter.push).toHaveBeenCalledWith(NEW_TODAY_TASK_HREF);
+  });
+
+  it('Inbox: the empty state explains the next action; Add task has no preset (AC3)', async () => {
+    await renderWithQuery(<TaskListScreen kind="inbox" />);
+
+    const empty = await screen.findByTestId('inbox-empty');
+    expect(empty).toHaveTextContent(/Inbox is clear/);
+    expect(empty).toHaveTextContent(/Tap Add task to note one down/);
+    await fireEvent.press(screen.getByTestId('add-task-button'));
     expect(mockRouter.push).toHaveBeenCalledWith(NEW_TASK_HREF);
   });
 
-  it('lists tasks in Today, Upcoming, No date and Completed sections', async () => {
+  it('Today shows Overdue, Today and Later; Inbox shows undated tasks (AC1)', async () => {
     const db = getDb();
     createTask(db, { title: 'Undated' });
     createTask(db, { title: 'Overdue', dueAt: addLocalDays(today(), -2) });
     createTask(db, { title: 'Next week', dueAt: addLocalDays(today(), 7), priority: 3 });
     createTask(db, { title: 'Due today', dueAt: today(), priority: 2 });
-    const done = createTask(db, { title: 'Done already' });
-    updateTask(db, done.id, { status: 'done' });
-    await renderWithQuery(<TaskListScreen />);
+    const doneDated = createTask(db, { title: 'Done dated', dueAt: today() });
+    updateTask(db, doneDated.id, { status: 'done' });
+    const doneUndated = createTask(db, { title: 'Done undated' });
+    updateTask(db, doneUndated.id, { status: 'done' });
+    await renderWithQuery(<BothTabs />);
 
-    expect(await screen.findByTestId('task-section-today')).toHaveTextContent('Today');
-    expect(screen.getByTestId('task-section-upcoming')).toHaveTextContent('Upcoming');
-    expect(screen.getByTestId('task-section-no-date')).toHaveTextContent('No date');
-    expect(screen.getByTestId('task-section-completed')).toHaveTextContent('Completed');
-    expect(checkboxNames()).toEqual([
+    expect(await screen.findByTestId('today-section-overdue')).toHaveTextContent('Overdue');
+    expect(screen.getByTestId('today-section-today')).toHaveTextContent('Today');
+    expect(screen.getByTestId('today-section-later')).toHaveTextContent('Later');
+    expect(screen.getByTestId('today-section-completed')).toHaveTextContent('Completed');
+    expect(checkboxNames('today-screen')).toEqual([
       'Overdue',
       'Due today',
       'Next week',
-      'Undated',
-      'Done already',
+      'Done dated',
     ]);
     expect(screen.getByText(/^Overdue · /)).toBeOnTheScreen();
     expect(screen.getByText('Today · Medium priority')).toBeOnTheScreen();
-    expect(screen.getByRole('checkbox', { name: 'Done already' })).toBeChecked();
-    expect(screen.getByTestId(`task-meta-${done.id}`)).toHaveTextContent(/^Completed /);
+
+    expect(screen.getByTestId('inbox-section-no-date')).toHaveTextContent('No date');
+    expect(screen.getByTestId('inbox-section-completed')).toBeOnTheScreen();
+    expect(checkboxNames('inbox-screen')).toEqual(['Undated', 'Done undated']);
+    expect(screen.getByRole('checkbox', { name: 'Done undated' })).toBeChecked();
+    expect(screen.getByTestId(`task-meta-${doneUndated.id}`)).toHaveTextContent(/^Completed /);
   });
 
-  it('completing moves a task to Completed with a timestamp; un-completing moves it back (AC2)', async () => {
+  it('swipe right completes a task and swipe right again reopens it (AC2)', async () => {
     const task = createTask(getDb(), { title: 'Pay rent', dueAt: today() });
-    await renderWithQuery(<TaskListScreen />);
+    await renderWithQuery(<TaskListScreen kind="today" />);
+    expect(await screen.findByTestId('today-section-today')).toBeOnTheScreen();
+    expect(swipePanel('toggle-done', task.id)).toHaveTextContent('Complete');
 
-    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Pay rent' }));
+    await swipe(task.id, 'right');
 
-    expect(await screen.findByTestId('task-section-completed')).toBeOnTheScreen();
-    expect(screen.queryByTestId('task-section-today')).toBeNull();
+    expect(await screen.findByTestId('today-section-completed')).toBeOnTheScreen();
+    expect(screen.queryByTestId('today-section-today')).toBeNull();
     expect(screen.getByRole('checkbox', { name: 'Pay rent' })).toBeChecked();
-    expect(screen.getByTestId(`task-meta-${task.id}`)).toHaveTextContent(
-      /^Completed [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} [AP]M$/,
-    );
     await waitFor(() =>
       expect(storedTask(task.id)).toMatchObject({
         status: 'done',
@@ -97,10 +125,138 @@ describe('TaskListScreen', () => {
       }),
     );
 
+    // A done row offers only "Mark as not done": no reschedule panel.
+    expect(swipePanel('toggle-done', task.id)).toHaveTextContent('Mark as not done');
+    expect(swipePanel('tomorrow', task.id)).toBeNull();
+    expect(screen.queryByTestId(`task-swipe-${task.id}-swipe-left`)).toBeNull();
+
+    await swipe(task.id, 'right');
+
+    expect(await screen.findByTestId('today-section-today')).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(storedTask(task.id)).toMatchObject({ status: 'open', completedAt: null }),
+    );
+  });
+
+  it('swipe left moves a task to tomorrow: Today → Later (AC2)', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent', dueAt: addLocalDays(today(), -3) });
+    await renderWithQuery(<TaskListScreen kind="today" />);
+    expect(await screen.findByTestId('today-section-overdue')).toBeOnTheScreen();
+    expect(swipePanel('tomorrow', task.id)).toHaveTextContent('Move to tomorrow');
+
+    await swipe(task.id, 'left');
+
+    expect(await screen.findByTestId('today-section-later')).toBeOnTheScreen();
+    expect(screen.queryByTestId('today-section-overdue')).toBeNull();
+    expect(screen.getByTestId(`task-meta-${task.id}`)).toHaveTextContent('Tomorrow');
+    await waitFor(() => expect(storedTask(task.id)?.dueAt).toBe(tomorrow()));
+    expect(storedTask(task.id)?.status).toBe('open');
+  });
+
+  it('swipe left on an Inbox task plans it for tomorrow: it moves to Today → Later (AC2)', async () => {
+    const task = createTask(getDb(), { title: 'Call mom' });
+    await renderWithQuery(<BothTabs />);
+    expect(await screen.findByTestId('inbox-section-no-date')).toBeOnTheScreen();
+
+    await swipe(task.id, 'left');
+
+    expect(await screen.findByTestId('today-section-later')).toBeOnTheScreen();
+    expect(checkboxNames('today-screen')).toEqual(['Call mom']);
+    expect(screen.getByTestId('inbox-empty')).toBeOnTheScreen();
+    await waitFor(() => expect(storedTask(task.id)?.dueAt).toBe(tomorrow()));
+  });
+
+  describe('accessible alternative to swiping (AC2)', () => {
+    it('hides the swipe panels from assistive tech (the actions live on the checkbox)', async () => {
+      const task = createTask(getDb(), { title: 'Pay rent', dueAt: today() });
+      await renderWithQuery(<TaskListScreen kind="today" />);
+      await screen.findByRole('checkbox', { name: 'Pay rent' });
+
+      for (const action of ['toggle-done', 'tomorrow'] as const) {
+        const panel = swipePanel(action, task.id);
+        expect(panel).toHaveProp('accessibilityElementsHidden', true);
+        expect(panel).toHaveProp('importantForAccessibility', 'no-hide-descendants');
+        // Default (accessibility-aware) queries don't find them either.
+        expect(screen.queryByTestId(`task-swipe-${action}-${task.id}`)).toBeNull();
+      }
+      expect(screen.queryByText('Move to tomorrow')).toBeNull();
+    });
+
+    it('offers the swipe actions as accessibility actions on the row', async () => {
+      const open = createTask(getDb(), { title: 'Open task', dueAt: today() });
+      const done = createTask(getDb(), { title: 'Done task', dueAt: today() });
+      updateTask(getDb(), done.id, { status: 'done' });
+      await renderWithQuery(<TaskListScreen kind="today" />);
+
+      expect(
+        (await screen.findByRole('checkbox', { name: 'Open task' })).props.accessibilityActions,
+      ).toEqual([
+        { name: 'toggle-done', label: 'Complete' },
+        { name: 'tomorrow', label: 'Move to tomorrow' },
+      ]);
+      expect(screen.getByTestId(`task-checkbox-${open.id}`)).toBeOnTheScreen();
+      expect(
+        screen.getByRole('checkbox', { name: 'Done task' }).props.accessibilityActions,
+      ).toEqual([{ name: 'toggle-done', label: 'Mark as not done' }]);
+    });
+
+    it('"Move to tomorrow" reschedules and announces it', async () => {
+      const announce = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibility')
+        .mockImplementation(() => {});
+      const task = createTask(getDb(), { title: 'Pay rent', dueAt: today() });
+      await renderWithQuery(<TaskListScreen kind="today" />);
+
+      await fireEvent(
+        await screen.findByRole('checkbox', { name: 'Pay rent' }),
+        'accessibilityAction',
+        { nativeEvent: { actionName: 'tomorrow' } },
+      );
+
+      expect(await screen.findByTestId('today-section-later')).toBeOnTheScreen();
+      expect(announce).toHaveBeenCalledWith('Pay rent moved to tomorrow');
+      await waitFor(() => expect(storedTask(task.id)?.dueAt).toBe(tomorrow()));
+      announce.mockRestore();
+    });
+
+    it('"Complete" completes and announces it; unknown actions do nothing', async () => {
+      const announce = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibility')
+        .mockImplementation(() => {});
+      const task = createTask(getDb(), { title: 'Pay rent' });
+      await renderWithQuery(<TaskListScreen kind="inbox" />);
+      const checkbox = await screen.findByRole('checkbox', { name: 'Pay rent' });
+
+      await fireEvent(checkbox, 'accessibilityAction', { nativeEvent: { actionName: 'magic' } });
+      expect(announce).not.toHaveBeenCalled();
+      expect(storedTask(task.id)?.status).toBe('open');
+
+      await fireEvent(checkbox, 'accessibilityAction', {
+        nativeEvent: { actionName: 'toggle-done' },
+      });
+
+      expect(await screen.findByTestId('inbox-section-completed')).toBeOnTheScreen();
+      expect(announce).toHaveBeenCalledWith('Pay rent completed');
+      await waitFor(() => expect(storedTask(task.id)?.status).toBe('done'));
+      announce.mockRestore();
+    });
+  });
+
+  it('completing with the checkbox moves a task to Completed with a timestamp; un-completing moves it back (TB-26 AC2)', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent', dueAt: today() });
+    await renderWithQuery(<TaskListScreen kind="today" />);
+
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'Pay rent' }));
+
+    expect(await screen.findByTestId('today-section-completed')).toBeOnTheScreen();
+    expect(screen.getByTestId(`task-meta-${task.id}`)).toHaveTextContent(
+      /^Completed [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} [AP]M$/,
+    );
+    await waitFor(() => expect(storedTask(task.id)?.status).toBe('done'));
+
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Pay rent' }));
 
-    expect(await screen.findByTestId('task-section-today')).toBeOnTheScreen();
-    expect(screen.queryByTestId('task-section-completed')).toBeNull();
+    expect(await screen.findByTestId('today-section-today')).toBeOnTheScreen();
     await waitFor(() =>
       expect(storedTask(task.id)).toMatchObject({ status: 'open', completedAt: null }),
     );
@@ -108,17 +264,30 @@ describe('TaskListScreen', () => {
 
   it('opens a task from its Edit button', async () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
-    await renderWithQuery(<TaskListScreen />);
+    await renderWithQuery(<TaskListScreen kind="inbox" />);
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Edit Pay rent' }));
     expect(mockRouter.push).toHaveBeenCalledWith(`/task/${task.id}`);
   });
 
-  it('Undo restores a deleted task (AC3)', async () => {
+  it('virtualizes a list of 500 tasks: only the first window of rows is rendered (AC3)', async () => {
+    const db = getDb();
+    for (let i = 0; i < 500; i++) {
+      createTask(db, { title: `Task ${i}`, dueAt: addLocalDays(today(), (i % 30) - 10) });
+    }
+    await renderWithQuery(<TaskListScreen kind="today" />);
+
+    expect(await screen.findByTestId('today-section-overdue')).toBeOnTheScreen();
+    const rendered = screen.getAllByTestId(/^task-row-/).length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(100);
+  });
+
+  it('Undo restores a deleted task (TB-26 AC3)', async () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
     softDeleteTask(getDb(), task.id);
     await act(async () => useUndoStore.getState().offerUndo(task.id));
-    await renderWithQuery(<WithUndo />);
+    await renderWithQuery(<BothTabs />);
 
     expect(await screen.findByTestId('undo-snackbar')).toHaveTextContent(/Task deleted/);
     expect(screen.queryByRole('checkbox', { name: 'Pay rent' })).toBeNull();
@@ -130,11 +299,11 @@ describe('TaskListScreen', () => {
     expect(storedTask(task.id)?.deletedAt).toBeNull();
   });
 
-  it('the undo snackbar disappears after 5 seconds and the task stays deleted (AC3)', async () => {
+  it('the undo snackbar disappears after 5 seconds and the task stays deleted (TB-26 AC3)', async () => {
     const task = createTask(getDb(), { title: 'Pay rent' });
     softDeleteTask(getDb(), task.id);
-    await renderWithQuery(<WithUndo />);
-    expect(await screen.findByTestId('task-list-empty')).toBeOnTheScreen();
+    await renderWithQuery(<BothTabs />);
+    expect(await screen.findByTestId('inbox-empty')).toBeOnTheScreen();
 
     jest.useFakeTimers();
     try {
@@ -150,13 +319,13 @@ describe('TaskListScreen', () => {
     expect(storedTask(task.id)?.deletedAt).toEqual(expect.any(Number));
   });
 
-  it('shows saved tasks after a restart (new query client, same DB) (AC1)', async () => {
+  it('shows saved tasks after a restart (new query client, same DB) (TB-26 AC1)', async () => {
     createTask(getDb(), { title: 'Pay rent', dueAt: today(), priority: 3 });
-    const first = await renderWithQuery(<TaskListScreen />);
+    const first = await renderWithQuery(<TaskListScreen kind="today" />);
     expect(await screen.findByRole('checkbox', { name: 'Pay rent' })).toBeOnTheScreen();
     await first.unmount();
 
-    await renderWithQuery(<TaskListScreen />);
+    await renderWithQuery(<TaskListScreen kind="today" />);
     expect(await screen.findByRole('checkbox', { name: 'Pay rent' })).toBeOnTheScreen();
     expect(screen.getByText('Today · High priority')).toBeOnTheScreen();
   });

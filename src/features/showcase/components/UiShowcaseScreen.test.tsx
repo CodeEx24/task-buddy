@@ -4,7 +4,7 @@ import { UiProvider } from '@/components/ui';
 import { colors, themeVars } from '@/theme';
 import { setSystemColorScheme } from '@/theme/testing/mock-appearance';
 
-import { HomeScreen } from './HomeScreen';
+import { UiShowcaseScreen } from './UiShowcaseScreen';
 
 // Restore the real useColorScheme (the RN Jest preset stubs it) on top of a controllable
 // Appearance module, so the test can flip the system theme like the OS does on a device.
@@ -16,26 +16,26 @@ jest.mock(
   () => jest.requireActual('@/theme/testing/mock-appearance').appearanceModule,
 );
 
-async function renderHome() {
+async function renderShowcase() {
   return render(
     <UiProvider>
-      <HomeScreen />
+      <UiShowcaseScreen />
     </UiProvider>,
   );
 }
 
-describe('HomeScreen', () => {
+describe('UiShowcaseScreen', () => {
   afterEach(() => act(() => setSystemColorScheme('light')));
 
-  it('renders the placeholder home route with the app name', async () => {
-    await renderHome();
+  it('renders the showcase with the app name', async () => {
+    await renderShowcase();
 
-    expect(screen.getByTestId('home-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId('ui-showcase-screen')).toBeOnTheScreen();
     expect(screen.getByRole('header', { name: 'Task Buddy' })).toBeOnTheScreen();
   });
 
   it('uses every primitive: Card, Input, Checkbox, Buttons and Sheet', async () => {
-    await renderHome();
+    await renderShowcase();
 
     expect(screen.getByRole('header', { name: 'Try the buddy' })).toBeOnTheScreen();
     expect(screen.getByLabelText('Task name')).toBeOnTheScreen();
@@ -53,7 +53,7 @@ describe('HomeScreen', () => {
   });
 
   it('clears the form with the ghost button', async () => {
-    await renderHome();
+    await renderShowcase();
 
     await fireEvent.changeText(screen.getByLabelText('Task name'), 'Buy milk');
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Mark as done' }));
@@ -66,7 +66,7 @@ describe('HomeScreen', () => {
   // AC1: the system theme changes while the app is open → every primitive re-themes without a
   // reload. Token classes resolve through the theme variables; hex-only props come from useTheme.
   it('switches theme live without remounting, even with the Sheet open', async () => {
-    await renderHome();
+    await renderShowcase();
     await fireEvent.changeText(screen.getByLabelText('Task name'), 'Buy milk');
     await fireEvent.press(screen.getByRole('checkbox', { name: 'Mark as done' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Open sheet' }));
