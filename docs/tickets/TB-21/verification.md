@@ -27,8 +27,8 @@ Same machine and toolchain, 2026-10-27, worktree `tb-21-local-sqlite`, CI order.
 | `pnpm install --frozen-lockfile` | pass | "Already up to date" |
 | `pnpm lint` | pass | 0 problems (after `prettier --write` on `home-route.test.tsx`) |
 | `pnpm typecheck` | pass | `tsc --noEmit` |
-| `pnpm test --ci` | pass | 23 suites, 137 tests (TB-15 + TB-16 + TB-17 + TB-21). First run (cold transform cache after the Babel change) failed 2 route tests on the 5 s timeout (see failures below); fixed. Final cold run `pnpm test --ci --no-cache`: 23/23 suites, 137/137 tests, 79.8 s |
-| `npx expo-doctor` | pass | 20/20 checks |
+| `pnpm test --ci` | pass | 23 suites, 137 tests (TB-15 + TB-16 + TB-17 + TB-21). First run (cold transform cache after the Babel change) failed 2 route tests on the 5 s timeout (see failures below); fixed. Final cold run `pnpm test --ci --no-cache`: 23/23 suites, 137/137 tests, 79.8 s. Re-run on HEAD `bf34706`: 23/23, 137/137 |
+| `npx expo-doctor` | pass, then 19/20 on re-run | First run 20/20. Re-run on HEAD `bf34706` (via `pnpm dlx expo-doctor`): 19/20. The one failure is patch-version drift in packages TB-21 does not own (`expo` 58.0.19 → ~58.0.20, `expo-dev-client` 58.0.15 → ~58.0.16, `expo-router` 58.0.26 → ~58.0.27). New patches were published between the two runs. `main` pins the same versions, so this affects `main` too. TB-21's `expo-sqlite` and `expo-crypto` are not flagged. Not fixed here (stack versions are locked in CLAUDE.md; a separate chore) |
 | `npx expo export --platform android --output-dir <scratchpad>/tb21-export` | pass | One Hermes bundle (5.2 MB). The bundle contains `tasks_status_check`, `tasks_live_status_due_sort_idx`, ``CREATE TABLE `task_tags` `` and `taskbuddy.db` (`grep -c -a` = 1 each), so the `.sql` migrations are inlined by `babel-plugin-inline-import` through Metro |
 | `pnpm exec drizzle-kit check` | pass | "Everything's fine" |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-21/local-sqlite-schema` | pass | `workflow check: ok` |
