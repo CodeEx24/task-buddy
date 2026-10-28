@@ -9,12 +9,12 @@
 Store review (TB-38 beta, TB-64 submission) needs a privacy policy and terms at stable public URLs, a clear statement of what goes to the AI provider, and answers for Apple's privacy "nutrition labels" and Google Play's data-safety form. This ticket writes those documents from what the app really does, publishes them, links them in the app, and drafts the store answers so they match the policy.
 
 ## Acceptance criteria (verbatim from Jira)
-- [ ] Privacy policy and terms are published at stable URLs and linked in Settings and on sign-in
+- [x] Privacy policy and terms are published at stable URLs and linked in Settings and on sign-in
 - [x] The policy states what text/audio/images are sent to an AI provider, retention, and deletion
 - [x] App Store privacy labels and Play data-safety form drafts are prepared
-- [ ] Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated
+- [x] Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated
 
-AC1: published and linked in Settings; the sign-in link waits for the sign-in screen (TB-20, PR #18) to reach `main`. AC4: PR review pending. See [verification.md](verification.md).
+Evidence per criterion in [verification.md](verification.md). Final merge approval and the emulator check are the coordinator's.
 
 ## Published URLs
 | Page | URL |
@@ -45,11 +45,11 @@ No human was available; the coordinator gave the recommended option for each own
 - `legal-site/` (`index.html`, `privacy.html`, `terms.html`, `ai.html`, `styles.css`): plain HTML/CSS, no scripts, fonts, images or trackers; light/dark via `prefers-color-scheme`. Owner placeholders are `<span class="owner-confirm" data-owner-confirm="…">`.
 - `src/features/legal/legal-config.ts`: base URL, page paths, `LEGAL_URLS`, `ACCOUNT_DELETION_URL`, `LEGAL_LAST_UPDATED`, `LEGAL_OPERATOR`, `IS_OPERATOR_CONFIRMED`. Plain constants (public, fixed URLs: no `EXPO_PUBLIC_*` variable).
 - `src/features/legal/components/LegalLinks.tsx`: reusable; three ghost `Button`s (design-system primitive, 44 pt targets, "Opens in your browser" hint). `context="sign-in"` adds the "By continuing you agree…" line. If the browser can't open, it shows the URL instead of failing silently.
-- Settings (current placeholder on `main`): `SettingsScreen` renders `<LegalLinks testID="settings-legal-links" />` as a child of `PlaceholderScreen`. The `children` prop added to `PlaceholderScreen` is byte-identical to TB-20's (PR #18) change, so that file merges cleanly.
+- Settings (current placeholder screen on `main`): `SettingsScreen` renders TB-20's `<SignOutButton />` and then `<LegalLinks testID="settings-legal-links" />` inside `PlaceholderScreen`.
+- Sign-in (TB-20, merged as `522445f`; this branch merged `origin/main`): `SignInScreen` renders `<LegalLinks context="sign-in" testID="sign-in-legal-links" />` below the email form (email step). The `(auth)` route sits outside the signed-in guard; for any signed-out URL the guard shows this screen, so the links are reachable while signed out (`sign-in-legal-links-route.test.tsx`).
 
-### Wiring still needed (after TB-20 / TB-32 merge)
-- **Sign-in (TB-20, `src/features/auth/components/SignInScreen.tsx`):** below the email form, `<LegalLinks context="sign-in" testID="sign-in-legal-links" />` (import from `@/features/legal/components/LegalLinks`), plus a test pressing "Privacy Policy" on the real `/sign-in` route.
-- **Settings shell (TB-32, `src/features/settings/components/SettingsScreen.tsx`):** replace the placeholder wiring with `<LegalLinks testID="settings-legal-links" />` in an "About" / "Legal" section at the bottom of the list; `settings-legal-links-route.test.tsx` then keeps proving it.
+### When TB-32 (PR #19) merges
+Move `<LegalLinks testID="settings-legal-links" />` from the placeholder `SettingsScreen` into the new Settings shell's registry (an "About" / "Legal" section at the bottom); `settings-legal-links-route.test.tsx` keeps proving it. Follow-up, not a blocker for this ticket.
 
 ## API changes
 None.
@@ -58,7 +58,7 @@ None.
 None.
 
 ## Dependencies on other tickets
-Blocked by: none in Jira. Blocks TB-38 (beta builds) and TB-64 (store submission). The sign-in wiring needs TB-20 (PR #18) on `main`; TB-32 (PR #19) replaces the Settings screen.
+Blocked by: none in Jira. Blocks TB-38 (beta builds) and TB-64 (store submission). Builds on TB-20 (merged, `522445f`) for the sign-in screen; TB-32 (PR #19, open) will replace the Settings screen.
 
 ## Known limitations
 - Operator name, country and contact email are placeholders until the owner supplies them (D1). The pages are live with those placeholders.
@@ -69,7 +69,7 @@ Blocked by: none in Jira. Blocks TB-38 (beta builds) and TB-64 (store submission
 Unit + integration tests for the component, the config and the published content; full gates green. Evidence in [verification.md](verification.md).
 
 ## Follow-up tasks
-1. Wire the sign-in link (TB-20) and the Settings-shell link (TB-32) once those PRs merge.
+1. Move the Settings legal links into TB-32's Settings shell registry when PR #19 merges.
 2. AI gateway ticket(s) (`supabase/functions/ai-gateway`): do not store request content, keep only the usage record (time, feature, size, cost); prune `ai_usage_ledger` after 13 months.
 3. TB-53 (account deletion): in-app deletion, then update `#delete-account`.
 4. TB-65 (analytics): opt-in toggle off by default, no task text in events, 13-month retention in PostHog.

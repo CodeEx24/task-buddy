@@ -15,7 +15,7 @@ The Privacy Policy, Terms of Use and AI disclosure are live at https://task-budd
 1. Decide the three values:
    - **Operator name:** your legal name as the individual developer (or a business name if you register one).
    - **Contact email:** the dedicated mailbox above. You must answer privacy and deletion requests sent there within 30 days.
-   - **Country:** where you are based (this is also the governing law in the Terms, section 12).
+   - **Country:** where you are based (this is also the governing law in the Terms, section 12). The Privacy Policy is written with the Philippines as the home regime (section 1 "personal information controller", sections 5 and 10, National Privacy Commission). If you are based elsewhere, tell Claude so those references are reworked.
 2. Tell Claude the three values (or edit them yourself). They live in exactly these places:
    - `src/features/legal/legal-config.ts`: `LEGAL_OPERATOR.name`, `.country`, `.contactEmail`; set `IS_OPERATOR_CONFIRMED = true`.
    - `legal-site/privacy.html`, `terms.html`, `ai.html`, `index.html`: every `<span class="owner-confirm" data-owner-confirm="…">`. Replace the bracketed text and remove the `owner-confirm` class so the yellow marker disappears.
