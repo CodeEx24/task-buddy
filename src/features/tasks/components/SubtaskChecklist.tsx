@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Text, View } from 'react-native';
 
-import { Button, Card, Checkbox, Input } from '@/components/ui';
+import { Button, Card, Checkbox, Input, type ButtonProps } from '@/components/ui';
+import { MIN_TOUCH_TARGET } from '@/theme';
 
 import { useSubtaskMutations, useSubtasks } from '../hooks/use-subtasks';
 import type { Subtask } from '../repo/task-repo';
@@ -11,6 +12,20 @@ import { SAVE_FAILED_MESSAGE } from './TaskForm';
 
 export const SUBTASK_LIMIT_MESSAGE = `This task has the maximum of ${MAX_SUBTASKS_PER_TASK} steps.`;
 export const COMPLETE_OFFER_MESSAGE = 'All steps are done. Complete the task too?';
+
+/** What a screen reader hears after a move (1-based position). */
+export function movedAnnouncement(title: string, position: number, count: number): string {
+  return `Moved ${title} to position ${position} of ${count}`;
+}
+
+/** A small icon-like row button that still has a full touch target in both directions. */
+function RowButton(props: ButtonProps) {
+  return (
+    <View style={{ minWidth: MIN_TOUCH_TARGET }}>
+      <Button variant="ghost" size="sm" {...props} />
+    </View>
+  );
+}
 
 type SubtaskRowProps = {
   subtask: Subtask;
@@ -33,30 +48,24 @@ function SubtaskRow({ subtask, isFirst, isLast, onToggle, onMove, onRemove }: Su
           onCheckedChange={onToggle}
         />
       </View>
-      <Button
+      <RowButton
         testID={`subtask-move-up-${id}`}
         label="↑"
         accessibilityLabel={`Move ${title} up`}
-        variant="ghost"
-        size="sm"
         disabled={isFirst}
         onPress={() => onMove('up')}
       />
-      <Button
+      <RowButton
         testID={`subtask-move-down-${id}`}
         label="↓"
         accessibilityLabel={`Move ${title} down`}
-        variant="ghost"
-        size="sm"
         disabled={isLast}
         onPress={() => onMove('down')}
       />
-      <Button
+      <RowButton
         testID={`subtask-delete-${id}`}
         label="✕"
         accessibilityLabel={`Delete ${title}`}
-        variant="ghost"
-        size="sm"
         onPress={onRemove}
       />
     </View>
@@ -80,7 +89,9 @@ export function SubtaskChecklist({ taskId, isTaskOpen, onCompleteTask }: Subtask
   const { add, setDone, move, remove } = useSubtaskMutations(taskId);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | undefined>();
-  const [isOfferDismissed, setIsOfferDismissed] = useState(false);
+  // "Not now" holds for the checklist as it was: adding or deleting a step (a new count) or
+  // unchecking one brings the offer back once every step is checked again.
+  const [dismissedAtCount, setDismissedAtCount] = useState<number | null>(null);
 
   if (subtasks.isPending) return <ActivityIndicator testID="subtasks-loading" />;
 
@@ -89,6 +100,7 @@ export function SubtaskChecklist({ taskId, isTaskOpen, onCompleteTask }: Subtask
   const isAllDone = list.length > 0 && doneCount === list.length;
   const isAtLimit = list.length >= MAX_SUBTASKS_PER_TASK;
   const hasFailed = [add, setDone, move, remove].some((m) => m.isError);
+  const isOfferDismissed = dismissedAtCount === list.length;
 
   const addDraft = () => {
     const parsed = subtaskTitleSchema.safeParse(draft);
@@ -98,6 +110,7 @@ export function SubtaskChecklist({ taskId, isTaskOpen, onCompleteTask }: Subtask
     }
     setDraftError(undefined);
     setDraft('');
+    setDismissedAtCount(null);
     add.mutate(parsed.data);
   };
 
@@ -120,11 +133,20 @@ export function SubtaskChecklist({ taskId, isTaskOpen, onCompleteTask }: Subtask
           isFirst={index === 0}
           isLast={index === list.length - 1}
           onToggle={(isDone) => {
-            if (!isDone) setIsOfferDismissed(false);
+            if (!isDone) setDismissedAtCount(null);
             setDone.mutate({ id: subtask.id, isDone });
           }}
-          onMove={(direction) => move.mutate({ id: subtask.id, direction })}
-          onRemove={() => remove.mutate(subtask.id)}
+          onMove={(direction) => {
+            move.mutate({ id: subtask.id, direction });
+            const position = index + (direction === 'up' ? 0 : 2);
+            AccessibilityInfo.announceForAccessibility(
+              movedAnnouncement(subtask.title, position, list.length),
+            );
+          }}
+          onRemove={() => {
+            setDismissedAtCount(null);
+            remove.mutate(subtask.id);
+          }}
         />
       ))}
 
@@ -147,7 +169,7 @@ export function SubtaskChecklist({ taskId, isTaskOpen, onCompleteTask }: Subtask
               label="Not now"
               variant="ghost"
               size="sm"
-              onPress={() => setIsOfferDismissed(true)}
+              onPress={() => setDismissedAtCount(list.length)}
             />
           </View>
         </View>

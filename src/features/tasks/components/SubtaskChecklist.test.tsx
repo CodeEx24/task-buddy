@@ -1,10 +1,12 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 
 import { eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
 import { subtasks } from '@/db/schema';
+import { MIN_TOUCH_TARGET } from '@/theme';
 
 import {
   createSubtask,
@@ -112,11 +114,38 @@ describe('SubtaskChecklist (TB-28 AC1)', () => {
     expect(screen.getByRole('button', { name: 'Move one up' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Move three down' })).toBeDisabled();
 
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     await fireEvent.press(screen.getByRole('button', { name: 'Move three up' }));
     expect(shownTitles()).toEqual(['one', 'three', 'two']);
+    expect(announce).toHaveBeenLastCalledWith('Moved three to position 2 of 3');
     await fireEvent.press(screen.getByRole('button', { name: 'Move one down' }));
     expect(shownTitles()).toEqual(['three', 'one', 'two']);
+    expect(announce).toHaveBeenLastCalledWith('Moved one to position 2 of 3');
     await waitFor(() => expect(storedTitles(task.id)).toEqual(['three', 'one', 'two']));
+    announce.mockRestore();
+  });
+
+  it('gives the move and delete buttons a full-width touch target', async () => {
+    const task = createTask(getDb(), { title: 'Pay rent' });
+    const step = createSubtask(getDb(), { taskId: task.id, title: 'one' });
+    mockParams.mockReturnValue({ id: task.id });
+    await renderWithQuery(<TaskDetailModal />);
+    await screen.findByRole('checkbox', { name: 'one' });
+
+    for (const testID of [
+      `subtask-move-up-${step.id}`,
+      `subtask-move-down-${step.id}`,
+      `subtask-delete-${step.id}`,
+    ]) {
+      // The nearest ancestor that sets a min width (the button's own wrapper).
+      let node = screen.getByTestId(testID).parent;
+      let minWidth: unknown;
+      for (let depth = 0; node && depth < 4 && minWidth === undefined; depth += 1) {
+        minWidth = StyleSheet.flatten(node.props.style)?.minWidth;
+        node = node.parent;
+      }
+      expect(minWidth).toBe(MIN_TOUCH_TARGET);
+    }
   });
 
   it('deletes a step (soft delete)', async () => {
@@ -205,6 +234,21 @@ describe('completing the parent when every step is checked (TB-28 AC2)', () => {
 
     await fireEvent.press(screen.getByRole('checkbox', { name: 'step 1' }));
     await fireEvent.press(screen.getByRole('checkbox', { name: 'step 1' }));
+    expect(await screen.findByTestId('subtasks-complete-offer')).toBeOnTheScreen();
+  });
+
+  it('"Not now" is forgotten when a step is added or deleted', async () => {
+    await openWithSteps([true, true]);
+    await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByTestId('subtasks-complete-offer')).toBeNull();
+
+    // Add a step, check it: every step is done again, so the offer is back.
+    await addStep('step 3');
+    await fireEvent.press(await screen.findByRole('checkbox', { name: 'step 3' }));
+    expect(await screen.findByTestId('subtasks-complete-offer')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete step 3' }));
     expect(await screen.findByTestId('subtasks-complete-offer')).toBeOnTheScreen();
   });
 
