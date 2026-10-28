@@ -25,8 +25,11 @@ export function AppTabs() {
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         sceneStyle: { backgroundColor: colors.background },
       }}
-      screenListeners={({ route }) => ({
-        tabPress: () => tabSwitchTimer.markPress(route.name),
+      screenListeners={({ route, navigation }) => ({
+        // Re-tapping the active tab switches nothing, so it starts no measurement.
+        tabPress: () => {
+          if (!navigation.isFocused()) tabSwitchTimer.markPress(route.name);
+        },
       })}
       screenLayout={({ route, navigation, children }) => (
         <TabScene name={route.name} navigation={navigation}>

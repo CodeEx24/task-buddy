@@ -1,4 +1,6 @@
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+// Internal module (exported via `expo-router/build/*`): the URL-to-path step of native linking.
+import { extractExpoPathFromURL } from 'expo-router/build/fork/extractPathFromURL';
 import { BackHandler } from 'react-native';
 
 import { INVALID_TASK_LINK_MESSAGE } from './components/TaskDetailModal';
@@ -49,6 +51,9 @@ describe('AC1: tab navigation', () => {
   it('shows the four tabs with their labels in order', async () => {
     await renderRouter(APP_DIR, { initialUrl: '/' });
 
+    // Tree order of the tab buttons is their on-screen order.
+    const order = screen.getAllByTestId(/^tab-/).map((button) => button.props.testID);
+    expect(order).toEqual(['tab-index', 'tab-inbox', 'tab-buddy', 'tab-settings']);
     for (const tab of APP_TABS) {
       expect(screen.getByTestId(tabButtonTestId(tab.name))).toHaveTextContent(tab.title);
     }
@@ -90,6 +95,29 @@ describe('AC1: tab navigation', () => {
     );
   });
 
+  it('re-tapping the active tab starts no measurement', async () => {
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const pressBack = captureHardwareBack();
+    await renderRouter(APP_DIR, { initialUrl: '/' });
+
+    await fireEvent.press(screen.getByTestId(tabButtonTestId('index')));
+    // Today regains focus when the modal closes; a stale press would be reported then.
+    await fireEvent.press(screen.getByRole('button', { name: 'Open sample task' }));
+    await pressBack();
+    expect(screen).toHavePathname('/');
+    // Let Today's refocus frame run (renderRouter uses fake timers); a stale press would log here.
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+    // Control: a real switch is reported. Today's refocus frame was queued before it.
+    await fireEvent.press(screen.getByTestId(tabButtonTestId('inbox')));
+    await waitFor(() =>
+      expect(log).toHaveBeenCalledWith(expect.stringMatching(/^\[tab-switch\] inbox /)),
+    );
+
+    expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^\[tab-switch\] index /));
+  });
+
   it('mounts every tab up front, so a switch only shows an already-rendered screen', async () => {
     await renderRouter(APP_DIR, { initialUrl: '/' });
 
@@ -101,6 +129,18 @@ describe('AC1: tab navigation', () => {
 });
 
 describe('AC2: task deep link', () => {
+  it('opens the task detail modal for the taskbuddy:// scheme URL', async () => {
+    // On device, expo-router's linking turns the incoming URL into a path with this function.
+    // (`renderRouter` parses `initialUrl` as a web URL, which reads `task` as the host.)
+    const path = extractExpoPathFromURL([], `taskbuddy://task/${TASK_ID}`);
+    expect(path).toBe(`task/${TASK_ID}`);
+
+    await renderRouter(APP_DIR, { initialUrl: `/${path}` });
+
+    expect(screen).toHavePathname(`/task/${TASK_ID}`);
+    expect(screen.getByTestId('task-detail-modal')).toBeVisible();
+  });
+
   it('opens the task detail modal for /task/<id>', async () => {
     await renderRouter(APP_DIR, { initialUrl: `/task/${TASK_ID}` });
 

@@ -5,7 +5,7 @@
  * frame after the target tab gains focus and logs `[tab-switch] <tab> <ms>ms`. The coordinator
  * reads these lines from the Android emulator (production-mode JS bundle) and records p95 in
  * `docs/tickets/TB-18/verification.md`. Only tab route names are logged, never task data.
- * Disabled outside `__DEV__`.
+ * Disabled in release builds unless explicitly opted in (see `isTabTimingEnabled`).
  */
 
 export const TAB_SWITCH_LOG_PREFIX = '[tab-switch]';
@@ -41,9 +41,18 @@ export function createTabSwitchTimer({ now, log, isEnabled }: TabSwitchTimerDeps
   };
 }
 
+/**
+ * On in development, and in a production-mode bundle only when explicitly opted in for the
+ * measurement run: `EXPO_PUBLIC_TAB_TIMING=1 pnpm start --no-dev --minify` (non-secret flag,
+ * inlined at bundle time). Never set for store or OTA builds.
+ */
+export function isTabTimingEnabled(isDev: boolean, flag: string | undefined): boolean {
+  return isDev || flag === '1';
+}
+
 export const tabSwitchTimer = createTabSwitchTimer({
   now: () => performance.now(),
-  // Dev-only measurement output; the timer is disabled in release builds.
+  // Measurement output only; it logs tab route names and elapsed ms, nothing else.
   log: (message) => console.log(message),
-  isEnabled: __DEV__,
+  isEnabled: isTabTimingEnabled(__DEV__, process.env.EXPO_PUBLIC_TAB_TIMING),
 });

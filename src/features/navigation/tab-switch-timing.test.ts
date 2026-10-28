@@ -1,4 +1,8 @@
-import { createTabSwitchTimer, TAB_SWITCH_LOG_PREFIX } from './tab-switch-timing';
+import {
+  createTabSwitchTimer,
+  isTabTimingEnabled,
+  TAB_SWITCH_LOG_PREFIX,
+} from './tab-switch-timing';
 
 function setup(isEnabled = true) {
   let clock = 0;
@@ -54,5 +58,19 @@ describe('createTabSwitchTimer', () => {
 
     expect(timer.reportFocus('inbox')).toBeUndefined();
     expect(log).not.toHaveBeenCalled();
+  });
+});
+
+describe('isTabTimingEnabled', () => {
+  it('is on in development builds', () => {
+    expect(isTabTimingEnabled(true, undefined)).toBe(true);
+  });
+
+  it('is on in a production-mode bundle only with EXPO_PUBLIC_TAB_TIMING=1', () => {
+    expect(isTabTimingEnabled(false, '1')).toBe(true);
+  });
+
+  it.each([undefined, '', '0', 'true'])('is off in release builds when the flag is %p', (flag) => {
+    expect(isTabTimingEnabled(false, flag)).toBe(false);
   });
 });
