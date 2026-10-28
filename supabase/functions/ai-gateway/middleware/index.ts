@@ -3,8 +3,11 @@
 // one line to the array. See ../pipeline.ts for the contract and ../README.md for an example.
 import type { GatewayMiddleware } from '../pipeline.ts';
 
+import { outputValidation } from './output-validation.ts';
+
 export const MIDDLEWARE: readonly GatewayMiddleware[] = [
   // TB-23: per-user rate limit and token quota (request guard, before the provider)
   // TB-25: prompt-injection and input hardening (request guard, after TB-23)
-  // TB-24: output schema validation and repair retry (wraps the provider result)
+  // TB-24: output schema validation and repair retry (wraps the provider result; keep it last)
+  outputValidation,
 ];

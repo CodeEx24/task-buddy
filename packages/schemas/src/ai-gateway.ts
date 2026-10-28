@@ -21,7 +21,10 @@ export const aiUsageSchema = z.object({
 });
 export type AiUsage = z.infer<typeof aiUsageSchema>;
 
-/** 200 body. `output` is the model's raw text; TB-24 adds per-route output schemas and repair. */
+/**
+ * 200 body. `output` is the canonical JSON text of a value that passed the route's schema
+ * (TB-24, `checkAiOutput` in ./ai-output.ts); clients validate it again at their boundary.
+ */
 export const aiGatewaySuccessSchema = z.object({
   requestId: z.string(),
   route: z.enum(AI_ROUTES),
