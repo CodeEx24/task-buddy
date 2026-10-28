@@ -45,7 +45,7 @@ Blocked by US-004 (TB-18 app shell, merged on `main`). Uses TB-17 primitives and
 |---|---|---|
 | AC1 | Account section + email row; preference rows listed and push `/settings/<slug>` (component) | `src/features/settings/components/SettingsScreen.test.tsx` |
 | AC1 | Real routes: Settings tab → Appearance page in the tab stack → Back; unknown page (integration) | `src/features/settings/settings-routes.test.tsx` |
-| AC2 | Apply at once (`Appearance.setColorScheme`), stored in SQLite, restored on cold start, rollback on failure (component + DB) | `src/features/settings/components/AppearanceSettings.test.tsx` |
+| AC2 | Apply at once (`setColorSchemePreference`, spec D14), stored in SQLite, restored on cold start, rollback on failure (component + DB) | `src/features/settings/components/AppearanceSettings.test.tsx` |
 | AC2 | Read/write/reset, validation, corrupt values, unique live key, restart with a DB file (repo) | `src/features/settings/repo/preference-repo.test.ts` |
 | AC2 | Decode/encode safe defaults, registry unique keys (unit) | `src/features/settings/preferences/define-preference.test.ts` |
 | AC3 | Screen renders an injected registry (new section, custom row, page row) without code changes (component) | `SettingsScreen.test.tsx` "renders sections and rows straight from the registry" |
@@ -54,6 +54,6 @@ Blocked by US-004 (TB-18 app shell, merged on `main`). Uses TB-17 primitives and
 E2E (Maestro) is not set up yet; device steps are in verification.md.
 
 ## Risks & rollback
-- **`Appearance.setColorScheme` on device:** on Android it uses `AppCompatDelegate.setDefaultNightMode`; if the activity were recreated the app would reload. Expo's template declares `uiMode` in `configChanges`, so it should not. Detect in the device check (step 3); rollback = remove `<AppearanceSync />` (theme follows the system again, stored value harmless).
+- **(Superseded by spec D14 after the device check.)** **`Appearance.setColorScheme` on device:** on Android it uses `AppCompatDelegate.setDefaultNightMode`; if the activity were recreated the app would reload. Expo's template declares `uiMode` in `configChanges`, so it should not. Detect in the device check (step 3); rollback = remove `<AppearanceSync />` (theme follows the system again, stored value harmless).
 - **Migration:** additive table only; harness proves no data loss. Rollback before release: revert the commit; after release: fix forward.
 - **TB-20 merge:** modify/delete conflict on `features/navigation/components/SettingsScreen.tsx` and an edit to `_layout.tsx`; resolution documented in verification.md.
