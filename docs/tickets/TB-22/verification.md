@@ -1,6 +1,6 @@
 # TB-22 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-22 · PR: opened from this branch (link on the Jira issue) · Branch: `feat/tb-22/ai-gateway-edge-function`
+> Jira: https://stratyge.atlassian.net/browse/TB-22 · PR: https://github.com/CodeEx24/task-buddy/pull/22 · Branch: `feat/tb-22/ai-gateway-edge-function`
 > Record only what was actually run and observed. `node scripts/workflow/check-ticket-docs.mjs --branch <branch> --pr` fails the PR gate while any AC row is `not met`, `partial` or `TBD`.
 
 ## Commands run
@@ -18,6 +18,7 @@ All run locally on 2026-10-28 (Windows 11, Node 24.21, pnpm 10.17.1, Deno 2.9.8,
 | `supabase functions serve ai-gateway --env-file <outside repo>` + `bash scripts/ai-gateway/local-check.sh` | pass | Shared local stack (CLI 2.122.0, Edge Runtime 1.77.8). Final run: 401 ×4 (no token, garbage, anon key, service-role key), 200 ×3, 400, 404, 504 at 20 s. Run 3 times (first build, after timeout hardening, after review fixes), same statuses. Transcript: [local-integration.md](local-integration.md) |
 | `expo export --platform android` with an `ANTHROPIC_API_KEY` canary in the shell, then `node scripts/check-bundle-secrets.ts <dir>` | pass | "29 files scanned, no secrets found"; 0 files contain the canary, `ANTHROPIC` or `ai-gateway` |
 | `node scripts/workflow/check-ticket-docs.mjs --branch feat/tb-22/ai-gateway-edge-function --pr` | pass | "workflow check: ok" |
+| CI on PR #22, run 40726822074 (`12462c1`) | pass | `ci` (lint, typecheck, Jest incl. `edge-functions`, ticket-docs gate) 1m07s; `bundle` (Android + iOS export, scan) 1m49s; `supabase` (pgTAP, type drift, rollback) 2m24s |
 
 ### Pre-existing flaky test (not caused by this change)
 `src/features/tasks/repo/task-repo.test.ts` › "surfaces driver failures as DB_FAILURE without task text" (TB-26) failed in some local full runs: `dbError` came back as `{ name: 'object' }` instead of `{ code: 'SQLITE_CONSTRAINT_TRIGGER' }`. It also fails with only the `app` Jest project selected (2 of 3 runs), whose config is unchanged from `main`, and passes when run alone. So it predates TB-22. It is likely a cross-realm `instanceof` check on the native better-sqlite3 error in `repo-utils.ts` `describeDbError`. Outside this ticket's owned paths; proposed as a follow-up for the coordinator.
@@ -61,6 +62,6 @@ Local integration against real Supabase Auth: see [local-integration.md](local-i
 
 ## Completion
 - [x] All AC met with evidence
-- [ ] Gates green locally and in CI
+- [x] Gates green locally and in CI (run 40726822074)
 - [x] No open Blocking findings (independent review: none)
-- [ ] Jira updated (In Review → Done)
+- [ ] Jira updated (In Review done 2026-10-28; Done after merge)
