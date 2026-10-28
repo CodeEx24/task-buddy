@@ -6,12 +6,13 @@ import { Button } from '@/components/ui';
 import { useDbMigrations } from './use-db-migrations';
 
 /**
- * Renders children only once the local DB is migrated (TB-21 AC1). Blank while migrating;
- * a retryable error screen if the DB can't be opened or migrated.
+ * Renders children only once the signed-in user's local DB is open and migrated (TB-21 AC1,
+ * TB-43: one DB per account). Blank while migrating; a retryable error screen if the DB can't be
+ * opened or migrated. Signed out (`userId` null) it renders children without opening a DB.
  * Must sit inside `UiProvider` (the error screen uses the design-system theme).
  */
-export function DbGate({ children }: { children: ReactNode }) {
-  const { status, retry } = useDbMigrations();
+export function DbGate({ userId, children }: { userId: string | null; children: ReactNode }) {
+  const { status, retry } = useDbMigrations(userId);
 
   if (status === 'pending') {
     return <View className="flex-1 bg-background" testID="db-gate-pending" />;

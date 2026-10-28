@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  ALL_TABLES,
   APP_TABLES,
   appliedMigrationCount,
   listTables,
@@ -20,13 +21,13 @@ describe('local schema (first launch)', () => {
     close();
   });
 
-  it('applies every migration to an empty DB and creates the 5 tables with sync columns', () => {
+  it('applies every migration to an empty DB and creates the 5 app tables with sync columns (+ sync_meta)', () => {
     const { db, close } = openNodeDb();
     expect(listTables(db)).toEqual([]);
 
     migrateNodeDb(db);
 
-    expect(listTables(db)).toEqual([...APP_TABLES].sort());
+    expect(listTables(db)).toEqual(ALL_TABLES);
     expect(appliedMigrationCount(db)).toBe(readJournal().length);
     for (const table of APP_TABLES) {
       const columns = tableColumns(db, table);

@@ -69,6 +69,8 @@ function createTaskUnchecked(db: TaskBuddyDb, input: CreateTaskInput): Task {
       dueAt: data.dueAt ?? null,
       completedAt: null,
       sortOrder: data.sortOrder ?? 0,
+      // Never synced yet: the row is dirty until sync confirms it (TB-43).
+      syncedUpdatedAt: null,
     };
     tx.insert(tasks).values(row).run();
     return row;
@@ -292,6 +294,7 @@ function createSubtaskUnchecked(db: TaskBuddyDb, input: CreateSubtaskInput): Sub
       title: data.title,
       isDone: false,
       sortOrder: data.sortOrder ?? (maxSort === null ? 0 : Math.floor(maxSort) + 1),
+      syncedUpdatedAt: null,
     };
     tx.insert(subtasks).values(row).run();
     return row;
