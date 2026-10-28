@@ -1,10 +1,9 @@
 import { act, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
-import { setColorSchemePreference } from './color-scheme-preference';
 import { appearanceModule, setSystemColorScheme } from './testing/mock-appearance';
 import { colors } from './tokens';
-import { resolveScheme, useTheme } from './use-theme';
+import { resolveScheme, setColorSchemePreference, useTheme } from './use-theme';
 
 // The React Native Jest preset stubs useColorScheme to 'light'; restore the real hook so it
 // subscribes to the controllable Appearance mock, like the OS appearance event on a device.

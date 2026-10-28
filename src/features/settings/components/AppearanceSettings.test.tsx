@@ -73,6 +73,17 @@ describe('Appearance preference (TB-32 AC2)', () => {
     await waitFor(() => expect(readPreference(getDb(), appearanceThemePreference)).toBe('system'));
   });
 
+  it('applies the theme from the tap itself, in the same render as the chip', async () => {
+    // No AppearanceSync here: the chip and the app theme must not wait for its effect.
+    await renderWithQuery(<AppearanceSettings />);
+    await waitFor(() => expect(chip('System')).toBeChecked());
+
+    await fireEvent.press(chip('Dark'));
+
+    expect(appScheme()).toBe('dark');
+    await waitFor(() => expect(chip('Dark')).toBeChecked());
+  });
+
   it('restores the stored choice on a cold start (new query cache)', async () => {
     const first = await renderWithQuery(<AppearancePage />);
     await waitFor(() => expect(chip('System')).toBeChecked());

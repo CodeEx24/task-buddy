@@ -1,9 +1,3 @@
-export {
-  getColorSchemePreference,
-  setColorSchemePreference,
-  useColorSchemePreference,
-  type ColorSchemePreference,
-} from './color-scheme-preference';
 export { contrastRatio } from './contrast';
 export { themeVars } from './theme-vars';
 export {
@@ -16,4 +10,12 @@ export {
   type ColorToken,
   type Palette,
 } from './tokens';
-export { resolveScheme, useTheme, type Theme } from './use-theme';
+export {
+  getColorSchemePreference,
+  resolveScheme,
+  setColorSchemePreference,
+  useColorSchemePreference,
+  useTheme,
+  type ColorSchemePreference,
+  type Theme,
+} from './use-theme';
