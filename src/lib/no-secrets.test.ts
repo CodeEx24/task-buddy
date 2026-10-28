@@ -11,8 +11,13 @@ const FORBIDDEN_NAMES = [
   ['SUPABASE', 'SERVICE', 'ROLE', 'KEY'].join('_'),
   ['SUPABASE', 'SECRET', 'KEY'].join('_'),
   ['SERVICE', 'ROLE', 'KEY'].join('_'),
+  // TB-22: the LLM provider key is an Edge Function secret only.
+  ['ANTHROPIC', 'API', 'KEY'].join('_'),
 ];
 const SECRET_VALUE = new RegExp(`${['sb', 'secret', ''].join('_')}[A-Za-z0-9_-]{8,}`);
+const PROVIDER_KEY_VALUE = new RegExp(`${['sk', 'ant', ''].join('-')}[A-Za-z0-9_-]{8,}`);
+// TB-22: server-only code (supabase/functions) must never be imported into the app.
+const SERVER_IMPORT = /(?:from\s+|require\(\s*|import\(\s*)['"][^'"]*supabase\/functions/;
 const ENV_DOT_READ = /process\.env\.([A-Za-z_][A-Za-z0-9_]*)/g;
 const ENV_DYNAMIC_READ = /process\.env\s*\[|\{[^}]*\}\s*=\s*process\.env\b/;
 
@@ -60,7 +65,13 @@ describe('no secrets in src/', () => {
         (name) => `${file.path}: ${name}`,
       ),
       ...(SECRET_VALUE.test(file.text) ? [`${file.path}: secret-key-shaped value`] : []),
+      ...(PROVIDER_KEY_VALUE.test(file.text) ? [`${file.path}: provider-key-shaped value`] : []),
     ]);
+    expect(offenders).toEqual([]);
+  });
+
+  it('never imports server-only Edge Function code', () => {
+    const offenders = files.filter((file) => SERVER_IMPORT.test(file.text)).map((f) => f.path);
     expect(offenders).toEqual([]);
   });
 });

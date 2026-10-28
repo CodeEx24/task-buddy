@@ -6,6 +6,8 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 
 ## Your to-do list (open actions, in order)
 1. **[Push the database migration to Supabase](supabase-db-push.md)** (TB-19 deploy step). About 5 minutes. It creates the `profiles` table in dev and staging, and TB-20 sign-in needs it.
+2. **[Add the Deno type check for Edge Functions to CI](ci-deno-check.md)** (TB-22, after its PR merges). About 5 minutes: paste one job into `ci.yml`.
+3. **[Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md)** (TB-22). About 10 minutes, once you have an Anthropic API key and before AI features are tried on a device.
 
 Everything else is done.
 
@@ -13,6 +15,8 @@ Everything else is done.
 | Action | Related | Status |
 |---|---|---|
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
+| [Add the Deno type check for Edge Functions to CI](ci-deno-check.md) | TB-22 | Open |
+| [Set the AI provider key and deploy the AI gateway](ai-gateway-deploy.md) | TB-22 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
 | [Make the Supabase and bundle checks required](github-required-checks.md) | TB-19 | Done (2026-10-28, by Claude) |
