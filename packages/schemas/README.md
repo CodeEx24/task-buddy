@@ -6,4 +6,4 @@ Files import only `zod`, so they run under Node (app, Jest) and Deno (Edge Funct
 
 | File | Contents | Ticket |
 |---|---|---|
-| `src/ai-gateway.ts` | AI gateway request, success and error envelopes; route names; error codes | [TB-22](https://stratyge.atlassian.net/browse/TB-22) |
+| `src/ai-gateway.ts` | AI gateway request, success and error envelopes; route names; error codes (`QUOTA_EXCEEDED` added by TB-23) | [TB-22](https://stratyge.atlassian.net/browse/TB-22), [TB-23](https://stratyge.atlassian.net/browse/TB-23) |
