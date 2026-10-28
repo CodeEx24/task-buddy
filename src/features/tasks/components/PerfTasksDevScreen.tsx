@@ -10,8 +10,8 @@ import { taskQueryKeys } from '../hooks/task-query-keys';
 import { PERF_TASK_COUNT, removePerfTasks, seedPerfTasks } from '../repo/perf-seed';
 
 /**
- * Dev-only helper for the TB-27 AC3 scroll check: adds 500 tasks to the app DB (Today and Inbox)
- * or removes them again. The data stays when Metro is restarted in production mode.
+ * Helper for the TB-27 AC3 scroll check (dev and EAS preview builds, `/dev/perf-tasks`): adds 500
+ * tasks to the app DB (Today and Inbox) or removes them again.
  */
 export function PerfTasksDevScreen() {
   const client = useQueryClient();

@@ -58,7 +58,7 @@
 | More than 500 open tasks | First 500 shown (TB-26 board limit; TB-63) |
 
 ## Security, privacy & AI cost
-No AI, no network, no new permissions, no new dependencies. The `due` route param is validated with Zod (only `today`). Announcements contain the task title and are spoken locally by the OS screen reader; nothing is logged. Dev routes render the not-found screen in release builds (`__DEV__`).
+No AI, no network, no new permissions, no new dependencies. The `due` route param is validated with Zod (only `today`). Announcements contain the task title and are spoken locally by the OS screen reader; nothing is logged. Dev routes render the not-found screen in release builds (`__DEV__`), except `/dev/perf-tasks`, which staging (EAS preview) release builds show so AC3 can be measured on a phone; it only adds/removes rows titled "Perf task NNN" in the local DB and fails closed (hidden) when the env is missing or invalid.
 
 ## Decisions
 | # | Decision | Options considered | Choice | Decided by / date |
@@ -80,6 +80,7 @@ No AI, no network, no new permissions, no new dependencies. The `due` route para
 |---|---|---|---|
 | 2026-10-28 | TB-18 AC3 route tests ("closing the modal keeps the screen underneath") assert the same Today host instance before and after the modal, plus a remount control, instead of typed text | Today no longer has the demo text field | Worker |
 | 2026-10-28 | The swipe row is replaced by a Jest stand-in for all tests (`jest-setup.ts`) | The real gesture needs Reanimated's native runtime (`Reanimated?.isSharedValue is not a function` in Jest); a pan gesture can't be driven from Jest anyway | Worker |
+| 2026-10-28 | `/dev/perf-tasks` also shown in release builds whose `EXPO_PUBLIC_APP_ENV` is `staging` (EAS `preview`); hidden in production and when the env is missing/invalid (`canShowPerfTools`). `/dev/ui-showcase` and `/dev/db-benchmark` stay dev-only | Owner proves AC3 on a physical phone with a preview (release) build, which must be able to seed 500 tasks | Owner via coordinator |
 | 2026-10-28 | Per-row cost cut after the emulator perf run (p95 150 ms vs 46 ms native baseline): panels mount on first touch only (no per-panel animated styles), `SectionList` tuning (`LIST_TUNING`), memoised sections / header renderer / module-level `keyExtractor` | Coordinator perf measurement on PR #17 | Coordinator |
 | 2026-10-28 | `ReanimatedSwipeable` replaced by a new `SwipeRow` primitive (`usePanGesture` with `failOffsetY ±12`, `activeOffsetX ±20`) | Device finding on PR #17: a mostly vertical diagonal drag (250 px right, 400 px down) completed a task; `ReanimatedSwipeable` 3.3 only sets `activeOffsetX` and exposes no `failOffsetY` | Coordinator (device finding) |
 | 2026-10-28 | Added dev route `/dev/perf-tasks` | Puts 500 tasks on a device for the AC3 scroll check | Worker |
