@@ -4,7 +4,7 @@
 > Bar: an engineer who has never seen the conversation could implement the change from this plan alone.
 
 ## Branch & worktree
-`feat/tb-32/settings-shell` (Orca worktree `tb-32-settings-shell`, from `origin/main` @ `1a00ccf`) · Owns: `src/features/settings/**`, `src/app/(tabs)/settings/**`, `docs/tickets/TB-32/**`, `drizzle/0002_*` · Shared files (small, additive edits): `src/db/schema.ts`, `src/db/introspect.ts`, `src/db/schema.test.ts`, `src/db/db-benchmark-route.test.tsx`, `drizzle/meta/_journal.json`, `drizzle/migrations.js`, `src/app/_layout.tsx` · Removes: `src/app/(tabs)/settings.tsx`, `src/features/navigation/components/SettingsScreen.tsx` · Must not edit: `eslint.config.js`, `.github/workflows/*`, lint/format configs, `src/theme/*`.
+`feat/tb-32/settings-shell` (Orca worktree `tb-32-settings-shell`, from `origin/main` @ `1a00ccf`) · Owns: `src/features/settings/**`, `src/app/(tabs)/settings/**`, `docs/tickets/TB-32/**`, `drizzle/0002_*` · Shared files (small, additive edits): `src/db/schema.ts`, `src/db/introspect.ts`, `src/db/schema.test.ts`, `src/db/db-benchmark-route.test.tsx`, `drizzle/meta/_journal.json`, `drizzle/migrations.js`, `src/app/_layout.tsx`, `src/db/DbGate.tsx`, `src/db/use-db-migrations.ts`, `src/db/DbGate.test.tsx` · Removes: `src/app/(tabs)/settings.tsx`, `src/features/navigation/components/SettingsScreen.tsx` · Must not edit: `eslint.config.js`, `.github/workflows/*`, lint/format configs, `src/theme/*`.
 
 ## Dependencies
 Blocked by US-004 (TB-18 app shell, merged on `main`). Uses TB-17 primitives and TB-21 local DB (merged). TB-20 (PR #18, open) supplies the session and sign-out button; this ticket leaves a slot for them.
@@ -28,6 +28,13 @@ Blocked by US-004 (TB-18 app shell, merged on `main`). Uses TB-17 primitives and
 - [x] Components: `SettingsScreen`, `SettingsPageRow`, `AccountEmailRow`, `SettingsPageScreen`, `SettingsStack`, `AppearanceSettings`, `AppearanceSync`.
 - [x] Routes `src/app/(tabs)/settings/{_layout,index,[page]}.tsx`; delete the old route and placeholder screen; mount `AppearanceSync` in `src/app/_layout.tsx`.
 - Verify: `SettingsScreen.test.tsx`, `AppearanceSettings.test.tsx`, `settings-routes.test.tsx`, existing `app-shell-routes.test.tsx`.
+
+### Task 3b — PR #19 review fixes
+- [x] `DbGate`/`useDbMigrations` `onReady(db)`; `src/features/settings/apply-stored-appearance.ts`; wired in `src/app/_layout.tsx`.
+- [x] `usePreference`: re-read on error, latest-tap guard.
+- [x] Page rows hold the page object; `registry/pages.test.ts`.
+- [x] Route test and device step for re-pressing the Settings tab.
+- Verify: `apply-stored-appearance.test.tsx`, `DbGate.test.tsx`, `use-preference.test.tsx`, `pages.test.ts`, `settings-routes.test.tsx`.
 
 ### Task 4 — Docs and gates
 - [x] `docs/tickets/TB-32/{intent,spec,plan,verification}.md`.
