@@ -11,12 +11,13 @@
 
 ## Behaviour
 - **Detail screen (`/task/<id>`, AC1).** Top to bottom: a "Task" card with Title, Due date (chips No date / Today / Tomorrow / Next week + "Or type a date" `YYYY-MM-DD`), Priority (None / Low / Medium / High) and **Notes** (multi-line); a save status line; the **Steps** card; the completion time (done tasks); **Mark complete / Mark as not done**; **Delete task**; **Close**. There is no Save button.
-- **Autosave (AC3).** After any change to title, due date, priority or notes, the screen waits 500 ms; every new keystroke restarts the wait. Then, if every field is valid, only the fields that differ from the stored task are written with `updateTask` (optimistic, as in TB-26: board and detail cache update first). The status line shows "Saving…" while a change waits or is written, "All changes saved" after, or "Couldn't save. Please try again." on a DB error (the typed text stays; the same value is not retried in a loop, the next edit retries).
+- **Autosave (AC3).** After any change to title, due date, priority or notes, the screen waits 500 ms; every new keystroke restarts the wait. Then, if every field is valid, only the fields that differ from the stored task are written with `updateTask` (optimistic, as in TB-26: board and detail cache update first). The status line shows "Saving…" while a change waits or is written, "All changes saved" after, or "Couldn't save. Edit again to retry." on a DB error. The typed text stays. A value whose save failed is attempted exactly once: it is not retried on its own, not even on close; the next edit (a different value) is saved normally.
   - Invalid values (blank title, bad date, notes over 10,000 characters) show their error under the field as you type and nothing is saved until fixed; the status line reads "Not saved yet: fix the field marked in red."
   - Closing the screen (Close, Android back, iOS swipe-down) saves a change still waiting. **Delete task** first saves a waiting change, so Undo brings it back too.
+  - A field left invalid (for example an empty title or `2026-02-30`) is **not saved on close**: nothing of the current invalid values is written, and the stored task keeps its last valid values (changes saved earlier stay saved). The status line warns about this before closing ("Not saved yet: fix the field marked in red.").
   - Blank notes (only whitespace) are stored as `NULL`; other notes are stored exactly as typed.
-- **Steps (subtask checklist, AC1).** Shows "N of M done" (or a hint when empty), one row per live step in order: checkbox (label = step title), ↑ (Move up), ↓ (Move down), ✕ (Delete). ↑ is disabled on the first row and ↓ on the last. Below: "New step" field + "Add step" button (the keyboard's done key adds too and keeps the keyboard open). New steps go to the end. A blank step shows "Type a step first". At 100 live steps the add field is replaced by "This task has the maximum of 100 steps." Every change is optimistic and rolled back with "Couldn't save. Please try again." if the write fails. Deleting a step is a soft delete (no undo).
-- **Complete offer (AC2).** When the task is open, has at least one step and every step is checked, the Steps card shows "All steps are done. Complete the task too?" with **Complete task** (completes the parent, like Mark complete) and **Not now** (hides the offer until a step is unchecked and checked again, or the screen is reopened). Also shown when opening a task whose steps are all checked. Never shown for a completed task. Steps never change when the parent is completed or reopened.
+- **Steps (subtask checklist, AC1).** Shows "N of M done" (or a hint when empty), one row per live step in order: checkbox (label = step title), ↑ (Move up), ↓ (Move down), ✕ (Delete). ↑ is disabled on the first row and ↓ on the last. Each of these buttons has a touch target of at least 44 × 44 pt (`MIN_TOUCH_TARGET`). After a move a screen reader announces "Moved <title> to position <n> of <count>". Below: "New step" field + "Add step" button (the keyboard's done key adds too and keeps the keyboard open). New steps go to the end. A blank step shows "Type a step first". At 100 live steps the add field is replaced by "This task has the maximum of 100 steps." Every change is optimistic and rolled back with "Couldn't save. Please try again." if the write fails. Deleting a step is a soft delete (no undo). A step whose task is deleted can't be changed, moved or deleted (repository `NOT_FOUND`).
+- **Complete offer (AC2).** When the task is open, has at least one step and every step is checked, the Steps card shows "All steps are done. Complete the task too?" with **Complete task** (completes the parent, like Mark complete) and **Not now** (hides the offer until a step is unchecked, added or deleted and every step is checked again, or the screen is reopened). Also shown when opening a task whose steps are all checked. Never shown for a completed task. Steps never change when the parent is completed or reopened.
 - **Add form (`/task/new`).** Also has the Notes field (same component), saved with the task on "Save task".
 - **Offline / restart.** Everything is in SQLite; no network.
 
@@ -47,7 +48,9 @@
 | Move first step up / last step down | Buttons disabled; repo no-op |
 | Legacy steps sharing one `sort_order` | First move renumbers 0..n-1 |
 | 100 live steps | Add field hidden; repo rejects with `LIMIT_REACHED` |
-| All steps checked, then "Not now" | Offer hidden until a step is unchecked and re-checked |
+| All steps checked, then "Not now" | Offer hidden until a step is unchecked, added or deleted (and all are checked again) |
+| Close with an invalid field | Invalid values not saved; last valid values kept; status line warned beforehand |
+| Live step of a deleted task (e.g. after sync) | Update / move / delete throw `NOT_FOUND` (Task) |
 | Task already completed with all steps checked | No offer |
 | Delete task, then Undo | Task, notes and its steps come back (TB-26 restore) |
 
@@ -70,4 +73,5 @@ No AI, no network, no new permissions. Notes and step titles are user content: n
 ## Deviations (added during build)
 | Date | Change | Reason | Approved by |
 |---|---|---|---|
+| 2026-10-28 | Review round on draft PR #16: failed-value retry block in `useAutosave`; autosave error text "Couldn't save. Edit again to retry."; "Not now" reset on add/delete; subtask writes require a live parent task; 44 pt min width on ↑ / ↓ / ✕; move announcement | Coordinator review | Coordinator |
 | 2026-10-28 | TB-26 tests that pressed "Save changes" now wait for autosave and press Close (`TaskDetailModal.test.tsx`, `task-crud-routes.test.tsx`) | D1 removes the Save button | Worker |
