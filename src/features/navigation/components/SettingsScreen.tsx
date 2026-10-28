@@ -1,8 +1,12 @@
+import { SignOutButton } from '@/features/auth/components/SignOutButton';
 import { LegalLinks } from '@/features/legal/components/LegalLinks';
 
 import { PlaceholderScreen } from './PlaceholderScreen';
 
-/** Settings tab. Placeholder until TB-32 (Settings screen shell) replaces it; legal links from TB-54. */
+/**
+ * Settings tab. Placeholder until TB-32 (Settings screen shell) replaces it; sign-out from TB-20,
+ * legal links from TB-54.
+ */
 export function SettingsScreen() {
   return (
     <PlaceholderScreen
@@ -10,6 +14,7 @@ export function SettingsScreen() {
       title="Settings"
       note="Your preferences will live here."
     >
+      <SignOutButton />
       <LegalLinks testID="settings-legal-links" />
     </PlaceholderScreen>
   );

@@ -1,0 +1,43 @@
+# TB-20 (https://stratyge.atlassian.net/browse/TB-20) — CI job to add to .github/workflows/ci.yml
+# under `jobs:` (for example after the `supabase` job). Not applied by the agent: the repo's
+# protected-paths-guard blocks agent edits to .github/workflows/*.yml, so the owner (or the
+# coordinator with the owner's OK) pastes it in. Existing job names `ci`, `supabase`, `bundle` stay.
+#
+# Spec D8-A: email OTP sign-in against real local Supabase Auth + Mailpit. The test requests a code,
+# reads it from Mailpit's API, checks the 30 s resend refusal, rejects a wrong code, verifies the
+# right one, checks the profiles row (TB-19 trigger + RLS), refreshes, and signs out.
+# Local stack only; the key read below is the stack's own client-safe key. No secrets.
+
+  auth:
+    name: auth
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      # Postgres + Auth (gotrue) + API gateway (kong) + PostgREST + Mailpit; everything else off.
+      - name: Start local Supabase (Auth + Mailpit)
+        run: supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+      # Only the client-safe key is read from the status output (publishable, else legacy anon).
+      - name: Email OTP integration test
+        run: |
+          read_key() { supabase status -o env | grep -E "^$1=" | head -n 1 | cut -d= -f2- | tr -d '"'; }
+          key="$(read_key PUBLISHABLE_KEY)"
+          [ -n "$key" ] || key="$(read_key ANON_KEY)"
+          test -n "$key" || { echo "::error::no publishable/anon key in supabase status"; exit 1; }
+          SUPABASE_AUTH_IT=1 SUPABASE_AUTH_IT_KEY="$key" pnpm exec jest -c jest.integration.config.js --ci
