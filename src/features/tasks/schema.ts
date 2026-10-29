@@ -67,6 +67,13 @@ export const listCompletedTasksInputSchema = z.object({
 });
 export type ListCompletedTasksInput = z.input<typeof listCompletedTasksInputSchema>;
 
+/** TB-40: tasks with a due time after `after` (epoch ms), for scheduling reminders. */
+export const listUpcomingTimedTasksInputSchema = z.object({
+  after: epochMsSchema,
+  limit: z.number().int().min(1).max(MAX_PAGE_SIZE),
+});
+export type ListUpcomingTimedTasksInput = z.input<typeof listUpcomingTimedTasksInputSchema>;
+
 export const createSubtaskInputSchema = z.object({
   taskId: idSchema,
   title: titleSchema,

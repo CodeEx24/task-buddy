@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/client';
+import { requestReminderReconcile } from '@/features/notifications/reminder-session';
 import { taskQueryKeys } from '@/features/tasks/hooks/task-query-keys';
 
 import { runSyncCycle } from '../engine/sync-engine';
@@ -40,8 +41,12 @@ export function SyncProvider({ userId }: { userId: string }) {
     const scheduler = createSyncScheduler({
       run: async () => {
         const result = await runSyncCycle({ db, remote });
-        // Pulled changes are in SQLite now; refetch so screens show them.
-        if (result.changed > 0) void queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
+        // Pulled changes are in SQLite now; refetch so screens show them, and (TB-40) bring the
+        // reminders in step with due times changed or tasks completed on another device.
+        if (result.changed > 0) {
+          void queryClient.invalidateQueries({ queryKey: taskQueryKeys.all });
+          requestReminderReconcile();
+        }
         return result;
       },
       onPhase: (phase, error) => {
