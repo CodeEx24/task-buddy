@@ -8,7 +8,7 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { syncMeta } from './schema';
+import { lists, preferences, subtasks, syncMeta, tags, tasks, taskTags } from './schema';
 import type { TaskBuddyDb } from './types';
 
 /** The database file every build before TB-43 used. */
@@ -74,4 +74,74 @@ export async function resolveUserDb(
   await opener.migrate(db);
   claimDbOwner(db, id);
   return { name, db };
+}
+
+/**
+ * TB-53: owner marker of a legacy file whose account was deleted. It matches no user id, so
+ * `resolveUserDb` never hands the file to anyone again and every account uses its own file.
+ * (Deleting the legacy file instead would let the next account claim a fresh one and lose
+ * track of its own `taskbuddy-<id>.db`.)
+ */
+export const RETIRED_DB_OWNER = 'retired';
+
+/** Thrown by `wipeUserDb` when a step failed; carries no file names or data. */
+export class LocalWipeError extends Error {
+  readonly failedSteps: number;
+  constructor(failedSteps: number) {
+    super(`local wipe failed (${failedSteps} step(s))`);
+    this.name = 'LocalWipeError';
+    this.failedSteps = failedSteps;
+  }
+}
+
+/**
+ * Empties every table of a database in one transaction (children first) and marks it retired.
+ * Used for the legacy file of a deleted account.
+ */
+export function retireDb(db: TaskBuddyDb): void {
+  db.transaction((tx) => {
+    tx.delete(taskTags).run();
+    tx.delete(subtasks).run();
+    tx.delete(tasks).run();
+    tx.delete(tags).run();
+    tx.delete(lists).run();
+    tx.delete(preferences).run();
+    tx.delete(syncMeta).run();
+    tx.insert(syncMeta).values({ id: OWNER_KEY, value: RETIRED_DB_OWNER }).run();
+  });
+}
+
+/** How a driver opens, compacts and deletes database files (for `wipeUserDb`). */
+export type DbWiper = DbOpener & {
+  /** Rewrites the file so deleted rows leave no trace in free pages or the WAL. */
+  compact: (name: string) => void;
+  /** Closes (if open) and deletes the file. A file that doesn't exist is not an error. */
+  deleteFile: (name: string) => void;
+};
+
+/**
+ * TB-53 (account deletion): removes `userId`'s data from this device. Their own file is deleted;
+ * the legacy file, if they own it, is emptied, compacted and retired. Another account's file is
+ * never touched. Every step is attempted; throws `LocalWipeError` if any failed. Idempotent.
+ * The caller must make sure `userId`'s DB is no longer selected (signed out).
+ */
+export async function wipeUserDb(userId: string, wiper: DbWiper): Promise<void> {
+  const id = normalizeUserId(userId);
+  let failedSteps = 0;
+  try {
+    const legacy = wiper.open(LEGACY_DATABASE_NAME);
+    await wiper.migrate(legacy);
+    if (readDbOwner(legacy) === id) {
+      retireDb(legacy);
+      wiper.compact(LEGACY_DATABASE_NAME);
+    }
+  } catch {
+    failedSteps += 1;
+  }
+  try {
+    wiper.deleteFile(userDatabaseName(id));
+  } catch {
+    failedSteps += 1;
+  }
+  if (failedSteps > 0) throw new LocalWipeError(failedSteps);
 }

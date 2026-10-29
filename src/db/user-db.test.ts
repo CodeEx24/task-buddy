@@ -2,8 +2,23 @@ import { ZodError } from 'zod';
 
 import { createTask, listOpenTasks } from '@/features/tasks/repo/task-repo';
 
-import { clearUserDb, getDb, migrateDb, openUserDb, resetDbForTests } from './node-client';
-import { readDbOwner, userDatabaseName } from './user-db';
+import {
+  clearUserDb,
+  deleteUserDb,
+  getDb,
+  migrateDb,
+  openDbNamesForTests,
+  openUserDb,
+  resetDbForTests,
+} from './node-client';
+import {
+  LEGACY_DATABASE_NAME,
+  LocalWipeError,
+  RETIRED_DB_OWNER,
+  readDbOwner,
+  userDatabaseName,
+  wipeUserDb,
+} from './user-db';
 
 // TB-43 spec D5 (fixes TB-20 D7-A): one local database per account on a shared device.
 const USER_A = '0190f3b2-0000-7000-8000-00000000a001';
@@ -57,5 +72,80 @@ describe('one local database per account', () => {
     const nextUser = await openUserDb(USER_B);
     await late;
     expect(getDb()).toBe(nextUser);
+  });
+});
+
+// TB-53: account deletion wipes the deleted account's local data and nobody else's.
+describe('deleteUserDb', () => {
+  /** What sign-out does before the wipe runs (useDbMigrations with no user). */
+  const signOutLocally = () => clearUserDb();
+
+  it('empties and retires the legacy file the deleted account owned; the next account gets its own file', async () => {
+    const a = await openUserDb(USER_A);
+    createTask(a, { title: "A's task" });
+    signOutLocally();
+
+    await deleteUserDb(USER_A);
+
+    const legacy = getDb(); // nobody selected: the legacy file
+    expect(readDbOwner(legacy)).toBe(RETIRED_DB_OWNER);
+    expect(listOpenTasks(legacy).items).toEqual([]);
+    // Signing in again (same email = a brand-new account) never reopens the retired file.
+    const again = await openUserDb(USER_A);
+    expect(again).not.toBe(legacy);
+    expect(listOpenTasks(again).items).toEqual([]);
+    expect(openDbNamesForTests()).toContain(userDatabaseName(USER_A));
+  });
+
+  it("review fix: deleting the legacy owner keeps another account's own file reachable", async () => {
+    const a = await openUserDb(USER_A); // owns the legacy file
+    createTask(a, { title: "A's task" });
+    const b = await openUserDb(USER_B); // gets taskbuddy-<B>.db
+    createTask(b, { title: "B's unsynced task" });
+    signOutLocally();
+
+    await deleteUserDb(USER_A);
+
+    // B signs in next: their own file (and unsynced task) is still the one they get.
+    expect(listOpenTasks(await openUserDb(USER_B)).items.map((t) => t.title)).toEqual([
+      "B's unsynced task",
+    ]);
+  });
+
+  it("deletes only the deleted account's own file; the legacy owner's data stays", async () => {
+    const a = await openUserDb(USER_A);
+    createTask(a, { title: "A's task" });
+    const b = await openUserDb(USER_B);
+    createTask(b, { title: "B's task" });
+    signOutLocally();
+
+    await deleteUserDb(USER_B);
+
+    expect(openDbNamesForTests()).toEqual([LEGACY_DATABASE_NAME]);
+    expect(listOpenTasks(await openUserDb(USER_A)).items.map((t) => t.title)).toEqual(["A's task"]);
+    expect(listOpenTasks(await openUserDb(USER_B)).items).toEqual([]);
+  });
+
+  it('is idempotent and fine when the account never had a file on this device', async () => {
+    await expect(deleteUserDb(USER_B)).resolves.toBeUndefined();
+    await expect(deleteUserDb(USER_B)).resolves.toBeUndefined();
+    await expect(deleteUserDb('../x')).rejects.toBeInstanceOf(ZodError);
+  });
+
+  it('attempts every step and reports failures without data', async () => {
+    const wiper = {
+      open: () => {
+        throw new Error('legacy unavailable');
+      },
+      migrate: async () => {},
+      compact: () => {},
+      deleteFile: jest.fn(() => {
+        throw new Error('locked');
+      }),
+    };
+    const error = await wipeUserDb(USER_A, wiper).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LocalWipeError);
+    expect((error as LocalWipeError).failedSteps).toBe(2);
+    expect(wiper.deleteFile).toHaveBeenCalledWith(userDatabaseName(USER_A)); // tried despite step 1
   });
 });

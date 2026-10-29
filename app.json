@@ -41,7 +41,8 @@
           "configureAndroidBackup": true,
           "faceIDPermission": false
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
