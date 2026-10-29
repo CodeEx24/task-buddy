@@ -1,6 +1,6 @@
 # TB-40 — Verification
 
-> Jira: https://stratyge.atlassian.net/browse/TB-40 · PR: (draft, link added when opened) · Branch: `feat/tb-40/local-due-reminders`
+> Jira: https://stratyge.atlassian.net/browse/TB-40 · PR: https://github.com/CodeEx24/task-buddy/pull/30 (draft) · Branch: `feat/tb-40/local-due-reminders`
 > Record only what was actually run and observed. Windows 11, Node 24, pnpm 10.17; jest always `--maxWorkers=1` (low memory). No Metro, emulator or EAS build was started by this agent: the on-device check of AC1 needs a new dev build (new native module) and is the coordinator's (steps below).
 
 ## Commands run
