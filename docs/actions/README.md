@@ -12,6 +12,7 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 5. **[Confirm the operator facts on the legal pages](legal-owner-facts.md)** (TB-54). About 15 minutes plus a lawyer review. Gives the live privacy policy and terms your name, contact email and country; needed before the TestFlight / Play beta (TB-38) and store submission (TB-64).
 6. **[Turn on sync in the hosted Supabase projects](supabase-sync-deploy.md)** (TB-43, after its PR merges). About 10 minutes: `db push` to dev and staging, then check the purge job and Realtime publication. Optional CI rollback step to paste.
 7. **[Update the privacy policy for sync before release](privacy-policy-sync.md)** (TB-43). About 15 minutes plus a lawyer review; before any build with sync goes to outside testers.
+8. **[Allow exact alarms for reminders, and know the Play policy](android-exact-alarms.md)** (TB-40). About 2 minutes on the Android test device now (needed to check reminders arrive on time); one answer in the Play Console at the first upload.
 
 Everything else is done.
 
@@ -25,6 +26,7 @@ Everything else is done.
 | [Confirm the operator facts on the legal pages](legal-owner-facts.md) | TB-54 | Open |
 | [Turn on sync in the hosted Supabase projects](supabase-sync-deploy.md) | TB-43 | Open |
 | [Update the privacy policy for sync before release](privacy-policy-sync.md) | TB-43 | Open |
+| [Allow exact alarms for reminders, and know the Play policy](android-exact-alarms.md) | TB-40 | Open |
 | [Create the Supabase projects and set their EAS variables](supabase-projects.md) | TB-19 | Done (2026-10-28) |
 | [Check the task modal's swipe-down on an iPhone](ios-modal-swipe-check.md) | TB-18 | Done (2026-10-28) |
 | [Make the Supabase and bundle checks required](github-required-checks.md) | TB-19 | Done (2026-10-28, by Claude) |

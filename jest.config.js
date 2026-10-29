@@ -19,6 +19,8 @@ const app = {
     '<rootDir>/src/features/auth/testing/jest-setup.ts',
     // TB-43: no network sync in unit/screen tests (SyncProvider stays idle).
     '<rootDir>/src/features/sync/testing/jest-setup.ts',
+    // TB-40: reminders use an in-memory scheduler, never expo-notifications.
+    '<rootDir>/src/features/notifications/testing/jest-setup.ts',
   ],
   // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase
   // CLI (SQL) or the edge-functions project below.

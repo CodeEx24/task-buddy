@@ -65,6 +65,30 @@ describe('NewTaskModal', () => {
     });
   });
 
+  it('saves a due time with the date (TB-40)', async () => {
+    await renderWithQuery(<NewTaskModal />);
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Dentist');
+    await fireEvent.changeText(screen.getByLabelText('Or type a date'), '2031-03-09');
+    await fireEvent.changeText(screen.getByLabelText('Time (optional)'), '14:30');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
+
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(openTasks()[0]?.dueAt).toBe(new Date(2031, 2, 9, 14, 30).getTime());
+  });
+
+  it('refuses a time without a date, and "No date" clears the time (TB-40)', async () => {
+    await renderWithQuery(<NewTaskModal />);
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Dentist');
+    await fireEvent.changeText(screen.getByLabelText('Time (optional)'), '09:00');
+    await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
+    expect(await screen.findByText('Pick a due date for this time')).toBeOnTheScreen();
+    expect(openTasks()).toEqual([]);
+
+    await fireEvent.press(screen.getByRole('radio', { name: 'Today' }));
+    await fireEvent.press(screen.getByRole('radio', { name: 'No date' }));
+    expect(screen.getByLabelText('Time (optional)')).toHaveDisplayValue('');
+  });
+
   it('saves notes typed when adding a task (TB-28)', async () => {
     await renderWithQuery(<NewTaskModal />);
     await fireEvent.changeText(screen.getByLabelText('Title'), 'Dentist');
