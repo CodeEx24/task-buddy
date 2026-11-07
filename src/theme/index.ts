@@ -10,4 +10,12 @@ export {
   type ColorToken,
   type Palette,
 } from './tokens';
-export { resolveScheme, useTheme, type Theme } from './use-theme';
+export {
+  getColorSchemePreference,
+  resolveScheme,
+  setColorSchemePreference,
+  useColorSchemePreference,
+  useTheme,
+  type ColorSchemePreference,
+  type Theme,
+} from './use-theme';

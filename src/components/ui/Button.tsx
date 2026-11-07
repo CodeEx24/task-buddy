@@ -70,8 +70,11 @@ export function Button({
       {loading ? (
         <ActivityIndicator testID="button-spinner" size="small" color={colors[SPINNER[variant]]} />
       ) : null}
+      {/* `grow`: the label fills the button instead of hugging its measured width, so a
+          re-measure that comes out a few pixels short (seen after a theme change, TB-32) can't
+          wrap the last word onto a clipped second line. `shrink` keeps long labels inside. */}
       <Text
-        className={`flex-shrink text-center font-semibold ${LABEL[variant]} ${SIZE[size].label}`}
+        className={`shrink grow text-center font-semibold ${LABEL[variant]} ${SIZE[size].label}`}
       >
         {label}
       </Text>

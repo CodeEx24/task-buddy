@@ -7,3 +7,7 @@
 .env.keys
 .env.local
 .env.*.local
+
+# TB-22: `deno check` writes a lockfile in a newer format than the Edge Runtime's Deno; versions are
+# pinned exactly in each function's deno.json instead.
+functions/**/deno.lock

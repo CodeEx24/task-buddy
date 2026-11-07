@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="index, follow" />
+    <title>AI Disclosure · Task Buddy</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <nav aria-label="Legal pages">
+        <a href="/">Task Buddy legal</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Use</a>
+        <a href="/ai" aria-current="page">AI disclosure</a>
+      </nav>
+
+      <h1>How Task Buddy uses AI</h1>
+      <p class="updated">Last updated: 28 October 2026</p>
+
+      <p>
+        Task Buddy's "buddy" uses Claude, an AI model made by <strong>Anthropic</strong>. This page
+        explains, in plain language, what is sent to Anthropic, when, what happens to it, and what
+        control you have. It is part of our <a href="/privacy#ai">Privacy Policy</a>.
+      </p>
+
+      <h2 id="when">When anything is sent</h2>
+      <p>
+        Only when you use an AI feature, for example turning a sentence, voice note or photo into
+        tasks, breaking a task into steps, asking for a daily plan or review, chatting with the
+        buddy, or receiving an AI check-in you turned on. Using Task Buddy as a normal to-do list
+        sends nothing to Anthropic.
+      </p>
+
+      <h2 id="what">What is sent</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Kind</th>
+              <th scope="col">What is sent</th>
+              <th scope="col">What is not sent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Text</td>
+              <td>
+                What you typed into the AI feature, plus the tasks needed for the request (titles,
+                notes, steps, due dates, priorities of the tasks involved)
+              </td>
+              <td>Your email address or account details</td>
+            </tr>
+            <tr>
+              <td>Voice</td>
+              <td>The text transcript of what you said</td>
+              <td>
+                The audio recording. Speech is turned into text by your phone (on the device where
+                available, otherwise by Apple's or Google's speech service)
+              </td>
+            </tr>
+            <tr>
+              <td>Images</td>
+              <td>The photo you chose for that request</td>
+              <td>Any other photo in your library</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="how">How it gets there</h2>
+      <p>
+        The app never talks to Anthropic directly. Requests go to Task Buddy's own server, which
+        checks that you are signed in, applies fair-use limits, sends the request to Anthropic's API
+        and checks the answer before returning it. Our server does not store the content of your
+        requests; it keeps only a usage record (time, feature, size and cost).
+      </p>
+
+      <h2 id="retention">Retention and training</h2>
+      <ul>
+        <li>
+          Under Anthropic's commercial terms for its API, Anthropic may not use content we send it
+          to train its models.
+        </li>
+        <li>
+          Anthropic's published policy for API customers (checked 28 October 2026) is to delete
+          inputs and outputs automatically within 30 days. Content flagged by its automated safety
+          systems as violating its Usage Policy may be kept for up to 2 years, and data may be kept
+          longer where the law requires.
+        </li>
+        <li>
+          Sources:
+          <a href="https://www.anthropic.com/legal/commercial-terms">Anthropic commercial terms</a>,
+          <a
+            href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data"
+            >Anthropic commercial data retention</a
+          >.
+        </li>
+      </ul>
+
+      <h2 id="control">Your control</h2>
+      <ul>
+        <li>
+          AI never changes your tasks by itself: you see each suggestion and confirm it first.
+        </li>
+        <li>You can use Task Buddy without any AI feature.</li>
+        <li>
+          Avoid putting sensitive information (for example health, financial or ID details) into AI
+          features if you do not want it sent to Anthropic.
+        </li>
+        <li>
+          To delete your account and the data we hold about you, see
+          <a href="/privacy#delete-account">Deleting your account</a>.
+        </li>
+      </ul>
+
+      <h2 id="limits">Limits of AI</h2>
+      <p>
+        AI suggestions can be wrong. Check dates, times and steps before relying on them. Task Buddy
+        is a planning aid, not professional, medical, legal or financial advice.
+      </p>
+
+      <footer>
+        <p>
+          Questions:
+          <span class="owner-confirm" data-owner-confirm="contact-email"
+            >[Privacy contact: to be confirmed by owner]</span
+          >
+        </p>
+        <p><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a></p>
+      </footer>
+    </main>
+  </body>
+</html>

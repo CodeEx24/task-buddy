@@ -36,9 +36,11 @@ export function seedPerfTasks(db: TaskBuddyDb, now: number, count = PERF_TASK_CO
     dueAt: perfDueAt(i, today),
     completedAt: null,
     sortOrder: i,
+    // TB-43: never synced yet, like every new local row.
+    syncedUpdatedAt: null,
   }));
   db.transaction((tx) => {
-    // SQLite caps bound variables per statement; 100 rows × 12 columns stays well under it.
+    // SQLite caps bound variables per statement; 100 rows × 13 columns stays well under it.
     for (let start = 0; start < rows.length; start += 100) {
       tx.insert(tasks)
         .values(rows.slice(start, start + 100))

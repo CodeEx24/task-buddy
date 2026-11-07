@@ -35,6 +35,17 @@ describe('scanText', () => {
     ]);
   });
 
+  it('flags an LLM provider key and its variable name, never echoing the key (TB-22)', () => {
+    const key = `${['sk', 'ant', ''].join('-')}api03-${'Xy9'.repeat(10)}`;
+    expect(scanText('a.js', `k="${key}"`)).toEqual([
+      { file: 'a.js', rule: 'LLM provider key', preview: redact(key) },
+    ]);
+    const name = ['ANTHROPIC', 'API', 'KEY'].join('_');
+    expect(scanText('a.js', `process.env.${name}`)).toEqual([
+      { file: 'a.js', rule: 'server-only key name', preview: name },
+    ]);
+  });
+
   it('flags server-only key variable names', () => {
     const name = ['SUPABASE', 'SECRET', 'KEY'].join('_');
     expect(scanText('a.js', `process.env.${name}`)).toEqual([
