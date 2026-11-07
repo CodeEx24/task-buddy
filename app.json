@@ -43,6 +43,7 @@
           "faceIDPermission": false
         }
       ],
+      "expo-sharing",
       [
         "expo-notifications",
         {

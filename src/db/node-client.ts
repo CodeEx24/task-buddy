@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 
 import * as schema from './schema';
 import type { TaskBuddyDb } from './types';
-import { LEGACY_DATABASE_NAME, resolveUserDb } from './user-db';
+import { LEGACY_DATABASE_NAME, resolveUserDb, wipeUserDb } from './user-db';
 
 export const DATABASE_NAME = LEGACY_DATABASE_NAME;
 export const BENCHMARK_DATABASE_NAME = 'benchmark.db';
@@ -109,6 +109,26 @@ export async function openUserDb(userId: string): Promise<TaskBuddyDb> {
 export function clearUserDb(): void {
   userDbGeneration += 1;
   userDb = undefined;
+}
+
+/** TB-53: same contract as the app client; here a "file" is a named in-memory DB. */
+export async function deleteUserDb(userId: string): Promise<void> {
+  await wipeUserDb(userId, {
+    open: openNamed,
+    migrate: migrateDb,
+    compact: (name) => {
+      openDbs.get(name)?.sqlite.exec('VACUUM');
+    },
+    deleteFile: (name) => {
+      openDbs.get(name)?.close();
+      openDbs.delete(name);
+    },
+  });
+}
+
+/** Test helper: the names of the "files" currently open, like the files present on a device. */
+export function openDbNamesForTests(): string[] {
+  return [...openDbs.keys()];
 }
 
 export async function migrateDb(db: TaskBuddyDb): Promise<void> {

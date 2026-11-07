@@ -2,6 +2,9 @@
 // a later story adds a row by editing this file (or `pages.ts` for a preference page), never the
 // screen. The Account section reuses TB-20's sign-out button (confirm dialog included) as a
 // `custom` row; the Legal section shows TB-54's legal links. TB-43 adds the sync status row.
+// TB-53 adds "Export my data" and "Delete account" (last, after sign-out).
+import { DeleteAccountButton } from '@/features/account/components/DeleteAccountButton';
+import { ExportDataButton } from '@/features/account/components/ExportDataButton';
 import { SignOutButton } from '@/features/auth/components/SignOutButton';
 import { SyncStatus } from '@/features/sync/components/SyncStatus';
 
@@ -17,7 +20,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDefinition[] = [
     rows: [
       { kind: 'custom', id: 'account-email', Component: AccountEmailRow },
       { kind: 'custom', id: 'sync-status', Component: SyncStatus },
+      { kind: 'custom', id: 'export-data', Component: ExportDataButton },
       { kind: 'custom', id: 'sign-out', Component: SignOutButton },
+      { kind: 'custom', id: 'delete-account', Component: DeleteAccountButton },
     ],
   },
   {
