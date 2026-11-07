@@ -18,7 +18,7 @@ const APP_DIR = './src/app';
 const TASK_ID = '0190f3b2-7c1a-7d4e-9b2f-3a6c8e1d5f42';
 
 const SCREEN_TEST_IDS: Record<(typeof APP_TABS)[number]['name'], string> = {
-  index: 'home-screen',
+  index: 'today-screen',
   inbox: 'inbox-screen',
   buddy: 'buddy-screen',
   settings: 'settings-screen',
@@ -73,7 +73,7 @@ describe('AC1: tab navigation', () => {
 
       expect(screen).toHavePathname(tab.href);
       expect(screen.getByTestId(target)).toBeVisible();
-      expect(screen.getByTestId('home-screen', { includeHiddenElements: true })).not.toBeVisible();
+      expect(screen.getByTestId('today-screen', { includeHiddenElements: true })).not.toBeVisible();
       expect(screen.getByTestId(tabButtonTestId(tab.name))).toBeSelected();
     },
   );
@@ -84,7 +84,7 @@ describe('AC1: tab navigation', () => {
     await fireEvent.press(screen.getByTestId(tabButtonTestId('index')));
 
     expect(screen).toHavePathname('/');
-    expect(screen.getByTestId('home-screen')).toBeVisible();
+    expect(screen.getByTestId('today-screen')).toBeVisible();
   });
 
   it('logs the dev-only tab-switch time for the pressed tab (AC1 measurement hook)', async () => {
@@ -105,7 +105,7 @@ describe('AC1: tab navigation', () => {
 
     await fireEvent.press(screen.getByTestId(tabButtonTestId('index')));
     // Today regains focus when the modal closes; a stale press would be reported then.
-    await fireEvent.press(screen.getByRole('button', { name: 'Add a task' }));
+    await fireEvent.press(screen.getByTestId('today-add-task-button'));
     await pressBack();
     expect(screen).toHavePathname('/');
     // Let Today's refocus frame run (renderRouter uses fake timers); a stale press would log here.
@@ -161,7 +161,7 @@ describe('AC2: task deep link', () => {
     await pressBack();
 
     expect(screen).toHavePathname('/');
-    expect(screen.getByTestId('home-screen')).toBeVisible();
+    expect(screen.getByTestId('today-screen')).toBeVisible();
   });
 
   it('shows an error instead of a task for a malformed id', async () => {
@@ -174,33 +174,46 @@ describe('AC2: task deep link', () => {
 });
 
 describe('AC3: closing the modal keeps the screen underneath', () => {
-  // TB-26: the Today demo opens the real add-task modal.
-  async function typeOnTodayThenOpenAddTask() {
-    await fireEvent.changeText(screen.getByLabelText('Task name'), 'Buy milk');
-    await fireEvent.press(screen.getByTestId('home-add-task-button'));
+  // TB-27: Today is the task list. "Kept" = the same mounted screen comes back (not a remount),
+  // shown by the identical host instance before and after the modal.
+  async function openAddTaskFromToday() {
+    const today = await screen.findByTestId('today-screen');
+    await fireEvent.press(screen.getByTestId('today-add-task-button'));
     expect(screen).toHavePathname('/task/new');
     expect(await screen.findByTestId('new-task-modal')).toBeVisible();
+    return today;
   }
 
-  it('the Android back key closes the modal and keeps typed text on Today', async () => {
+  it('the Android back key closes the modal and keeps the Today screen mounted', async () => {
     const pressBack = captureHardwareBack();
     await renderRouter(APP_DIR, { initialUrl: '/' });
-    await typeOnTodayThenOpenAddTask();
+    const todayBefore = await openAddTaskFromToday();
 
     await pressBack();
 
     expect(screen).toHavePathname('/');
     expect(screen.queryByTestId('new-task-modal')).toBeNull();
-    expect(screen.getByLabelText('Task name')).toHaveDisplayValue('Buy milk');
+    expect(screen.getByTestId('today-screen')).toBe(todayBefore);
+    expect(screen.getByTestId('today-screen')).toBeVisible();
   });
 
-  it('the Cancel button closes the modal and keeps typed text on Today', async () => {
+  it('the Cancel button closes the modal and keeps the Today screen mounted', async () => {
     await renderRouter(APP_DIR, { initialUrl: '/' });
-    await typeOnTodayThenOpenAddTask();
+    const todayBefore = await openAddTaskFromToday();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen).toHavePathname('/');
-    expect(screen.getByLabelText('Task name')).toHaveDisplayValue('Buy milk');
+    expect(screen.getByTestId('today-screen')).toBe(todayBefore);
+  });
+
+  it('the identity check catches a remount (control)', async () => {
+    const first = await renderRouter(APP_DIR, { initialUrl: '/' });
+    const todayBefore = await screen.findByTestId('today-screen');
+    await first.unmount();
+
+    await renderRouter(APP_DIR, { initialUrl: '/' });
+
+    expect(await screen.findByTestId('today-screen')).not.toBe(todayBefore);
   });
 });

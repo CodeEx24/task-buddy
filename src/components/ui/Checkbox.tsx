@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, type PressableProps } from 'react-native';
 
 import { MIN_TOUCH_TARGET } from '@/theme';
 
@@ -11,6 +11,9 @@ export type CheckboxProps = {
   disabled?: boolean;
   className?: string;
   testID?: string;
+  /** Extra screen-reader actions (e.g. a list row's swipe actions), beside the default tap. */
+  accessibilityActions?: PressableProps['accessibilityActions'];
+  onAccessibilityAction?: PressableProps['onAccessibilityAction'];
 };
 
 export function Checkbox({
@@ -20,6 +23,8 @@ export function Checkbox({
   disabled = false,
   className = '',
   testID,
+  accessibilityActions,
+  onAccessibilityAction,
 }: CheckboxProps) {
   return (
     <Pressable
@@ -27,6 +32,8 @@ export function Checkbox({
       accessibilityRole="checkbox"
       accessibilityLabel={label}
       accessibilityState={{ checked, disabled }}
+      accessibilityActions={accessibilityActions}
+      onAccessibilityAction={onAccessibilityAction}
       disabled={disabled}
       onPress={() => onCheckedChange(!checked)}
       style={{ minHeight: MIN_TOUCH_TARGET }}
