@@ -1,4 +1,4 @@
-import { EnvError, parseEnv, type RawEnv } from './env';
+import { EnvError, parseCrashReportingEnv, parseEnv, type RawEnv } from './env';
 
 // Fixtures are assembled at runtime so no secret-shaped literal sits in the repo.
 const SECRET_PREFIX = ['sb', 'secret', ''].join('_');
@@ -139,5 +139,43 @@ describe('getEnv', () => {
     delete process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     const { getEnv, EnvError: FreshEnvError } = jest.requireActual<typeof import('./env')>('./env');
     expect(() => getEnv()).toThrow(FreshEnvError);
+  });
+});
+
+describe('parseCrashReportingEnv (TB-37)', () => {
+  const DSN = `https://${'0123456789abcdef'.repeat(2)}@o4507.ingest.us.sentry.io/4508123`;
+
+  it('accepts a Sentry DSN and a known app env', () => {
+    expect(
+      parseCrashReportingEnv({ EXPO_PUBLIC_APP_ENV: 'staging', EXPO_PUBLIC_SENTRY_DSN: DSN }),
+    ).toEqual({ appEnv: 'staging', sentryDsn: DSN });
+  });
+
+  it('trims surrounding whitespace from a pasted DSN', () => {
+    expect(parseCrashReportingEnv({ EXPO_PUBLIC_SENTRY_DSN: ` ${DSN}\n` }).sentryDsn).toBe(DSN);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['not a URL', 'sentry'],
+    ['http, not https', DSN.replace('https:', 'http:')],
+    ['no public key', 'https://o4507.ingest.sentry.io/4508123'],
+    ['with a password part', DSN.replace('@', ':pw@')],
+    ['no project id', DSN.replace(/\/\d+$/, '/')],
+    ['an auth token', `${['sntry', 's'].join('')}_${'abc'.repeat(10)}`],
+  ])('disables reporting (no throw) when the DSN is %s', (_name, value) => {
+    expect(parseCrashReportingEnv({ EXPO_PUBLIC_SENTRY_DSN: value }).sentryDsn).toBeUndefined();
+  });
+
+  it('never throws on a bad app env (crash reporting must not crash the app)', () => {
+    expect(parseCrashReportingEnv({ EXPO_PUBLIC_APP_ENV: 'prod' })).toEqual({
+      appEnv: undefined,
+      sentryDsn: undefined,
+    });
+  });
+
+  it('does not need the Supabase variables', () => {
+    expect(parseCrashReportingEnv({ EXPO_PUBLIC_SENTRY_DSN: DSN }).sentryDsn).toBe(DSN);
   });
 });

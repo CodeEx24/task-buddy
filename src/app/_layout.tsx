@@ -12,8 +12,12 @@ import { applyStoredAppearance } from '@/features/settings/apply-stored-appearan
 import { AppearanceSync } from '@/features/settings/components/AppearanceSync';
 import { SyncProvider } from '@/features/sync/components/SyncProvider';
 import { UndoSnackbar } from '@/features/tasks/components/UndoSnackbar';
+import { initCrashReporting, wrapRoot } from '@/lib/crash-reporting';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { useTheme } from '@/theme';
+
+// TB-37: before any render, so start-up crashes are reported. No-op without a Sentry DSN.
+initCrashReporting();
 
 // A deep link straight to a modal (`taskbuddy://task/<id>`) still loads the tabs underneath (TB-18).
 export const unstable_settings = { anchor: '(tabs)' };
@@ -43,6 +47,7 @@ function RootNavigator() {
           <Stack.Screen name="task/new" options={{ presentation: 'modal' }} />
           <Stack.Screen name="task/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="dev/db-benchmark" />
+          <Stack.Screen name="dev/crash-test" />
         </Stack.Protected>
         <Stack.Protected guard={!isSignedIn} redirectTo="/">
           <Stack.Screen name="(auth)" />
@@ -57,7 +62,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   // TB-32: status-bar icons follow the app theme (an in-app Dark on a light device included).
   const { scheme } = useTheme();
   return (
@@ -72,3 +77,5 @@ export default function RootLayout() {
     </UiProvider>
   );
 }
+
+export default wrapRoot(RootLayout);

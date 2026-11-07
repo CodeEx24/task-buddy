@@ -10,6 +10,8 @@ const app = {
     '^@/(.*)$': '<rootDir>/src/$1',
     // NativeWind's global.css is compiled by Metro; Jest only needs the import to resolve (TB-17).
     '\\.css$': '<rootDir>/src/components/ui/testing/css-stub.ts',
+    // TB-37: the Sentry SDK is native + ESM; tests use a stub (the app only starts it with a DSN).
+    '^@sentry/react-native$': '<rootDir>/src/lib/testing/sentry-stub.ts',
   },
   // Gesture-handler and bottom-sheet mocks for the design system primitives (TB-17).
   // TB-20: the in-memory auth fake (starts signed in) in place of supabase-js auth.

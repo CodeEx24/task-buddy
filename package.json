@@ -19,6 +19,7 @@
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@hookform/resolvers": "5.9.1",
+    "@sentry/react-native": "~8.28.0",
     "@supabase/supabase-js": "2.118.0",
     "@tanstack/react-query": "5.104.2",
     "drizzle-orm": "0.45.4",
