@@ -23,7 +23,7 @@ afterEach(() => {
 
 function expectSignInOnly() {
   expect(screen.getByTestId('sign-in-screen')).toBeOnTheScreen();
-  for (const id of ['home-screen', 'inbox-screen', 'settings-screen', 'task-detail-modal']) {
+  for (const id of ['today-screen', 'inbox-screen', 'settings-screen', 'task-detail-modal']) {
     expect(screen.queryByTestId(id)).toBeNull();
   }
 }
@@ -58,11 +58,11 @@ describe('route guard: signed out (TB-20, spec D2-A)', () => {
       await renderRouter(APP_DIR, { initialUrl: '/' });
       expect(screen.getByTestId('session-gate-pending')).toBeOnTheScreen();
       expect(screen.queryByTestId('sign-in-screen')).toBeNull();
-      expect(screen.queryByTestId('home-screen')).toBeNull();
+      expect(screen.queryByTestId('today-screen')).toBeNull();
 
       await act(() => fake.control.releaseInitialSession());
 
-      expect(await screen.findByTestId('home-screen')).toBeOnTheScreen();
+      expect(await screen.findByTestId('today-screen')).toBeOnTheScreen();
       expect(screen.queryByTestId('sign-in-screen')).toBeNull();
     },
     ROUTE_TEST_TIMEOUT_MS,
@@ -93,10 +93,10 @@ describe('email code sign-in (TB-20 AC1, AC2)', () => {
       await fireEvent.changeText(screen.getByTestId('sign-in-code'), '000000');
       expect(await screen.findByText(SIGN_IN_ERRORS.invalidCode)).toBeOnTheScreen();
       expect(screen.getByTestId('sign-in-code')).toHaveDisplayValue('000000');
-      expect(screen.queryByTestId('home-screen')).toBeNull();
+      expect(screen.queryByTestId('today-screen')).toBeNull();
 
       await fireEvent.changeText(screen.getByTestId('sign-in-code'), FAKE_VALID_CODE);
-      expect(await screen.findByTestId('home-screen')).toBeOnTheScreen();
+      expect(await screen.findByTestId('today-screen')).toBeOnTheScreen();
       expect(screen).toHavePathname('/');
       expect(screen.queryByTestId('sign-in-screen')).toBeNull();
       expect(fake.mocks.verifyOtp).toHaveBeenLastCalledWith({
@@ -118,7 +118,7 @@ describe('email code sign-in (TB-20 AC1, AC2)', () => {
       await screen.findByTestId('sign-in-code-step');
 
       await fireEvent.changeText(screen.getByTestId('sign-in-code'), '123 456');
-      expect(await screen.findByTestId('home-screen')).toBeOnTheScreen();
+      expect(await screen.findByTestId('today-screen')).toBeOnTheScreen();
       expect(fake.mocks.verifyOtp).toHaveBeenCalledTimes(1);
     },
     ROUTE_TEST_TIMEOUT_MS,
@@ -132,7 +132,7 @@ describe('signed in (TB-20 AC1, AC3)', () => {
     'a stored session opens Today directly, and sign-in is not reachable',
     async () => {
       await renderRouter(APP_DIR, { initialUrl: '/sign-in' });
-      expect(await screen.findByTestId('home-screen')).toBeOnTheScreen();
+      expect(await screen.findByTestId('today-screen')).toBeOnTheScreen();
       expect(screen.queryByTestId('sign-in-screen')).toBeNull();
     },
     ROUTE_TEST_TIMEOUT_MS,
