@@ -3,6 +3,7 @@ import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from 'drizzle-or
 
 import { lists, subtasks, tags, tasks, taskTags, type SubtaskRow, type TaskRow } from '@/db/schema';
 import type { TaskBuddyDb } from '@/db/types';
+import { hasTimeOfDay } from '@/lib/dates';
 import { newId } from '@/lib/ids';
 
 import {
@@ -13,12 +14,14 @@ import {
   subtaskMoveDirectionSchema,
   listCompletedTasksInputSchema,
   listOpenTasksInputSchema,
+  listUpcomingTimedTasksInputSchema,
   updateSubtaskInputSchema,
   updateTaskInputSchema,
   type CreateSubtaskInput,
   type CreateTaskInput,
   type ListCompletedTasksInput,
   type ListOpenTasksInput,
+  type ListUpcomingTimedTasksInput,
   type SubtaskMoveDirection,
   type TaskCursor,
   type UpdateSubtaskInput,
@@ -234,6 +237,44 @@ function listOpenTasksUnchecked(db: TaskBuddyDb, input: ListOpenTasksInput = {})
   };
 }
 
+/** Rows read per step while skipping date-only tasks in `listUpcomingTimedTasks`. */
+const UPCOMING_SCAN_PAGE = 200;
+
+/**
+ * TB-40: the live open tasks with a due *time* (not date-only, see `hasTimeOfDay`) due strictly
+ * after `after`, soonest first (then by id), at most `limit`. These are the tasks that get a
+ * reminder. Date-only tasks sit on local midnight, which SQL can't tell apart without the device
+ * time zone, so they are skipped here while reading `tasks_live_status_due_sort_idx` in pages.
+ */
+function listUpcomingTimedTasksUnchecked(
+  db: TaskBuddyDb,
+  input: ListUpcomingTimedTasksInput,
+): Task[] {
+  const { after, limit } = listUpcomingTimedTasksInputSchema.parse(input);
+  const found: Task[] = [];
+  let cursor: { dueAt: number; id: string } | null = null;
+  while (found.length < limit) {
+    const keyset: SQL = cursor
+      ? sql`(${tasks.dueAt}, ${tasks.id}) > (${cursor.dueAt}, ${cursor.id})`
+      : sql`${tasks.dueAt} > ${after}`;
+    const page = db
+      .select()
+      .from(tasks)
+      .where(and(isNull(tasks.deletedAt), eq(tasks.status, 'open'), isNotNull(tasks.dueAt), keyset))
+      .orderBy(asc(tasks.dueAt), asc(tasks.id))
+      .limit(UPCOMING_SCAN_PAGE)
+      .all();
+    for (const task of page) {
+      if (task.dueAt !== null && hasTimeOfDay(task.dueAt)) found.push(task);
+      if (found.length === limit) break;
+    }
+    const last = page[page.length - 1];
+    if (page.length < UPCOMING_SCAN_PAGE || !last || last.dueAt === null) break;
+    cursor = { dueAt: last.dueAt, id: last.id };
+  }
+  return found;
+}
+
 // --- Subtasks ---
 
 /**
@@ -376,6 +417,7 @@ export const softDeleteTask = guardDb(softDeleteTaskUnchecked);
 export const restoreTask = guardDb(restoreTaskUnchecked);
 export const listOpenTasks = guardDb(listOpenTasksUnchecked);
 export const listCompletedTasks = guardDb(listCompletedTasksUnchecked);
+export const listUpcomingTimedTasks = guardDb(listUpcomingTimedTasksUnchecked);
 export const createSubtask = guardDb(createSubtaskUnchecked);
 export const updateSubtask = guardDb(updateSubtaskUnchecked);
 export const softDeleteSubtask = guardDb(softDeleteSubtaskUnchecked);

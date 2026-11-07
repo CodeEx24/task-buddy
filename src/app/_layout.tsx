@@ -8,6 +8,7 @@ import { UiProvider } from '@/components/ui';
 import { DbGate } from '@/db/DbGate';
 import { QueryCacheReset } from '@/features/auth/components/QueryCacheReset';
 import { SessionProvider, useSession } from '@/features/auth/session/SessionProvider';
+import { RemindersProvider } from '@/features/notifications/components/RemindersProvider';
 import { applyStoredAppearance } from '@/features/settings/apply-stored-appearance';
 import { AppearanceSync } from '@/features/settings/components/AppearanceSync';
 import { SyncProvider } from '@/features/sync/components/SyncProvider';
@@ -52,6 +53,8 @@ function RootNavigator() {
       {isSignedIn ? <UndoSnackbar /> : null}
       {/* TB-43: sync with the cloud while signed in; stops on sign-out. */}
       {userId ? <SyncProvider userId={userId} /> : null}
+      {/* TB-40: due-time reminders for this account; unmounting (sign-out) cancels them. */}
+      {userId ? <RemindersProvider key={userId} /> : null}
       <QueryCacheReset />
     </DbGate>
   );

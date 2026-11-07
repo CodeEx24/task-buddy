@@ -37,7 +37,8 @@ export type TaskFormFieldsProps = {
 
 /**
  * The task fields shared by the add form (TB-26) and the autosaving detail screen (TB-28): title,
- * due date (quick chips or `YYYY-MM-DD`), priority and notes. Errors show under each field.
+ * due date (quick chips or `YYYY-MM-DD`), optional due time (`HH:MM`, TB-40), priority and notes.
+ * Errors show under each field.
  */
 export function TaskFormFields({ form }: TaskFormFieldsProps) {
   const {
@@ -72,12 +73,12 @@ export function TaskFormFields({ form }: TaskFormFieldsProps) {
         label="Due date"
         options={QUICK_DATES}
         value={quickDateFor(dueDate, now)}
-        onChange={(choice) =>
-          setValue('dueDate', quickDateValue(choice, now), {
-            shouldDirty: true,
-            shouldValidate: true,
-          })
-        }
+        onChange={(choice) => {
+          const options = { shouldDirty: true, shouldValidate: true };
+          // TB-40: a time needs a date, so "No date" clears the time too.
+          if (choice === 'none') setValue('dueTime', '', options);
+          setValue('dueDate', quickDateValue(choice, now), options);
+        }}
       />
       <Controller
         control={control}
@@ -95,6 +96,25 @@ export function TaskFormFields({ form }: TaskFormFieldsProps) {
             onChangeText={field.onChange}
             onBlur={field.onBlur}
             error={errors.dueDate?.message}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="dueTime"
+        render={({ field }) => (
+          <Input
+            testID="task-form-due-time"
+            label="Time (optional)"
+            placeholder="HH:MM, e.g. 14:30"
+            helperText="24-hour time. You get a reminder at this time."
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="numbers-and-punctuation"
+            value={field.value ?? ''}
+            onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.dueTime?.message}
           />
         )}
       />

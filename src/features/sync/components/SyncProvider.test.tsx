@@ -2,7 +2,10 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 
 import { getDb, openMigratedNodeDb, openUserDb, resetDbForTests } from '@/db/node-client';
+import { RemindersProvider } from '@/features/notifications/components/RemindersProvider';
+import { createFakeReminderScheduler } from '@/features/notifications/testing/fake-reminder-scheduler';
 import { createTask, getTaskById, updateTask } from '@/features/tasks/repo/task-repo';
+import { addLocalDays } from '@/lib/dates';
 import { createQueryClient } from '@/lib/query-client';
 
 import { runSyncCycle } from '../engine/sync-engine';
@@ -82,6 +85,43 @@ describe('SyncProvider (TB-43)', () => {
     const { client, unmount } = await renderProvider();
     expect(screen.queryByTestId('sync-status')).toBeNull();
     await unmount();
+    client.clear();
+  });
+
+  it('TB-40: a pulled change to a due time, or a completion, reconciles the reminders', async () => {
+    const dueAt = addLocalDays(Date.now(), 2) + 9 * 60 * 60_000; // 09:00, in two days
+    const task = createTask(getDb(), { title: 'Dentist', dueAt });
+    const scheduler = createFakeReminderScheduler();
+    const client = createQueryClient();
+    const { unmount } = await render(
+      <QueryClientProvider client={client}>
+        <SyncProvider userId={USER_A} />
+        <RemindersProvider scheduler={scheduler} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(scheduler.list()).toEqual([{ taskId: task.id, fireAt: dueAt, title: 'Dentist' }]),
+    );
+    await waitFor(() => expect(server.tables.tasks.get(task.id)).toBeDefined());
+
+    // Another device moves the due time by an hour.
+    const other = openMigratedNodeDb();
+    await runSyncCycle({ db: other.db, remote: server.remoteFor(USER_A).remote });
+    updateTask(other.db, task.id, { dueAt: dueAt + 60 * 60_000 });
+    await act(async () => {
+      await runSyncCycle({ db: other.db, remote: server.remoteFor(USER_A).remote });
+    });
+    await waitFor(() => expect(scheduler.list()[0]?.fireAt).toBe(dueAt + 60 * 60_000));
+
+    // ... then completes the task there.
+    updateTask(other.db, task.id, { status: 'done' });
+    await act(async () => {
+      await runSyncCycle({ db: other.db, remote: server.remoteFor(USER_A).remote });
+    });
+    await waitFor(() => expect(scheduler.list()).toEqual([]));
+
+    await unmount();
+    other.close();
     client.clear();
   });
 });

@@ -1,13 +1,17 @@
 import {
   addLocalDays,
+  atLocalTime,
   formatCompletedAt,
   formatDueLabel,
   formatShortDate,
   formatTime,
+  hasTimeOfDay,
   localDaysFromToday,
   parseDateInput,
+  parseTimeInput,
   startOfLocalDay,
   toDateInput,
+  toTimeInput,
 } from './dates';
 
 // Built from local-time parts, so the tests hold in any time zone.
@@ -61,5 +65,36 @@ describe('dates', () => {
 
   it('formats the completion timestamp', () => {
     expect(formatCompletedAt(NOW, NOW)).toBe('Completed Oct 28, 3:04 PM');
+  });
+
+  // TB-40: due times.
+  it('tells a due time from a date-only due date', () => {
+    expect(hasTimeOfDay(local(2026, 10, 28))).toBe(false);
+    expect(hasTimeOfDay(local(2026, 10, 28, 0, 1))).toBe(true);
+    expect(hasTimeOfDay(local(2026, 10, 28, 15, 4))).toBe(true);
+  });
+
+  it('parses and formats 24-hour times', () => {
+    expect(parseTimeInput('09:30')).toBe(9 * 60 + 30);
+    expect(parseTimeInput(' 9:05 ')).toBe(9 * 60 + 5);
+    expect(parseTimeInput('23:59')).toBe(23 * 60 + 59);
+    expect(parseTimeInput('00:00')).toBe(0);
+    for (const bad of ['24:00', '12:60', '9', '9:5', 'noon', '', '12:30 PM']) {
+      expect(parseTimeInput(bad)).toBeNull();
+    }
+    expect(toTimeInput(local(2026, 10, 28, 7, 5))).toBe('07:05');
+  });
+
+  it('puts a time of day on a date', () => {
+    expect(atLocalTime(local(2026, 10, 28), 15 * 60 + 4)).toBe(NOW);
+    expect(atLocalTime(local(2026, 10, 28, 18), 0)).toBe(local(2026, 10, 28));
+    expect(() => atLocalTime(NOW, 24 * 60)).toThrow(RangeError);
+    expect(() => atLocalTime(NOW, -1)).toThrow(RangeError);
+  });
+
+  it('adds the due time to the due label', () => {
+    expect(formatDueLabel(local(2026, 10, 28, 15, 30), NOW)).toBe('Today, 3:30 PM');
+    expect(formatDueLabel(local(2026, 10, 29, 9), NOW)).toBe('Tomorrow, 9:00 AM');
+    expect(formatDueLabel(local(2026, 10, 27, 8, 15), NOW)).toBe('Overdue · Oct 27, 8:15 AM');
   });
 });

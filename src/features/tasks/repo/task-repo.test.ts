@@ -18,6 +18,7 @@ import {
   listCompletedTasks,
   listOpenTasks,
   listSubtasks,
+  listUpcomingTimedTasks,
   moveSubtask,
   softDeleteSubtask,
   softDeleteTask,
@@ -490,6 +491,41 @@ describe('task-repo: listCompletedTasks (TB-26)', () => {
     expect(listCompletedTasks(handle.db).map((t) => t.title)).toEqual(['b', 'a']);
     expect(listCompletedTasks(handle.db, { limit: 1 }).map((t) => t.title)).toEqual(['b']);
     expect(() => listCompletedTasks(handle.db, { limit: 0 })).toThrow(ZodError);
+  });
+});
+
+describe('task-repo: listUpcomingTimedTasks (TB-40 reminders)', () => {
+  const at = (d: number, h = 0, min = 0) => new Date(2027, 0, d, h, min).getTime();
+
+  it('lists live open tasks with a due time after `after`, soonest first, bounded by limit', () => {
+    const now = at(10, 12);
+    const later = createTask(handle.db, { title: 'later', dueAt: at(12, 9, 30) });
+    const soon = createTask(handle.db, { title: 'soon', dueAt: at(10, 12, 1) });
+    createTask(handle.db, { title: 'date only', dueAt: at(11) });
+    createTask(handle.db, { title: 'no date' });
+    createTask(handle.db, { title: 'past', dueAt: at(10, 11, 59) });
+    createTask(handle.db, { title: 'exactly now', dueAt: now });
+    const done = createTask(handle.db, { title: 'done', dueAt: at(11, 8) });
+    updateTask(handle.db, done.id, { status: 'done' });
+    const deleted = createTask(handle.db, { title: 'deleted', dueAt: at(11, 8) });
+    softDeleteTask(handle.db, deleted.id);
+
+    expect(listUpcomingTimedTasks(handle.db, { after: now, limit: 10 }).map((t) => t.id)).toEqual([
+      soon.id,
+      later.id,
+    ]);
+    expect(listUpcomingTimedTasks(handle.db, { after: now, limit: 1 }).map((t) => t.id)).toEqual([
+      soon.id,
+    ]);
+    expect(() => listUpcomingTimedTasks(handle.db, { after: now, limit: 0 })).toThrow(ZodError);
+  });
+
+  it('reads past any number of date-only tasks to find timed ones', () => {
+    for (let i = 0; i < 450; i += 1) createTask(handle.db, { title: `d${i}`, dueAt: at(2) });
+    const timed = createTask(handle.db, { title: 'timed', dueAt: at(3, 10) });
+    expect(listUpcomingTimedTasks(handle.db, { after: at(1), limit: 5 }).map((t) => t.id)).toEqual([
+      timed.id,
+    ]);
   });
 });
 
