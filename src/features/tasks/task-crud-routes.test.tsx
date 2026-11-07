@@ -23,27 +23,31 @@ beforeEach(() => {
 });
 afterEach(cleanupTaskTests);
 
-describe('task CRUD through the app routes (TB-26)', () => {
+describe('task CRUD through the app routes (TB-26, TB-27)', () => {
   it(
-    'add → edit → complete → un-complete → delete → undo',
+    'Today: add → edit → complete → un-complete → move to tomorrow → delete → undo',
     async () => {
-      await renderRouter(APP_DIR, { initialUrl: '/inbox' });
-      expect(await screen.findByTestId('task-list-empty')).toBeVisible();
+      await renderRouter(APP_DIR, { initialUrl: '/' });
+      expect(await screen.findByTestId('today-empty')).toBeVisible();
 
-      // AC1: add with a due date and priority; it shows in the right section.
-      await fireEvent.press(screen.getByTestId('add-task-button'));
+      // TB-26 AC1: add with a due date and priority; it shows in the right group. From Today the
+      // form starts on "Today" (TB-27).
+      await fireEvent.press(screen.getByTestId('today-add-task-button'));
       expect(screen).toHavePathname('/task/new');
-      await fireEvent.changeText(await screen.findByLabelText('Title'), 'Pay rent');
+      expect(await screen.findByRole('radio', { name: 'Today' })).toBeChecked();
+      await fireEvent.changeText(screen.getByLabelText('Title'), 'Pay rent');
       await fireEvent.press(screen.getByRole('radio', { name: 'Tomorrow' }));
       await fireEvent.press(screen.getByRole('radio', { name: 'High' }));
       await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
 
-      await waitFor(() => expect(screen).toHavePathname('/inbox'));
-      expect(await screen.findByTestId('task-section-upcoming')).toBeVisible();
+      await waitFor(() => expect(screen).toHavePathname('/'));
+      expect(await screen.findByTestId('today-section-later')).toBeVisible();
       expect(screen.getByRole('checkbox', { name: 'Pay rent' })).toBeVisible();
       expect(screen.getByText('Tomorrow · High priority')).toBeVisible();
       const [task] = listOpenTasks(getDb()).items;
       if (!task) throw new Error('expected the saved task in SQLite');
+      // The swipeable row wrapper (Jest stand-in from jest-setup) is there.
+      expect(screen.getByTestId(`task-swipe-${task.id}`)).toBeVisible();
 
       // Edit: move it to today and add notes and a step (TB-28: autosaved, no Save button).
       await fireEvent.press(screen.getByRole('button', { name: 'Edit Pay rent' }));
@@ -55,22 +59,29 @@ describe('task CRUD through the app routes (TB-26)', () => {
       await waitFor(() => expect(storedTask(task.id)?.notes).toBe('Landlord: Ana'));
       expect(listSubtasks(getDb(), task.id).map((s) => s.title)).toEqual(['Find the bill']);
       await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
-      await waitFor(() => expect(screen).toHavePathname('/inbox'));
-      expect(await screen.findByTestId('task-section-today')).toBeVisible();
-      expect(screen.queryByTestId('task-section-upcoming')).toBeNull();
+      await waitFor(() => expect(screen).toHavePathname('/'));
+      expect(await screen.findByTestId('today-section-today')).toBeVisible();
+      expect(screen.queryByTestId('today-section-later')).toBeNull();
 
-      // AC2: complete → Completed with a timestamp → un-complete.
+      // TB-26 AC2: complete → Completed with a timestamp → un-complete.
       await fireEvent.press(screen.getByRole('checkbox', { name: 'Pay rent' }));
-      expect(await screen.findByTestId('task-section-completed')).toBeVisible();
+      expect(await screen.findByTestId('today-section-completed')).toBeVisible();
       expect(screen.getByText(/^Completed [A-Z][a-z]{2} \d{1,2}, /)).toBeVisible();
       await fireEvent.press(screen.getByRole('checkbox', { name: 'Pay rent' }));
-      expect(await screen.findByTestId('task-section-today')).toBeVisible();
-      expect(screen.queryByTestId('task-section-completed')).toBeNull();
+      expect(await screen.findByTestId('today-section-today')).toBeVisible();
+      expect(screen.queryByTestId('today-section-completed')).toBeNull();
 
-      // AC3: delete from the modal → soft delete + undo snackbar on the list → Undo.
+      // TB-27 AC2 (accessible path of swipe left): move to tomorrow → Later.
+      await fireEvent(screen.getByRole('checkbox', { name: 'Pay rent' }), 'accessibilityAction', {
+        nativeEvent: { actionName: 'tomorrow' },
+      });
+      expect(await screen.findByTestId('today-section-later')).toBeVisible();
+      expect(screen.queryByTestId('today-section-today')).toBeNull();
+
+      // TB-26 AC3: delete from the modal → soft delete + undo snackbar on the list → Undo.
       await fireEvent.press(screen.getByRole('button', { name: 'Edit Pay rent' }));
       await fireEvent.press(await screen.findByRole('button', { name: 'Delete task' }));
-      await waitFor(() => expect(screen).toHavePathname('/inbox'));
+      await waitFor(() => expect(screen).toHavePathname('/'));
       expect(await screen.findByTestId('undo-snackbar')).toBeVisible();
       await waitFor(() => expect(screen.queryByRole('checkbox', { name: 'Pay rent' })).toBeNull());
       expect(storedTask(task.id)?.deletedAt).toEqual(expect.any(Number));
@@ -79,6 +90,34 @@ describe('task CRUD through the app routes (TB-26)', () => {
       expect(await screen.findByRole('checkbox', { name: 'Pay rent' })).toBeVisible();
       expect(screen.queryByTestId('undo-snackbar')).toBeNull();
       expect(storedTask(task.id)?.deletedAt).toBeNull();
+    },
+    ROUTE_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'Inbox: an undated task lands in Inbox; moving it to tomorrow plans it on Today (TB-27 AC1, AC2)',
+    async () => {
+      await renderRouter(APP_DIR, { initialUrl: '/inbox' });
+      expect(await screen.findByTestId('inbox-empty')).toBeVisible();
+
+      await fireEvent.press(screen.getByTestId('add-task-button'));
+      expect(await screen.findByRole('radio', { name: 'No date' })).toBeChecked();
+      await fireEvent.changeText(screen.getByLabelText('Title'), 'Call mom');
+      await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
+
+      await waitFor(() => expect(screen).toHavePathname('/inbox'));
+      expect(await screen.findByTestId('inbox-section-no-date')).toBeVisible();
+      expect(screen.getByRole('checkbox', { name: 'Call mom' })).toBeVisible();
+
+      await fireEvent(screen.getByRole('checkbox', { name: 'Call mom' }), 'accessibilityAction', {
+        nativeEvent: { actionName: 'tomorrow' },
+      });
+      expect(await screen.findByTestId('inbox-empty')).toBeVisible();
+
+      await fireEvent.press(screen.getByTestId('tab-index'));
+      expect(screen).toHavePathname('/');
+      expect(await screen.findByTestId('today-section-later')).toBeVisible();
+      expect(screen.getByRole('checkbox', { name: 'Call mom' })).toBeVisible();
     },
     ROUTE_TEST_TIMEOUT_MS,
   );
@@ -93,7 +132,7 @@ describe('task CRUD through the app routes (TB-26)', () => {
       await fireEvent.press(await screen.findByRole('button', { name: 'Delete task' }));
 
       await waitFor(() => expect(screen).toHavePathname('/'));
-      expect(await screen.findByTestId('home-screen')).toBeVisible();
+      expect(await screen.findByTestId('today-screen')).toBeVisible();
       expect(screen.getByTestId('undo-snackbar')).toBeVisible();
       expect(storedTask(task.id)?.deletedAt).toEqual(expect.any(Number));
 
