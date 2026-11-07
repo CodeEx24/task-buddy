@@ -13,13 +13,15 @@ Rules: never store secrets here. Name the secret and where it goes (for example,
 6. **[Turn on sync in the hosted Supabase projects](supabase-sync-deploy.md)** (TB-43, after its PR merges). About 10 minutes: `db push` to dev and staging, then check the purge job and Realtime publication. Optional CI rollback step to paste.
 7. **[Update the privacy policy for sync before release](privacy-policy-sync.md)** (TB-43). About 15 minutes plus a lawyer review; before any build with sync goes to outside testers.
 8. **[Deploy account deletion and update the privacy policy's deletion section](account-deletion-deploy.md)** (TB-53, after its PR merges). About 20 minutes plus a new EAS dev build: deploy the `delete-account` function to dev and staging, then reword privacy §9 "Deleting your account" (it still says "coming in a future update"). Needed before store submission (TB-64).
-9. **[Run the prompt-injection corpus against the real AI model](ai-injection-corpus-real-model.md)** (TB-25). About 10 minutes, right after step 4. Confirms with the real Claude model that none of 20 attack prompts gets the system prompt out; it closes TB-25's AC1.
+9. **[Check that 500 tasks scroll smoothly on your Android phone](android-perf-check.md)** (TB-27 perf check, deferred to TB-63 on 2026-11-07). About 10 minutes, once the preview build link is in the guide. Proves TB-27's "500 tasks at 60 fps in a release build".
+10. **[Run the prompt-injection corpus against the real AI model](ai-injection-corpus-real-model.md)** (TB-25). About 10 minutes, right after step 4. Confirms with the real Claude model that none of 20 attack prompts gets the system prompt out; it closes TB-25's AC1.
 
 Everything else is done.
 
 ## All actions
 | Action | Related | Status |
 |---|---|---|
+| [Check that 500 tasks scroll smoothly on your Android phone](android-perf-check.md) | TB-27, TB-63 | Open |
 | [Push the database migration to Supabase](supabase-db-push.md) | TB-19 | Open |
 | [Set up email-code sign-in in the Supabase dashboard](supabase-auth-email-otp.md) | TB-20 | Open (decisions made) |
 | [Add the Deno type check for Edge Functions to CI](ci-deno-check.md) | TB-22 | Open |

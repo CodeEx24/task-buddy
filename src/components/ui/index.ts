@@ -6,4 +6,5 @@ export { ChipGroup, type ChipGroupProps, type ChipOption } from './ChipGroup';
 export { Input, type InputProps } from './Input';
 export { Sheet, type SheetProps } from './Sheet';
 export { Stepper, type StepperProps, type StepperStep } from './Stepper';
+export { SwipeRow, type SwipeRowProps } from './SwipeRow';
 export { UiProvider, type UiProviderProps } from './UiProvider';
