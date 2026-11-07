@@ -62,6 +62,7 @@ export function useCreateTask() {
         dueAt: fields.dueAt,
         completedAt: null,
         sortOrder: 0,
+        syncedUpdatedAt: null,
       };
       return optimisticBoard(client, (board) => insertTask(board, placeholder));
     },

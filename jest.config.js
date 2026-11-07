@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
-module.exports = {
+const app = {
+  displayName: 'app',
   preset: 'jest-expo',
   moduleNameMapper: {
     // TB-21: tests run the DB on better-sqlite3 (Node) instead of expo-sqlite (native).
@@ -13,8 +14,33 @@ module.exports = {
     '^@sentry/react-native$': '<rootDir>/src/lib/testing/sentry-stub.ts',
   },
   // Gesture-handler and bottom-sheet mocks for the design system primitives (TB-17).
+  // TB-20: the in-memory auth fake (starts signed in) in place of supabase-js auth.
   // Jest appends these to the jest-expo preset's own setupFiles.
-  setupFiles: ['<rootDir>/src/components/ui/testing/jest-setup.ts'],
-  // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase CLI.
-  testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/.claude/', '/supabase/'],
+  setupFiles: [
+    '<rootDir>/src/components/ui/testing/jest-setup.ts',
+    '<rootDir>/src/features/auth/testing/jest-setup.ts',
+    // TB-43: no network sync in unit/screen tests (SyncProvider stays idle).
+    '<rootDir>/src/features/sync/testing/jest-setup.ts',
+  ],
+  // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase
+  // CLI (SQL) or the edge-functions project below.
+  // TB-20: *.integration.test.ts need a local Supabase stack; they run with jest.integration.config.js.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.expo/',
+    '/.claude/',
+    '/supabase/',
+    '\.integration\.test\.ts$',
+  ],
 };
+
+// TB-22: Edge Function unit tests. Plain Node environment (web-standard fetch/Request/Response),
+// without the jest-expo preset, whose React Native globals don't belong in server code.
+const edgeFunctions = {
+  displayName: 'edge-functions',
+  testEnvironment: 'node',
+  testMatch: ['<rootDir>/supabase/functions/**/*.test.ts'],
+  transform: { '\\.[jt]sx?$': 'babel-jest' },
+};
+
+module.exports = { projects: [app, edgeFunctions] };

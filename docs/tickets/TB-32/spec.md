@@ -1,0 +1,91 @@
+# TB-32 — Spec
+
+> Jira: https://stratyge.atlassian.net/browse/TB-32 · Intent: [intent.md](intent.md)
+> Status: Draft; decisions taken by the worker agent under the coordinator's brief (2026-10-28), pending owner review at PR time.
+
+## Acceptance criteria (verbatim from Jira)
+- [ ] AC1 Given the Settings tab, then I can see my account email, sign out, and open preference sections
+- [ ] AC2 Preference changes persist locally and apply immediately
+- [ ] AC3 Settings sections are driven by a registry so later stories add rows without editing the screen
+- [ ] AC4 Done gates: tests added and passing, no regressions, PR reviewed, docs/tickets note updated
+
+## Behaviour
+- **Settings tab (`/settings`).** Large "Settings" title, then each registered section in order: a small section header and a card with its rows.
+  - **Account:** "Email" and the signed-in email (selectable). Nobody can sign in on `main` until TB-20 merges, so today it reads "Not signed in". TB-20 adds its sign-out button as a row in this section.
+  - **Preferences:** one row per registered preference page (title, one-line description, chevron). Tapping a row pushes `/settings/<slug>` inside the Settings tab (tab bar stays; native header with the page title and Back).
+- **Appearance page (`/settings/appearance`).** "Theme" chips System / Light / Dark (radio group). Tapping one checks it and re-themes the whole app in the same moment, the open page included (tokens, headers, tab bar, status bar; native Android dialogs keep following the device, see D14); the value is written to SQLite. After a restart the stored theme is applied as soon as it is read. Default: System.
+- **Unknown page (`/settings/<unknown>`):** "This settings page doesn't exist." under a "Settings" header with Back.
+- **Start-up:** the stored theme is applied right after the DB migrations, before the first screen renders (no light frame for a Dark user on a light device).
+- **Write failure:** the value is re-read from SQLite, so the chip and theme end on what is stored (a failed older tap never undoes a newer saved one), and "Couldn't save your choice. Try again." is shown (alert role). One attempt, no retry loop (local SQLite failures do not heal on retry, as in TB-26).
+- **Corrupt or missing stored value:** the default is used silently; the next valid write repairs the row.
+- **Offline:** everything is local; nothing changes.
+
+## Technical design
+- **Surfaces**
+  - Routes (thin re-exports): `src/app/(tabs)/settings/_layout.tsx` → `SettingsStack`, `index.tsx` → `SettingsScreen`, `[page].tsx` → `SettingsPageScreen`. The old `src/app/(tabs)/settings.tsx` and `src/features/navigation/components/SettingsScreen.tsx` are removed. Tab name/href (`settings`, `/settings`) unchanged.
+  - Root layout passes `applyStoredAppearance` to `<DbGate onReady>` (stored theme applied before the first screen renders) and mounts `<AppearanceSync />` inside `QueryProvider` (later changes).
+  - `src/db/DbGate.tsx`, `use-db-migrations.ts`: optional `onReady(db)`, run synchronously after the migrations and before `status` becomes `ready`.
+  - `src/features/settings/`
+    - `preferences/define-preference.ts`: `definePreference({ key, schema, defaultValue })`, `decodePreference`, `encodePreference`.
+    - `preferences/appearance.ts`: `appearanceThemePreference` (`appearance.theme`, `'system' | 'light' | 'dark'`, default `'system'`), `toColorSchemeOverride`.
+    - `preferences/index.ts`: `PREFERENCES`, the preference registry (unique keys, defaults valid; tested).
+    - `repo/preference-repo.ts`: `readPreference(db, def)`, `writePreference(db, def, value)`, `resetPreference(db, def)` (all `guardDb`-wrapped).
+    - `hooks/use-preference.ts`: `usePreference(def)` → `{ value, isLoading, setValue, error }` (TanStack Query, key `['preferences', key]`).
+    - `hooks/use-account-email.ts`: `useAccountEmail()` (null until TB-20).
+    - `registry/types.ts`, `registry/sections.ts` (`SETTINGS_SECTIONS`), `registry/pages.ts` (`SETTINGS_PAGES`, `findSettingsPage`, `settingsPageHref`).
+    - `components/`: `SettingsScreen`, `SettingsPageRow`, `AccountEmailRow`, `SettingsPageScreen`, `SettingsStack`, `AppearanceSettings`, `AppearanceSync`.
+- **Interfaces & contracts**
+  ```ts
+  type PreferenceDefinition<T> = { key: string; schema: z.ZodType<T>; defaultValue: T };
+  type SettingsRowDefinition =
+    | { kind: 'page'; page: SettingsPageDefinition }
+    | { kind: 'custom'; id: string; Component: ComponentType };
+  type SettingsSectionDefinition = { id: string; title: string; rows: readonly SettingsRowDefinition[] };
+  type SettingsPageDefinition = { slug: string; title: string; description: string; Component: ComponentType };
+  ```
+  Keys are dotted lowercase (`area.name`), checked at module load. `definePreference` also throws if the default fails its own schema.
+- **How a later story plugs in (TB-33 example):** add `preferences/work-hours.ts` (`definePreference` with a `z.object({ start, end }).refine(end > start)` schema and 09:00–17:00 default; capacity likewise) and list it in `PREFERENCES`; write `components/WorkHoursSettings.tsx` with `usePreference` + RHF/Zod for the inline error; append `{ slug: 'work-hours', … }` to `SETTINGS_PAGES`. The planner reads the value with `readPreference(db, workHoursPreference)` (or `usePreference` in UI). No screen or route edits.
+- **Data changes:** migration `drizzle/0002_preferences.sql` (generated by `pnpm db:generate --name preferences`): table `preferences` (`id` text PK, `created_at`, `updated_at`, `deleted_at`, `key` text not null, `value` text not null = JSON) and partial unique index `preferences_key_live_unique` on `key` where `deleted_at IS NULL`. Additive only (new table), so the no-data-loss harness passes unchanged. Reversal: drop the table (no other table references it); after release, fix forward per TB-21.
+- **Reuse:** `Card`, `ChipGroup` (radio group) from `src/components/ui`; `useTheme`/`MIN_TOUCH_TARGET` from `src/theme`; `guardDb`/`RepoError` from `src/features/tasks/repo/repo-utils.ts`; `newId()` (UUIDv7); `createQueryClient` defaults; test helpers `renderWithQuery`/`resetTaskData` and the Ionicons Jest mock; the TB-21 sync-column pattern and partial unique index (as `tags_name_live_unique`).
+
+## Edge cases
+| Case | Expected |
+|---|---|
+| No row for a key (first launch) | Default value |
+| Stored JSON malformed / wrong type / an enum value removed in a later build | Default value; next write repairs the same row |
+| Write with an invalid value (runtime) | `ZodError`, nothing stored |
+| Two writes in a row | One live row per key; `updated_at` bumped, `created_at` kept |
+| Reset | Row soft-deleted (`deleted_at`, `updated_at`), default applies; a later write inserts a new live row |
+| Second live row for the same key (bypassing the repo) | Rejected by the partial unique index |
+| DB failure | `RepoError('DB_FAILURE')`, message without the value; UI rolls back and shows the save error |
+| App start with a stored theme | Applied synchronously by `DbGate onReady` before the first screen; `AppearanceSync` later re-applies the same value |
+| An earlier write fails after a later one succeeded | Re-read from SQLite: the later value stays |
+| Unknown `/settings/<slug>` | Not-found message |
+
+## Security, privacy & AI cost
+No network, no AI call. Preferences are non-secret UI settings, stored in the app's private SQLite file (not SecureStore, which is for secrets). Repository errors never include the stored value (`guardDb`). The account email is shown only on the device; nothing is logged.
+
+## Decisions
+| Decision | Options considered | Choice | Decided by / date |
+|---|---|---|---|
+| D1 Preference storage | (a) `preferences` table in the existing SQLite DB via Drizzle; (b) expo-secure-store; (c) AsyncStorage / MMKV | **(a)**: already in the app, offline, testable with the better-sqlite3 twin, migrations harness; (b) is for secrets and size-limited; (c) is a new native module (new dev build) | Worker agent, 2026-10-28 |
+| D2 Table shape | One row per key with JSON `value` vs one wide row with a column per preference | **Key-value rows**: new preferences need no migration; per-key last-write-wins sync is simple | Worker agent, 2026-10-28 |
+| D3 Sync invariants | Device-only table without sync columns vs full sync columns | **Sync columns (UUIDv7 `id`, `created_at`, `updated_at`, `deleted_at`)** and one live row per key; the schema test enforces them on every app table. Which keys actually sync is TB-43's call (open question 1) | Worker agent, 2026-10-28 |
+| D4 Validation | Validate on write only vs both directions | **Both**: write throws `ZodError`; read falls back to the default for missing, malformed or outdated values (CLAUDE.md: validate external input at the boundary) | Worker agent, 2026-10-28 |
+| D5 First concrete preference (proves AC2) | Appearance theme; a dummy toggle; wait for TB-33 | **Appearance (System/Light/Dark)**: visible, applies at once, useful, no native module (applied through `src/theme`'s `setColorSchemePreference`, see D14) | Worker agent, 2026-10-28 |
+| D6 How the theme applies (superseded by D14) | Override inside `useTheme` from a store vs `Appearance.setColorScheme` | **`Appearance.setColorScheme`** from a root `AppearanceSync`: `useColorScheme` (so `useTheme`, `UiProvider`, tab bar) and native UI (alerts, pickers, status bar `auto`) all follow; `src/theme` unchanged | Worker agent, 2026-10-28 |
+| D7 "Apply immediately" | Optimistic `onMutate` (async) vs synchronous cache write before `mutate` | **Synchronous `setQueryData`** in `setValue`, rollback on error: the new value is on screen in the same render as the tap | Worker agent, 2026-10-28 |
+| D8 Preference sections UI | Inline all preferences on one long screen vs a row per section opening a page | **Row → page** at `/settings/<slug>` in a Stack nested in the Settings tab (tab bar stays, native Back): matches "open preference sections" and keeps the main list short as stories add pages | Worker agent, 2026-10-28 |
+| D9 Registry shape | Runtime `registerSection()` side effects vs static arrays | **Static arrays** (`SETTINGS_SECTIONS`, `SETTINGS_PAGES`, `PREFERENCES`): explicit order, no import-order bugs, type-checked; a story edits a registry file, never the screen | Worker agent, 2026-10-28 |
+| D10 Account email before TB-20 | Wait for TB-20; read the Supabase client session now; small hook | **`useAccountEmail()` returning null** ("Not signed in") until TB-20; on merge it returns `useSession().session?.user.email ?? null`. Sign-out is a `custom` row TB-20 adds to the Account section | Worker agent, 2026-10-28 |
+| D11 Screen location | Keep `features/navigation/components/SettingsScreen.tsx` vs move | **Move to `src/features/settings/components/`** (CLAUDE.md folder plan); the navigation placeholder is deleted (TB-20 merge: modify/delete conflict, resolved by dropping its file edit and adding the row, see verification) | Worker agent, 2026-10-28 |
+| D14 How the theme applies (reverses D6 after the PR #19 device check) | Keep `Appearance.setColorScheme`; work around its missing event; JS-owned preference in `src/theme` | **JS-owned `setColorSchemePreference` (in `src/theme/use-theme.ts`) read by `useTheme`**. On device, RN 0.88's `Appearance.setColorScheme` emitted no change event, so the mounted page kept the old colours, and its native night-mode configuration change left button labels clipped. The store re-renders every `useTheme` consumer synchronously, with no native configuration change. Trade-off: native Android dialogs (the sign-out Alert) follow the device scheme, not the in-app choice | Worker agent after device check, 2026-10-28 |
+| D13 No theme flash at start-up (PR #19 review) | Hold the splash until the preference resolves vs apply the override synchronously right after migrations | **`DbGate onReady` → `applyStoredAppearance`**: one synchronous SQLite read between the migrations and the first screen render, no splash state to manage. Splash fallback noted in verification if a frame still shows on device | Worker agent after review, 2026-10-28 |
+| D14 Write-failure rollback (PR #19 review) | Restore `previous` vs re-read from SQLite | **Re-read (`invalidateQueries`)**, and restore `previous` at once only for the latest tap (write counter) | Worker agent after review, 2026-10-28 |
+| D15 Page rows (PR #19 review) | `as const satisfies` slug union vs rows holding the page object | **Rows hold the page object**: a missing page is a compile error, no second slug list | Worker agent after review, 2026-10-28 |
+| D12 Shared repo helpers | Copy `guardDb` into settings vs import from tasks vs hoist to `src/lib` | **Import from `features/tasks/repo/repo-utils`** (no duplicate, no churn in task files while TB-27 is open); hoisting to `src/lib` is a follow-up | Worker agent, 2026-10-28 |
+
+## Deviations (added during build)
+| Date | Change | Reason | Approved by |
+|---|---|---|---|
+| — | none | | |

@@ -23,7 +23,7 @@ describe('getSupabaseClient', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
-  it('creates one client with the publishable key and no session persistence', () => {
+  it('creates one client with the publishable key and a SecureStore-backed, refreshing session (TB-20)', () => {
     const { getSupabaseClient } = jest.requireActual<typeof import('./supabase')>('./supabase');
     const first = getSupabaseClient();
     expect(getSupabaseClient()).toBe(first);
@@ -31,7 +31,18 @@ describe('getSupabaseClient', () => {
     expect(mockCreateClient).toHaveBeenCalledWith(
       'https://abcdefghijklmnop.supabase.co',
       'sb_publishable_test_value_123',
-      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+      {
+        auth: {
+          storage: expect.objectContaining({
+            getItem: expect.any(Function),
+            setItem: expect.any(Function),
+            removeItem: expect.any(Function),
+          }),
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+      },
     );
   });
 });
