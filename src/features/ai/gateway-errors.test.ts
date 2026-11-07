@@ -54,6 +54,8 @@ describe('mapGatewayError', () => {
     [500, 'AI_NOT_CONFIGURED', 'unavailable'],
     [500, 'INTERNAL', 'unavailable'],
     [400, 'BAD_REQUEST', 'bad_request'],
+    [413, 'INPUT_TOO_LONG', 'input_too_long'],
+    [502, 'AI_UNSAFE_OUTPUT', 'unavailable'],
   ])('%i %s → %s, no Retry-After', (status, code, kind) => {
     expect(mapGatewayError(status, headers({ 'Retry-After': '10' }), body(code), NOW)).toEqual({
       kind,
@@ -67,6 +69,7 @@ describe('mapGatewayError', () => {
     [504, 'timeout'],
     [503, 'unavailable'],
     [400, 'bad_request'],
+    [413, 'input_too_long'],
     [418, 'unknown'],
   ])('falls back to the HTTP status %i → %s without a valid body', (status, kind) => {
     expect(mapGatewayError(status, headers({}), undefined, NOW).kind).toBe(kind);
@@ -97,12 +100,16 @@ describe('friendly messages (AC1 app part)', () => {
     expect(gatewayErrorMessage(error)).toContain('resets at midnight UTC, in about 15 minutes');
   });
 
-  it.each(['unauthenticated', 'timeout', 'bad_request', 'unavailable', 'unknown'] as const)(
-    '%s has a non-empty message without error codes',
-    (kind) => {
-      const message = gatewayErrorMessage({ kind, retryAfterSeconds: null, requestId: null });
-      expect(message.length).toBeGreaterThan(10);
-      expect(message).not.toMatch(/[A-Z]{2,}_[A-Z]+/);
-    },
-  );
+  it.each([
+    'unauthenticated',
+    'timeout',
+    'bad_request',
+    'input_too_long',
+    'unavailable',
+    'unknown',
+  ] as const)('%s has a non-empty message without error codes', (kind) => {
+    const message = gatewayErrorMessage({ kind, retryAfterSeconds: null, requestId: null });
+    expect(message.length).toBeGreaterThan(10);
+    expect(message).not.toMatch(/[A-Z]{2,}_[A-Z]+/);
+  });
 });

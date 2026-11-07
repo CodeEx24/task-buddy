@@ -35,6 +35,8 @@ export function gatewayErrorMessage(error: GatewayError): string {
       return 'Your buddy took too long to answer. Try again.';
     case 'bad_request':
       return "Your buddy couldn't read that. Try rewording it.";
+    case 'input_too_long':
+      return 'That is too long for your buddy. Keep it under 2,000 characters, or split it up.';
     case 'unavailable':
     case 'unknown':
       return 'Your buddy is unavailable right now. Try again in a moment.';

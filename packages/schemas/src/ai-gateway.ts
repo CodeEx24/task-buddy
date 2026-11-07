@@ -7,7 +7,11 @@ import { z } from 'zod';
 export const AI_ROUTES = ['parse', 'breakdown', 'plan'] as const;
 export type AiRoute = (typeof AI_ROUTES)[number];
 
-/** Upper bound on the user text sent to one route. TB-25 adds the real input hardening on top. */
+/**
+ * Transport cap on the raw `input` (UTF-16 units). The real limit is TB-25's
+ * `MAX_AI_INPUT_CODE_POINTS` (2,000, in ./ai-input.ts), checked after sanitising; anything over
+ * this cap is necessarily over that one, so the gateway answers both with 413 `INPUT_TOO_LONG`.
+ */
 export const MAX_AI_INPUT_CHARS = 8000;
 
 export const aiGatewayRequestSchema = z.strictObject({
@@ -44,6 +48,11 @@ export const AI_ERROR_CODES = [
   // hour; QUOTA_EXCEEDED = daily token quota used up (resets at 00:00 UTC).
   'RATE_LIMITED',
   'QUOTA_EXCEEDED',
+  // TB-25: 413 when the input is over 2,000 code points after sanitising (or the body over 64 KB).
+  'INPUT_TOO_LONG',
+  // TB-25: 502 when the model's answer contains the system prompt or its canary; the answer is
+  // dropped, never returned or logged.
+  'AI_UNSAFE_OUTPUT',
   'INTERNAL',
 ] as const;
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number];

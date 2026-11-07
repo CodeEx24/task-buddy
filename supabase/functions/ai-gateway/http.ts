@@ -14,12 +14,14 @@ const STATUS_BY_CODE: Readonly<Record<AiErrorCode, number>> = {
   NOT_FOUND: 404,
   METHOD_NOT_ALLOWED: 405,
   BAD_REQUEST: 400,
+  INPUT_TOO_LONG: 413,
   RATE_LIMITED: 429,
   QUOTA_EXCEEDED: 429,
   AI_NOT_CONFIGURED: 500,
   INTERNAL: 500,
   AI_PROVIDER_ERROR: 502,
   AI_BAD_OUTPUT: 502,
+  AI_UNSAFE_OUTPUT: 502,
   AI_TIMEOUT: 504,
 };
 
@@ -28,12 +30,14 @@ const MESSAGE_BY_CODE: Readonly<Record<AiErrorCode, string>> = {
   NOT_FOUND: 'Unknown AI route.',
   METHOD_NOT_ALLOWED: 'Use POST.',
   BAD_REQUEST: 'The request body is invalid.',
+  INPUT_TOO_LONG: 'The text is too long. Keep it under 2,000 characters.',
   RATE_LIMITED: 'Too many AI requests. Try again later.',
   QUOTA_EXCEEDED: 'Daily AI limit reached. It resets at 00:00 UTC.',
   AI_NOT_CONFIGURED: 'The AI service is not configured.',
   INTERNAL: 'Something went wrong.',
   AI_PROVIDER_ERROR: 'The AI service is unavailable.',
   AI_BAD_OUTPUT: 'The AI returned an unusable answer.',
+  AI_UNSAFE_OUTPUT: 'The AI answer was withheld by a safety check.',
   AI_TIMEOUT: 'The AI service took too long to answer.',
 };
 

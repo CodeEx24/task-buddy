@@ -6,7 +6,7 @@
 //   2. JWT auth                    (401, provider never called)  gateway.ts, always first
 //   3. body validation             (400)                         gateway.ts
 //   4. registered middleware, in array order                     middleware/index.ts
-//        TB-23 rate limits / quotas, TB-25 input hardening (before `next()`),
+//        TB-25 input hardening, then TB-23 rate limits / quotas (before `next()`),
 //        TB-24 output validation + repair (after `next()`, on `ctx.result`)
 //   5. provider call with the route's model and 20 s timeout     gateway.ts
 //
@@ -47,7 +47,8 @@ export type GatewayContext = {
   readonly requestId: string;
   readonly request: Request;
   readonly route: AiRoute;
-  readonly routeConfig: RouteConfig;
+  /** Route settings. TB-25 input hardening replaces it with a copy whose `system` has a canary. */
+  routeConfig: RouteConfig;
   /** Model id resolved for this route (from config/env). */
   readonly model: string;
   /** Verified caller. Always set: middleware runs only after auth succeeded. */
