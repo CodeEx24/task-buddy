@@ -15,6 +15,7 @@ import { CORS_HEADERS, errorResponse, jsonResponse } from './http.ts';
 import {
   type GatewayContext,
   type GatewayMiddleware,
+  type OutputCheck,
   type ProviderCallOutcome,
   runPipeline,
 } from './pipeline.ts';
@@ -28,6 +29,8 @@ export type GatewayLogEntry = {
   route: AiRoute | null;
   status: number;
   model?: string;
+  /** Prompt template version of the route (TB-24), e.g. `parse.v1`. */
+  promptVersion?: string;
   durationMs: number;
   /** Summed over every provider call of the request (a TB-24 repair retry makes two). */
   usage?: { inputTokens: number; outputTokens: number };
@@ -36,11 +39,13 @@ export type GatewayLogEntry = {
   errorKind?: 'timeout' | 'upstream' | 'bad_response' | 'exception';
   upstreamStatus?: number;
   errorName?: string;
+  /** Output validation outcome (TB-24): `valid`, `repaired` or `invalid`, plus issue kinds. */
+  outputCheck?: OutputCheck;
 };
 
 type Trace = Pick<
   GatewayLogEntry,
-  'usage' | 'providerCalls' | 'errorKind' | 'upstreamStatus' | 'errorName'
+  'usage' | 'providerCalls' | 'errorKind' | 'upstreamStatus' | 'errorName' | 'outputCheck'
 >;
 
 const NO_USAGE = Object.freeze({ inputTokens: 0, outputTokens: 0 });
@@ -245,7 +250,13 @@ export function createGateway(deps: GatewayDeps): (request: Request) => Promise<
     };
 
     // Stages 4–5: registered middleware around the provider call.
-    return runPipeline(deps.middleware, ctx, (inner) => callProvider(inner, provider, trace));
+    try {
+      return await runPipeline(deps.middleware, ctx, (inner) =>
+        callProvider(inner, provider, trace),
+      );
+    } finally {
+      if (ctx.outputCheck) trace.outputCheck = { ...ctx.outputCheck };
+    }
   }
 
   return async (request) => {
@@ -266,7 +277,12 @@ export function createGateway(deps: GatewayDeps): (request: Request) => Promise<
       route,
       status: response.status,
       durationMs: now() - started,
-      ...(route ? { model: modelForRoute(deps.config, route) } : {}),
+      ...(route
+        ? {
+            model: modelForRoute(deps.config, route),
+            promptVersion: deps.config.routes[route].prompt.version,
+          }
+        : {}),
       ...trace,
     });
     return withRequestId(response, requestId);

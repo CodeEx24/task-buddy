@@ -19,6 +19,7 @@ import type {
   AiRoute,
   AiUsage,
 } from '../../../packages/schemas/src/ai-gateway.ts';
+import type { AiOutputIssueKind } from '../../../packages/schemas/src/ai-output.ts';
 
 import type { AuthUser } from './auth.ts';
 import type { RouteConfig } from './config.ts';
@@ -56,11 +57,28 @@ export type GatewayContext = {
   body: AiGatewayRequest;
   /** Set by the provider stage; middleware may read or replace it after `next()` (TB-24). */
   result?: ProviderResult;
+  /** Set by the output-validation middleware (TB-24); the gateway logs it. */
+  outputCheck?: OutputCheck;
   /**
    * Every provider call of this request, in order, including failed ones (TB-23). The provider
    * stage appends; middleware only reads it. A TB-24 repair retry adds a second entry.
    */
   readonly providerCalls: ProviderCallRecord[];
+};
+
+/** Output validation outcome (TB-24), copied into the request's log line. Never holds text. */
+export type OutputCheck = {
+  /**
+   * `valid` first try, `repaired` on the retry, `invalid` after the retry (AI_BAD_OUTPUT), or
+   * `repair_failed` when the repair call itself timed out or failed (AI_TIMEOUT / AI_PROVIDER_ERROR).
+   */
+  outcome: 'valid' | 'repaired' | 'invalid' | 'repair_failed';
+  /** Why the first answer was rejected (absent when it was valid). */
+  firstIssue?: AiOutputIssueKind;
+  /** Why the repaired answer was rejected (only when `outcome` is `invalid`). */
+  repairIssue?: AiOutputIssueKind;
+  /** Set when a repair call was made. */
+  repairPromptVersion?: string;
 };
 
 export type Next = () => Promise<Response>;

@@ -12,7 +12,7 @@ The app's only way to reach an LLM ([TB-22](https://stratyge.atlassian.net/brows
 | `/breakdown` | strong | `claude-sonnet-5-5` | 20 s |
 | `/plan` | strong | `claude-sonnet-5-5` | 20 s |
 
-The 200 body is `aiGatewaySuccessSchema` (`output` is the model's raw text until TB-24 adds output schemas). Errors are `aiGatewayErrorSchema` with a fixed message per code: 401 `UNAUTHENTICATED`, 400 `BAD_REQUEST`, 404 `NOT_FOUND`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED` / `QUOTA_EXCEEDED` (with `Retry-After` in seconds), 500 `AI_NOT_CONFIGURED` / `INTERNAL`, 502 `AI_PROVIDER_ERROR`, 504 `AI_TIMEOUT`. Every response carries `X-Request-Id`; CORS exposes it and `Retry-After`. Bodies over 64 KB are rejected with 400 before parsing. The app maps errors with `mapGatewayError()` in `src/features/ai/gateway-errors.ts` and shows `<AiErrorNotice>`.
+The 200 body is `aiGatewaySuccessSchema`; since TB-24, `output` is the canonical JSON text of a value that passed the route's schema (`checkAiOutput(route, output)` in `packages/schemas/src/ai-output.ts`; clients should run it again at their boundary). Errors are `aiGatewayErrorSchema` with a fixed message per code: 401 `UNAUTHENTICATED`, 400 `BAD_REQUEST`, 404 `NOT_FOUND`, 405 `METHOD_NOT_ALLOWED`, 429 `RATE_LIMITED` / `QUOTA_EXCEEDED` (with `Retry-After` in seconds), 500 `AI_NOT_CONFIGURED` / `INTERNAL`, 502 `AI_PROVIDER_ERROR` / `AI_BAD_OUTPUT`, 504 `AI_TIMEOUT`. Every response carries `X-Request-Id`; CORS exposes it and `Retry-After`. Bodies over 64 KB are rejected with 400 before parsing. The app maps errors with `mapGatewayError()` in `src/features/ai/gateway-errors.ts` and shows `<AiErrorNotice>`.
 
 ## Usage limits and ledger (TB-23)
 
@@ -29,8 +29,9 @@ The 200 body is `aiGatewaySuccessSchema` (`output` is the model's raw text until
 - The quota is checked against tokens already recorded, so calls admitted before it was reached can overshoot it a little.
 - Cost = `estimateCostUsd()` from the price table `MODEL_PRICES_USD_PER_MTOK` in `config.ts` (list prices, an **estimate**), priced by the configured model id; a dated snapshot id uses its longest known prefix; an unknown id uses the dearest price.
 - Users can read their own ledger rows (RLS); nobody but the service role can write either table.
+- A TB-24 repair retry is a second provider call of the same request: it adds a second ledger row and its tokens count toward the day's quota, but it is not a second call against the hourly call limit (output validation runs innermost, after this guard).
 
-Logging: one JSON line per request with request id, route, status, model, duration, summed token usage, provider call count and, on failure, `errorKind` (`timeout` / `upstream` / `bad_response` / `exception`), `upstreamStatus` and `errorName`. Never user text, model output, tokens, keys, error messages or provider bodies.
+Logging: one JSON line per request with request id, route, status, model, `promptVersion` (TB-24), duration, summed token usage, provider call count, `outputCheck` (`valid` / `repaired` / `invalid` plus issue kinds `too_large` / `not_json` / `schema`) and, on failure, `errorKind` (`timeout` / `upstream` / `bad_response` / `exception`), `upstreamStatus` and `errorName`. Never user text, model output, tokens, keys, error messages or provider bodies.
 
 ## Configuration (Edge Function env)
 
@@ -75,6 +76,14 @@ export const inputHardening: GatewayMiddleware = {
 - `next()` may be called again after the previous call settled (TB-24 repair retry: replace `ctx.body`, call `next()` again). Each call is a fresh provider call with its own 20 s timeout; the log line sums token usage and counts `providerCalls`. An overlapping call fails the request with 500.
 - `ctx.providerCalls` lists every provider call of the request (model, requested model, usage, whether the usage is estimated, outcome). Only the provider stage appends to it; middleware reads it. A retry must go through `next()` so it is ledgered and counted against the quota; never call the provider directly.
 
+## Output validation and prompts (TB-24)
+
+`middleware/output-validation.ts` is registered **last** (innermost). It renders the route's versioned prompt from `prompts/` (user text inside one `<user_input>` block), checks the answer with the route's schema, and on failure makes **one** repair call (`prompts/repair.v1.ts`: the same user message plus the validation issues and the rejected answer). Still invalid → 502 `AI_BAD_OUTPUT`; the rejected text is dropped (never returned, logged or stored). The gateway has no write path for results.
+
+Prompts: `prompts/<route>.v<N>.ts` exports `PROMPT_VERSION`; `prompts/index.ts` picks the current version per route. Change behaviour with a new file and version, never by editing a released one in place.
+
+Golden set and runner: `evals/` and [docs/actions/ai-golden-eval-real-model.md](../../../docs/actions/ai-golden-eval-real-model.md).
+
 ## Files
 
 | File | Role |
@@ -87,7 +96,9 @@ export const inputHardening: GatewayMiddleware = {
 | `usage-store.ts` | TB-23 `UsageStore` + PostgREST RPC implementation (`ai_consume_call`, `ai_record_usage`) |
 | `testing/memory-usage-store.ts` | Test-only in-memory store with an injected clock (mirrors the SQL) |
 | `auth.ts` | Bearer parsing + Supabase Auth verifier (`GET /auth/v1/user`) |
-| `config.ts` | Model tiers, route config, 20 s timeout, usage limits, price table and cost estimate |
+| `config.ts` | Model tiers, route config, 20 s timeout, usage limits, price table and cost estimate, route prompt and max tokens |
+| `middleware/output-validation.ts` | TB-24 schema validation + one repair retry |
+| `prompts/` | Versioned prompt templates and the repair prompt |
 | `providers/provider.ts`, `providers/anthropic.ts` | Provider interface and the Anthropic Messages API implementation |
 | `http.ts` | JSON/error responses, CORS |
 
@@ -96,4 +107,4 @@ export const inputHardening: GatewayMiddleware = {
 - Unit: `pnpm test --selectProjects edge-functions` (Jest, Node environment, fake provider and verifier).
 - Types under Deno: `deno check supabase/functions/ai-gateway/index.ts` (also covered by `pnpm typecheck` under Node types).
 - Limits end to end (TB-23): `scripts/ai-gateway/local-limits-check.sh` (31 calls with a real JWT, `PARALLEL=1` for a concurrent burst, `FN_URL` for a dedicated container); transcript in `docs/tickets/TB-23/local-integration.md`. SQL: `supabase test db` (`supabase/tests/database/ai_usage_limits.test.sql`).
-- Local end to end: start the stack, run `MOCK_EXPECTED_KEY=<dummy> node scripts/ai-gateway/mock-anthropic.mjs`, serve with `supabase functions serve ai-gateway --env-file <file outside the repo with ANTHROPIC_API_KEY=<same dummy> and ANTHROPIC_BASE_URL=http://host.docker.internal:8787>`, then run `scripts/ai-gateway/local-check.sh` with `API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY` exported from `supabase status -o env`.
+- Local end to end: start the stack, run `MOCK_EXPECTED_KEY=<dummy> [MOCK_OUTPUT_MIX=valid=90,repair=8,fail=2] node scripts/ai-gateway/mock-anthropic.mjs`, serve with `supabase functions serve ai-gateway --env-file <file outside the repo with ANTHROPIC_API_KEY=<same dummy> and ANTHROPIC_BASE_URL=http://host.docker.internal:8787>`, then run `scripts/ai-gateway/local-check.sh` with `API_URL`, `ANON_KEY`, `SERVICE_ROLE_KEY` exported from `supabase status -o env`. TB-24 golden run: `scripts/ai-gateway/golden-local.sh --mock-stats-url http://127.0.0.1:8787/stats --mock-mix <same mix>`.

@@ -10,6 +10,7 @@ import type { GatewayConfig } from '../config.ts';
 import type { GatewayMiddleware } from '../pipeline.ts';
 import type { UsageStore } from '../usage-store.ts';
 
+import { outputValidation } from './output-validation.ts';
 import { createUsageLimits, type UsageLogEntry } from './usage-limits.ts';
 
 export type MiddlewareDeps = {
@@ -23,6 +24,8 @@ export function buildMiddleware(deps: MiddlewareDeps): readonly GatewayMiddlewar
     // TB-23: per-user rate limit, daily token quota and usage ledger (request guard, first)
     createUsageLimits({ store: deps.usageStore, limits: deps.config.limits, log: deps.log }),
     // TB-25: prompt-injection and input hardening (request guard, after TB-23)
-    // TB-24: output schema validation and repair retry (wraps the provider result)
+    // TB-24: output schema validation and repair retry. Keep it LAST (innermost): TB-23 then
+    // wraps the whole request once, and a repair is a second provider call of the same request.
+    outputValidation,
   ];
 }

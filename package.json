@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "format": "prettier --write .",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "eval": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON evals/run-golden.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
