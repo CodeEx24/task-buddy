@@ -17,6 +17,8 @@ const app = {
   setupFiles: [
     '<rootDir>/src/components/ui/testing/jest-setup.ts',
     '<rootDir>/src/features/auth/testing/jest-setup.ts',
+    // TB-43: no network sync in unit/screen tests (SyncProvider stays idle).
+    '<rootDir>/src/features/sync/testing/jest-setup.ts',
   ],
   // .claude/ holds Claude Code hook tooling with its own tests; supabase/ tests run via the Supabase
   // CLI (SQL) or the edge-functions project below.

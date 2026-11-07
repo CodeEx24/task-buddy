@@ -67,6 +67,7 @@ export function seedBenchmarkTasks(db: TaskBuddyDb, count = BENCHMARK_TASK_COUNT
           dueAt: random() < 0.7 ? base + Math.floor(random() * 90) * 86_400_000 : null,
           completedAt: isDone ? base : null,
           sortOrder: random() * 1000,
+          syncedUpdatedAt: null,
         });
       }
       tx.insert(tasks).values(chunk).run();

@@ -28,7 +28,7 @@ function checkMigrationStep(k: number, folder = MIGRATIONS_FOLDER): string[] {
 }
 
 const SUBTASKS_REBUILD = [
-  'CREATE TABLE `__new_subtasks` (`id` text PRIMARY KEY NOT NULL, `created_at` integer NOT NULL, `updated_at` integer NOT NULL, `deleted_at` integer, `task_id` text NOT NULL, `title` text NOT NULL, `is_done` integer DEFAULT false NOT NULL, `sort_order` real DEFAULT 0 NOT NULL, FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`))',
+  'CREATE TABLE `__new_subtasks` (`id` text PRIMARY KEY NOT NULL, `created_at` integer NOT NULL, `updated_at` integer NOT NULL, `deleted_at` integer, `task_id` text NOT NULL, `title` text NOT NULL, `is_done` integer DEFAULT false NOT NULL, `sort_order` real DEFAULT 0 NOT NULL, `synced_updated_at` integer, FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`))',
 ];
 
 // Every real migration k >= 1 in drizzle/ is checked, so new migrations are covered automatically.
@@ -95,7 +95,7 @@ describe('migration safety harness against fixture migrations', () => {
         tag: '9000_lossless_rebuild',
         statements: [
           ...SUBTASKS_REBUILD,
-          'INSERT INTO `__new_subtasks` SELECT `id`, `created_at`, `updated_at`, `deleted_at`, `task_id`, `title`, `is_done`, `sort_order` FROM `subtasks`',
+          'INSERT INTO `__new_subtasks` SELECT `id`, `created_at`, `updated_at`, `deleted_at`, `task_id`, `title`, `is_done`, `sort_order`, `synced_updated_at` FROM `subtasks`',
           'DROP TABLE `subtasks`',
           'ALTER TABLE `__new_subtasks` RENAME TO `subtasks`',
           'CREATE INDEX `subtasks_task_id_idx` ON `subtasks` (`task_id`)',

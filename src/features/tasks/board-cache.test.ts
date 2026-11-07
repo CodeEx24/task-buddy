@@ -17,6 +17,7 @@ function task(overrides: Partial<Task> = {}): Task {
     dueAt: null,
     completedAt: null,
     sortOrder: 0,
+    syncedUpdatedAt: null,
     ...overrides,
   };
 }
